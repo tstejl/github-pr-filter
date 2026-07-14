@@ -51,7 +51,9 @@
   let runVersion = 0;
 
   function isSupportedPage() {
-    return location.hostname === "github.com" && SUPPORTED_PATH.test(location.pathname);
+    // The manifest is the host boundary. Keeping this check path-only lets the
+    // packaged extension run unchanged against a local origin in browser tests.
+    return SUPPORTED_PATH.test(location.pathname);
   }
 
   function getSearchInput() {

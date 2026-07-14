@@ -13,7 +13,11 @@
   },
   "homepage": "https://github.com/tstejl/github-pr-filter#readme",
   "scripts": {
-    "test": "node --test",
+    "test": "npm run test:unit",
+    "test:unit": "node --test test",
+    "test:e2e": "npm run test:e2e:chromium && npm run test:e2e:firefox",
+    "test:e2e:chromium": "E2E_BROWSER=chromium node --test e2e/lifecycle.e2e.js",
+    "test:e2e:firefox": "E2E_BROWSER=firefox node --test e2e/lifecycle.e2e.js",
     "check": "node --check src/bootstrap.js && node --check src/query-state.js && node --check src/extension-api.js && node --check src/content.js && node --test",
     "lint:firefox": "web-ext lint",
     "build:firefox": "web-ext build --overwrite-dest"
@@ -26,6 +30,8 @@
       "dist",
       "node_modules/**",
       "test",
+      "e2e",
+      ".github",
       "package.json",
       "package-lock.json",
       "README.md",
@@ -34,6 +40,8 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "selenium-webdriver": "^4.46.0",
     "web-ext": "10.5.0"
   }
 }
