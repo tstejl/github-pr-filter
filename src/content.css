@@ -46,6 +46,11 @@ html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
   outline-offset: 3px;
 }
 
+.gprf-summary-copy {
+  display: inline-flex;
+  gap: 4px;
+}
+
 .gprf-chevron {
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
@@ -53,12 +58,7 @@ html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
   height: 0;
   margin-left: 0;
   margin-top: 2px;
-  transition: transform 100ms ease;
   width: 0;
-}
-
-.gprf-lifecycle[open] .gprf-chevron {
-  transform: rotate(180deg);
 }
 
 .gprf-lifecycle-icon {
@@ -66,18 +66,16 @@ html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
   flex: 0 0 auto;
 }
 
-.gprf-lifecycle-summary[data-lifecycle="ready"] > .gprf-lifecycle-icon,
+.gprf-lifecycle-option[data-lifecycle="open"] > .gprf-lifecycle-icon:first-child,
 .gprf-lifecycle-option[data-lifecycle="ready"] > .gprf-lifecycle-icon:first-child {
   color: var(--fgColor-open, var(--color-open-fg, #1a7f37));
 }
 
-.gprf-lifecycle-summary[data-lifecycle="merged"] > .gprf-lifecycle-icon,
 .gprf-lifecycle-option[data-lifecycle="merged"] > .gprf-lifecycle-icon:first-child {
   color: var(--fgColor-done, var(--color-done-fg, #8250df));
 }
 
-.gprf-lifecycle-summary[data-lifecycle="closed"] > .gprf-lifecycle-icon,
-.gprf-lifecycle-option[data-lifecycle="closed"] > .gprf-lifecycle-icon:first-child {
+.gprf-lifecycle-option[data-lifecycle="closed_unmerged"] > .gprf-lifecycle-icon:first-child {
   color: var(--fgColor-closed, var(--color-closed-fg, #cf222e));
 }
 
@@ -98,7 +96,21 @@ html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
 }
 
 .gprf-lifecycle[open] > .gprf-lifecycle-menu {
+  animation: gprf-menu-open 120ms cubic-bezier(0.33, 1, 0.68, 1);
   display: block;
+  transform-origin: top left;
+}
+
+@keyframes gprf-menu-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .gprf-menu-heading {
@@ -181,8 +193,11 @@ html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gprf-chevron,
   .gprf-lifecycle-option {
     transition: none;
+  }
+
+  .gprf-lifecycle[open] > .gprf-lifecycle-menu {
+    animation: none;
   }
 }

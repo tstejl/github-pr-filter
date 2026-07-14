@@ -9,17 +9,15 @@
 })(typeof globalThis === "object" ? globalThis : this, function createQueryState() {
   "use strict";
 
-  const DEFAULT_PREFERENCES = Object.freeze({ lifecycle: "all" });
-  const LIFECYCLE_VALUES = new Set(["all", "ready", "draft", "merged", "closed"]);
-
-  function sanitizePreferences(value) {
-    const lifecycle = value && typeof value === "object" ? value.lifecycle : null;
-    return {
-      lifecycle: LIFECYCLE_VALUES.has(lifecycle)
-        ? lifecycle
-        : DEFAULT_PREFERENCES.lifecycle
-    };
-  }
+  const DEFAULT_PREFERENCES = Object.freeze({ lifecycle: "open" });
+  const LIFECYCLE_VALUES = new Set([
+    "open",
+    "ready",
+    "draft",
+    "closed",
+    "merged",
+    "closed_unmerged"
+  ]);
 
   function tokenizeQuery(query) {
     const input = typeof query === "string" ? query.trim() : "";
@@ -126,12 +124,14 @@
     let lifecycle = null;
     if (merge === "merged") {
       lifecycle = "merged";
+    } else if (state === "closed" && merge === "unmerged") {
+      lifecycle = "closed_unmerged";
     } else if (state === "closed") {
       lifecycle = "closed";
     } else if (readiness) {
       lifecycle = readiness;
     } else if (state === "open") {
-      lifecycle = "all";
+      lifecycle = "open";
     }
 
     return { tokens, state, readiness, merge, lifecycle };
@@ -151,8 +151,10 @@
 
     if (safeLifecycle === "merged") {
       tokens.push("is:merged");
-    } else if (safeLifecycle === "closed") {
+    } else if (safeLifecycle === "closed_unmerged") {
       tokens.push("is:closed", "is:unmerged");
+    } else if (safeLifecycle === "closed") {
+      tokens.push("is:closed");
     } else {
       tokens.push("is:open");
       if (safeLifecycle === "ready") {
@@ -165,25 +167,13 @@
     return serializeTokens(tokens);
   }
 
-  function reconcileQuery(query, storedPreferences) {
-    const stored = sanitizePreferences(storedPreferences);
+  function reconcileQuery(query) {
     const inspection = inspectQuery(query);
-
-    // Closed and draft qualifiers are deliberate views, so let them update the
-    // global selection. A plain is:open query is GitHub's default and should not
-    // erase a user's persisted Ready or Draft selection on the next repository.
-    const explicitLifecycle = inspection.merge === "merged"
-      ? "merged"
-      : inspection.state === "closed"
-        ? "closed"
-        : inspection.readiness;
-    const lifecycle = explicitLifecycle || stored.lifecycle;
-    const preferences = { lifecycle };
+    const lifecycle = inspection.lifecycle || DEFAULT_PREFERENCES.lifecycle;
 
     return {
-      query: queryWithLifecycle(query, lifecycle),
-      preferences,
-      effective: preferences
+      query,
+      effective: { lifecycle }
     };
   }
 
@@ -192,7 +182,6 @@
     inspectQuery,
     queryWithLifecycle,
     reconcileQuery,
-    sanitizePreferences,
     tokenizeQuery
   });
 });

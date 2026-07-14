@@ -10,9 +10,9 @@ test("tokenizeQuery preserves quoted search terms", () => {
   );
 });
 
-test("All means open pull requests including drafts", () => {
+test("Open means all open pull requests including drafts", () => {
   assert.equal(
-    queryState.queryWithLifecycle("is:pr is:closed draft:true label:frontend", "all"),
+    queryState.queryWithLifecycle("is:pr is:closed draft:true label:frontend", "open"),
     "is:pr label:frontend is:open"
   );
 });
@@ -31,9 +31,19 @@ test("Draft replaces state and legacy readiness qualifiers", () => {
   );
 });
 
-test("Closed means closed without merging", () => {
+test("Closed includes merged pull requests", () => {
   assert.equal(
     queryState.queryWithLifecycle("is:pr is:open draft:false assignee:@me", "closed"),
+    "is:pr assignee:@me is:closed"
+  );
+});
+
+test("Closed without merging adds the unmerged qualifier", () => {
+  assert.equal(
+    queryState.queryWithLifecycle(
+      "is:pr is:open draft:false assignee:@me",
+      "closed_unmerged"
+    ),
     "is:pr assignee:@me is:closed is:unmerged"
   );
 });
@@ -55,45 +65,61 @@ test("lifecycle changes preserve GitHub native review filters", () => {
   );
 });
 
-test("stored lifecycle wins over GitHub's default plain open query", () => {
+test("a plain open query maps to Open without being rewritten", () => {
   assert.deepEqual(
-    queryState.reconcileQuery("is:pr is:open", { lifecycle: "ready" }),
+    queryState.reconcileQuery("is:pr is:open"),
     {
-      query: "is:pr is:open draft:false",
-      preferences: { lifecycle: "ready" },
-      effective: { lifecycle: "ready" }
+      query: "is:pr is:open",
+      effective: { lifecycle: "open" }
     }
   );
 });
 
-test("explicit draft view updates the persisted selection", () => {
+test("explicit draft view updates the displayed selection", () => {
   assert.deepEqual(
-    queryState.reconcileQuery("is:pr is:open draft:true", { lifecycle: "ready" }),
+    queryState.reconcileQuery("is:pr is:open draft:true"),
     {
       query: "is:pr is:open draft:true",
-      preferences: { lifecycle: "draft" },
       effective: { lifecycle: "draft" }
     }
   );
 });
 
-test("explicit closed view updates the persisted selection", () => {
+test("explicit closed view updates the displayed selection", () => {
   assert.deepEqual(
-    queryState.reconcileQuery("is:pr state:closed label:bug", { lifecycle: "draft" }),
+    queryState.reconcileQuery("is:pr state:closed label:bug"),
     {
-      query: "is:pr label:bug is:closed is:unmerged",
-      preferences: { lifecycle: "closed" },
+      query: "is:pr state:closed label:bug",
       effective: { lifecycle: "closed" }
     }
   );
 });
 
-test("explicit merged view updates the persisted selection", () => {
+test("closed state takes precedence without rewriting contradictory qualifiers", () => {
   assert.deepEqual(
-    queryState.reconcileQuery("is:pr is:merged label:shipped", { lifecycle: "closed" }),
+    queryState.reconcileQuery("is:pr is:closed draft:true"),
     {
-      query: "is:pr label:shipped is:merged",
-      preferences: { lifecycle: "merged" },
+      query: "is:pr is:closed draft:true",
+      effective: { lifecycle: "closed" }
+    }
+  );
+});
+
+test("closed and unmerged query maps to Closed without merging", () => {
+  assert.deepEqual(
+    queryState.reconcileQuery("is:pr is:closed is:unmerged label:bug"),
+    {
+      query: "is:pr is:closed is:unmerged label:bug",
+      effective: { lifecycle: "closed_unmerged" }
+    }
+  );
+});
+
+test("explicit merged view updates the displayed selection", () => {
+  assert.deepEqual(
+    queryState.reconcileQuery("is:pr is:merged label:shipped"),
+    {
+      query: "is:pr is:merged label:shipped",
       effective: { lifecycle: "merged" }
     }
   );
@@ -102,11 +128,4 @@ test("explicit merged view updates the persisted selection", () => {
 test("legacy draft syntax is recognized", () => {
   assert.equal(queryState.inspectQuery("is:pr is:draft").lifecycle, "draft");
   assert.equal(queryState.inspectQuery("is:pr -is:draft").lifecycle, "ready");
-});
-
-test("old multi-filter preferences migrate safely to All", () => {
-  assert.deepEqual(
-    queryState.sanitizePreferences({ readiness: "draft", personalReview: "reviewed" }),
-    { lifecycle: "all" }
-  );
 });

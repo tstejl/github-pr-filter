@@ -1,5 +1,8 @@
 # GitHub PR Lifecycle Filter
 
+[![CI](https://github.com/tstejl/github-pr-filter/actions/workflows/ci.yml/badge.svg)](https://github.com/tstejl/github-pr-filter/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/tstejl/github-pr-filter?display_name=tag&sort=semver)](https://github.com/tstejl/github-pr-filter/releases/latest)
+
 A small Chromium and Firefox extension that makes GitHub's pull-request lifecycle views faster to use.
 
 ## Installation
@@ -25,11 +28,13 @@ Each GitHub release includes SHA-256 checksums for both unsigned packages.
 ## What it does
 
 - Filters repository pull-request lists and the global GitHub pull-request page.
-- Replaces GitHub's **Open / Closed** links with a compact lifecycle menu for **All / Ready / Draft / Merged / Closed**.
-- Defines **All** as GitHub's normal open view, including drafts.
-- Separates merged pull requests from pull requests closed without merging.
+- Replaces GitHub's **Open / Closed** links with a compact six-state lifecycle menu.
+- Treats **Open** and **Closed** as aggregate views, matching GitHub's query semantics.
+- Separates **Merged** pull requests from **Closed without merging**.
 - Preserves GitHub's existing search terms and native review filters.
-- Remembers the lifecycle selection globally in local browser extension storage.
+- Treats GitHub's search query, search submission, and clear action as the source of truth.
+- Shows GitHub's matching PR count for the active lifecycle while the menu is collapsed.
+- Keeps the compact trigger text-only and uses a distinct GitHub Octicon for every menu state.
 - Uses GitHub search qualifiers, so filtered views remain visible in the URL.
 - Uses GitHub's native Turbo navigation to update results without a full-page refresh.
 
@@ -61,7 +66,7 @@ data-collection manifest key arrived in Firefox for Android 142. Desktop Firefox
 has no errors; the Android target is intentionally deferred.
 
 Desktop Firefox Developer Edition has been manually verified for lifecycle filtering,
-preference persistence, Turbo navigation, and GitHub theme integration.
+query synchronization, Turbo navigation, and GitHub theme integration.
 
 ## Development
 
@@ -83,8 +88,8 @@ temporary add-on and installs it through WebDriver.
 
 ## Permissions
 
-- `storage`: remembers the global filter selection locally.
-- `https://github.com/*`: injects the filter only on GitHub. The script exits immediately outside supported pull-request list pages.
+The extension requests no browser API permissions. Its content scripts are limited to
+`https://github.com/*` and exit immediately outside supported pull-request list pages.
 
 ## Browser releases
 

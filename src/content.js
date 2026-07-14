@@ -2,22 +2,20 @@
   "use strict";
 
   const queryState = globalThis.GitHubPrFilterQuery;
-  const extensionApi = globalThis.GitHubPrFilterExtensionApi;
   const CONTROL_CLASS = "gprf-lifecycle";
-  const STORAGE_KEY = "githubPrFilterPreferences";
   const SUPPORTED_PATH = /^(?:\/pulls(?:\/.*)?|\/[^/]+\/[^/]+\/pulls\/?)$/;
   const LIFECYCLES = [
     {
-      value: "all",
-      label: "All",
+      value: "open",
+      label: "Open",
       description: "Open, including drafts",
-      icon: "M5.75 2.5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5Zm0 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5Zm0 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5ZM2 14a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm1-6a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM2 4a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"
+      icon: "M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"
     },
     {
       value: "ready",
       label: "Ready",
       description: "Open and ready for review",
-      icon: "M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"
+      icon: "M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm1.5 0a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm10.28-1.72-4.5 4.5a.75.75 0 0 1-1.06 0l-2-2a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l1.47 1.47 3.97-3.97a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042Z"
     },
     {
       value: "draft",
@@ -26,29 +24,33 @@
       icon: "M3.25 1A2.25 2.25 0 0 1 4 5.372v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.251 2.251 0 0 1 3.25 1Zm9.5 14a2.25 2.25 0 1 1 0-4.5 2.25 2.25 0 0 1 0 4.5ZM2.5 3.25a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM3.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm9.5 0a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM14 7.5a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0Zm0-4.25a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0Z"
     },
     {
+      value: "closed",
+      label: "Closed",
+      description: "Closed, including merged",
+      icon: "M0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v1.5A1.75 1.75 0 0 1 14.25 6H1.75A1.75 1.75 0 0 1 0 4.25ZM1.75 7a.75.75 0 0 1 .75.75v5.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-5.5a.75.75 0 0 1 1.5 0v5.5A1.75 1.75 0 0 1 13.25 15H2.75A1.75 1.75 0 0 1 1 13.25v-5.5A.75.75 0 0 1 1.75 7Zm0-4.5a.25.25 0 0 0-.25.25v1.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-1.5a.25.25 0 0 0-.25-.25ZM6.25 8h3.5a.75.75 0 0 1 0 1.5h-3.5a.75.75 0 0 1 0-1.5Z"
+    },
+    {
       value: "merged",
       label: "Merged",
       description: "Successfully merged",
       icon: "M5.45 5.154A4.25 4.25 0 0 0 9.25 7.5h1.378a2.251 2.251 0 1 1 0 1.5H9.25A5.734 5.734 0 0 1 5 7.123v3.505a2.25 2.25 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.95-.218ZM4.25 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm8.5-4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM5 3.25a.75.75 0 1 0 0 .005V3.25Z"
     },
     {
-      value: "closed",
-      label: "Closed",
-      description: "Closed without merging",
+      value: "closed_unmerged",
+      label: "Closed without merging",
+      description: "Closed and unmerged",
       icon: "M3.25 1A2.25 2.25 0 0 1 4 5.372v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.251 2.251 0 0 1 3.25 1Zm9.5 5.5a.75.75 0 0 1 .75.75v3.378a2.251 2.251 0 1 1-1.5 0V7.25a.75.75 0 0 1 .75-.75Zm-2.03-5.273a.75.75 0 0 1 1.06 0l.97.97.97-.97a.748.748 0 0 1 1.265.332.75.75 0 0 1-.205.729l-.97.97.97.97a.751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018l-.97-.97-.97.97a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734l.97-.97-.97-.97a.75.75 0 0 1 0-1.06ZM2.5 3.25a.75.75 0 1 0 1.5 0 .75.75 0 0 0 0-1.5ZM3.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm9.5 0a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z"
     }
   ];
   const CHECK_ICON = "M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z";
 
-  if (!queryState || !extensionApi) {
+  if (!queryState) {
     return;
   }
 
   let activePreferences = { ...queryState.DEFAULT_PREFERENCES };
-  let savedPreferences = { ...queryState.DEFAULT_PREFERENCES };
   let lastReconciledUrl = null;
   let scheduledTimer = null;
-  let runVersion = 0;
 
   function isSupportedPage() {
     // The manifest is the host boundary. Keeping this check path-only lets the
@@ -106,48 +108,6 @@
     return url;
   }
 
-  async function readPreferences() {
-    try {
-      const result = await extensionApi.get(STORAGE_KEY);
-      return queryState.sanitizePreferences(result[STORAGE_KEY]);
-    } catch {
-      return { ...queryState.DEFAULT_PREFERENCES };
-    }
-  }
-
-  async function writePreferences(preferences) {
-    const safePreferences = queryState.sanitizePreferences(preferences);
-    savedPreferences = safePreferences;
-
-    try {
-      await extensionApi.set({ [STORAGE_KEY]: safePreferences });
-    } catch {
-      // Navigation still applies the selected view if storage is unavailable.
-    }
-  }
-
-  function navigateToQuery(query) {
-    const url = urlForQuery(query);
-    if (url.href === location.href) {
-      return;
-    }
-
-    const navigationLink = document.createElement("a");
-    navigationLink.href = url.href;
-    navigationLink.hidden = true;
-
-    const turboFrame = document.querySelector(
-      ".table-list-header-toggle.states > a[data-turbo-frame]"
-    )?.getAttribute("data-turbo-frame");
-    if (turboFrame) {
-      navigationLink.setAttribute("data-turbo-frame", turboFrame);
-    }
-
-    document.body.append(navigationLink);
-    navigationLink.click();
-    navigationLink.remove();
-  }
-
   function createIcon(pathData) {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("aria-hidden", "true");
@@ -191,14 +151,33 @@
         return;
       }
 
-      void writePreferences({ lifecycle });
       link.closest("details")?.removeAttribute("open");
     });
 
     return link;
   }
 
-  function createControl(preferences, standalone = false) {
+  function updateSummary(summary, selectedLifecycle, count) {
+    summary.dataset.lifecycle = selectedLifecycle.value;
+    summary.setAttribute(
+      "aria-label",
+      count
+        ? `${count} pull requests: ${selectedLifecycle.label}`
+        : `Pull request state: ${selectedLifecycle.label}`
+    );
+    const summaryLabel = summary.querySelector(".gprf-summary-label");
+    if (summaryLabel.textContent !== selectedLifecycle.label) {
+      summaryLabel.textContent = selectedLifecycle.label;
+    }
+
+    const summaryCount = summary.querySelector(".gprf-summary-count");
+    if (summaryCount.textContent !== (count || "")) {
+      summaryCount.textContent = count || "";
+    }
+    summaryCount.hidden = !count;
+  }
+
+  function createControl(preferences, standalone = false, count = null) {
     const control = document.createElement("details");
     control.className = `${CONTROL_CLASS}${standalone ? " gprf-lifecycle--standalone" : ""}`;
     const selectedLifecycle = LIFECYCLES.find(({ value }) => value === preferences.lifecycle)
@@ -206,17 +185,22 @@
 
     const summary = document.createElement("summary");
     summary.className = "gprf-lifecycle-summary";
-    summary.dataset.lifecycle = selectedLifecycle.value;
-    summary.setAttribute("aria-label", `Pull request state: ${selectedLifecycle.label}`);
+
+    const summaryCopy = document.createElement("span");
+    summaryCopy.className = "gprf-summary-copy";
+
+    const summaryCount = document.createElement("span");
+    summaryCount.className = "gprf-summary-count";
 
     const summaryLabel = document.createElement("span");
     summaryLabel.className = "gprf-summary-label";
-    summaryLabel.textContent = selectedLifecycle.label;
+    summaryCopy.append(summaryCount, summaryLabel);
 
     const chevron = document.createElement("span");
     chevron.className = "gprf-chevron";
     chevron.setAttribute("aria-hidden", "true");
-    summary.append(createIcon(selectedLifecycle.icon), summaryLabel, chevron);
+    summary.append(summaryCopy, chevron);
+    updateSummary(summary, selectedLifecycle, count);
 
     const menu = document.createElement("div");
     menu.className = "gprf-lifecycle-menu";
@@ -229,7 +213,7 @@
     menu.append(heading);
 
     for (const { value, label, description, icon } of LIFECYCLES) {
-      if (value === "merged") {
+      if (value === "closed") {
         const divider = document.createElement("div");
         divider.className = "gprf-menu-divider";
         divider.setAttribute("role", "separator");
@@ -292,14 +276,11 @@
     return control;
   }
 
-  function refreshControl(control, preferences) {
+  function refreshControl(control, preferences, count = null) {
     const selectedLifecycle = LIFECYCLES.find(({ value }) => value === preferences.lifecycle)
       || LIFECYCLES[0];
     const summary = control.querySelector(".gprf-lifecycle-summary");
-    summary.dataset.lifecycle = selectedLifecycle.value;
-    summary.setAttribute("aria-label", `Pull request state: ${selectedLifecycle.label}`);
-    summary.querySelector(".gprf-summary-label").textContent = selectedLifecycle.label;
-    summary.querySelector(".gprf-lifecycle-icon path").setAttribute("d", selectedLifecycle.icon);
+    updateSummary(summary, selectedLifecycle, count);
 
     for (const link of control.querySelectorAll(".gprf-lifecycle-option")) {
       const lifecycle = link.dataset.lifecycle;
@@ -312,6 +293,27 @@
 
   function nativeStatusGroups() {
     return [...document.querySelectorAll(".table-list-header-toggle.states")];
+  }
+
+  function nativeCountForLifecycle(group, lifecycle) {
+    const desiredState = ["closed", "merged", "closed_unmerged"].includes(lifecycle)
+      ? "closed"
+      : "open";
+
+    for (const link of group.querySelectorAll(":scope > a.btn-link")) {
+      const url = new URL(link.href, location.href);
+      const query = url.searchParams.get("q") ?? url.searchParams.get("query") ?? "";
+      if (queryState.inspectQuery(query).state !== desiredState) {
+        continue;
+      }
+
+      const count = link.textContent.trim().match(/[\p{Number}][\p{Number}\s.,]*/u)?.[0].trim();
+      if (count) {
+        return count;
+      }
+    }
+
+    return null;
   }
 
   function syncTurboFrame(control, group) {
@@ -334,17 +336,18 @@
     const groups = nativeStatusGroups();
     if (groups.length > 0) {
       for (const group of groups) {
+        const count = nativeCountForLifecycle(group, activePreferences.lifecycle);
         const existingControl = group.querySelector(`:scope > .${CONTROL_CLASS}`);
         if (existingControl) {
           syncTurboFrame(existingControl, group);
-          refreshControl(existingControl, activePreferences);
+          refreshControl(existingControl, activePreferences, count);
           continue;
         }
 
         for (const nativeLink of group.querySelectorAll(":scope > a.btn-link")) {
           nativeLink.classList.add("gprf-native-status-hidden");
         }
-        const control = createControl(activePreferences);
+        const control = createControl(activePreferences, false, count);
         syncTurboFrame(control, group);
         group.append(control);
       }
@@ -371,9 +374,7 @@
     });
   }
 
-  async function reconcileAndMount() {
-    const version = ++runVersion;
-
+  function reconcileAndMount() {
     if (!isSupportedPage()) {
       removeControls();
       lastReconciledUrl = null;
@@ -382,25 +383,10 @@
 
     const currentUrl = location.href;
     if (lastReconciledUrl !== currentUrl) {
-      const storedPreferences = await readPreferences();
-      if (version !== runVersion) {
-        return;
-      }
-
       const currentQuery = getCurrentQuery();
-      const reconciliation = queryState.reconcileQuery(currentQuery, storedPreferences);
-      savedPreferences = reconciliation.preferences;
+      const reconciliation = queryState.reconcileQuery(currentQuery);
       activePreferences = reconciliation.effective;
       lastReconciledUrl = currentUrl;
-
-      if (storedPreferences.lifecycle !== reconciliation.preferences.lifecycle) {
-        await writePreferences(reconciliation.preferences);
-      }
-
-      if (reconciliation.query !== currentQuery) {
-        navigateToQuery(reconciliation.query);
-        return;
-      }
     }
 
     mountControls();
@@ -413,7 +399,7 @@
 
     scheduledTimer = setTimeout(() => {
       scheduledTimer = null;
-      void reconcileAndMount();
+      reconcileAndMount();
     }, 60);
   }
 
@@ -431,5 +417,5 @@
   const observer = new MutationObserver(scheduleReconcile);
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
-  void reconcileAndMount();
+  reconcileAndMount();
 })();

@@ -38,9 +38,12 @@ function fixturePage(requestUrl) {
   </head>
   <body>
     <main>
-      <form role="search">
+      <form role="search" action="/octocat/hello-world/pulls" method="get">
         <input aria-label="Search all issues" name="q" type="search" value="${query}">
       </form>
+      <a class="js-clear-search" href="/octocat/hello-world/pulls">
+        Clear current search query, filters, and sorts
+      </a>
       <div class="table-list-header-toggle states">
         <a class="btn-link" data-turbo-frame="repo-content" href="/octocat/hello-world/pulls?q=is%3Apr+is%3Aopen">3 Open</a>
         <a class="btn-link" data-turbo-frame="repo-content" href="/octocat/hello-world/pulls?q=is%3Apr+is%3Aclosed">2 Closed</a>
@@ -132,8 +135,25 @@ async function chromiumSession(extensionDir) {
     async attribute(selector, name) {
       return page.locator(selector).getAttribute(name);
     },
+    async attributes(selector, name) {
+      return page.locator(selector).evaluateAll(
+        (elements, attributeName) => elements.map((element) => element.getAttribute(attributeName)),
+        name
+      );
+    },
+    async cssValue(selector, name) {
+      return page.locator(selector).evaluate(
+        (element, property) => getComputedStyle(element).getPropertyValue(property),
+        name
+      );
+    },
     async click(selector) {
       await page.locator(selector).click();
+    },
+    async search(query) {
+      const input = page.locator('input[name="q"]');
+      await input.fill(query);
+      await input.press("Enter");
     },
     async url() {
       return page.url();
@@ -149,7 +169,7 @@ async function chromiumSession(extensionDir) {
 }
 
 async function firefoxSession(xpiPath) {
-  const { Builder, By, until } = require("selenium-webdriver");
+  const { Builder, By, Key, until } = require("selenium-webdriver");
   const firefox = require("selenium-webdriver/firefox");
   const options = new firefox.Options().addArguments("-headless");
   if (process.env.FIREFOX_BIN) {
@@ -179,8 +199,21 @@ async function firefoxSession(xpiPath) {
     async attribute(selector, name) {
       return (await driver.findElement(By.css(selector))).getAttribute(name);
     },
+    async attributes(selector, name) {
+      return Promise.all(
+        (await elements(selector)).map((element) => element.getAttribute(name))
+      );
+    },
+    async cssValue(selector, name) {
+      return (await driver.findElement(By.css(selector))).getCssValue(name);
+    },
     async click(selector) {
       await driver.findElement(By.css(selector)).click();
+    },
+    async search(query) {
+      const input = await driver.findElement(By.css('input[name="q"]'));
+      await input.clear();
+      await input.sendKeys(query, Key.ENTER);
     },
     async url() {
       return driver.getCurrentUrl();
@@ -194,7 +227,7 @@ async function firefoxSession(xpiPath) {
   };
 }
 
-test(`${BROWSER}: lifecycle menu filters and persists state`, { timeout: 90_000 }, async (t) => {
+test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, async (t) => {
   const fixture = await startFixtureServer();
   const extension = await prepareExtension();
   let browser;
@@ -212,7 +245,16 @@ test(`${BROWSER}: lifecycle menu filters and persists state`, { timeout: 90_000 
   await browser.open(fixture.url);
   await browser.waitForControl();
 
-  assert.deepEqual(await browser.text(".gprf-summary-label"), ["All"]);
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
+  assert.deepEqual(await browser.text(".gprf-summary-count"), ["3"]);
+  assert.equal(
+    await browser.attribute(".gprf-lifecycle-summary", "aria-label"),
+    "3 pull requests: Open"
+  );
+  assert.deepEqual(
+    await browser.text(".gprf-lifecycle-summary > .gprf-lifecycle-icon"),
+    []
+  );
   const nativeClasses = await browser.attribute(
     ".table-list-header-toggle.states > a:first-child",
     "class"
@@ -220,9 +262,16 @@ test(`${BROWSER}: lifecycle menu filters and persists state`, { timeout: 90_000 
   assert.ok(nativeClasses.split(/\s+/).includes("gprf-native-status-hidden"));
 
   await browser.click(".gprf-lifecycle-summary");
+  assert.notEqual(await browser.cssValue(".gprf-summary-count", "display"), "none");
   assert.deepEqual(await browser.text(".gprf-option-label"), [
-    "All", "Ready", "Draft", "Merged", "Closed"
+    "Open", "Ready", "Draft", "Closed", "Merged", "Closed without merging"
   ]);
+  const menuIconPaths = await browser.attributes(
+    ".gprf-lifecycle-option > .gprf-lifecycle-icon:first-child path",
+    "d"
+  );
+  assert.equal(menuIconPaths.length, 6);
+  assert.equal(new Set(menuIconPaths).size, 6);
 
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="draft"]`);
   await browser.waitForUrl((url) => new URL(url).searchParams.get("q")?.includes("draft:true"));
@@ -233,10 +282,46 @@ test(`${BROWSER}: lifecycle menu filters and persists state`, { timeout: 90_000 
     "true"
   );
 
-  const cleanUrl = new URL(await browser.url());
-  cleanUrl.search = "?q=is%3Apr+is%3Aopen";
-  await browser.open(cleanUrl.href);
+  await browser.search("is:pr is:open");
+  await browser.waitForUrl((url) => new URL(url).searchParams.get("q") === "is:pr is:open");
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
+
+  await browser.search("is:pr is:closed draft:true");
+  await browser.waitForUrl((url) => (
+    new URL(url).searchParams.get("q") === "is:pr is:closed draft:true"
+  ));
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Closed"]);
+  assert.deepEqual(await browser.text(".gprf-summary-count"), ["2"]);
+
+  await browser.click(".gprf-lifecycle-summary");
+  await browser.click(`${OPTION_SELECTOR}[data-lifecycle="closed_unmerged"]`);
+  await browser.waitForUrl((url) => (
+    new URL(url).searchParams.get("q")?.includes("is:unmerged")
+  ));
+  await browser.waitForControl();
+  assert.deepEqual(
+    await browser.text(".gprf-summary-label"),
+    ["Closed without merging"]
+  );
+  assert.deepEqual(await browser.text(".gprf-summary-count"), ["2"]);
+
+  await browser.click(".js-clear-search");
+  await browser.waitForUrl((url) => !new URL(url).searchParams.has("q"));
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
+
+  await browser.click(".gprf-lifecycle-summary");
+  await browser.click(`${OPTION_SELECTOR}[data-lifecycle="draft"]`);
   await browser.waitForUrl((url) => new URL(url).searchParams.get("q")?.includes("draft:true"));
   await browser.waitForControl();
-  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Draft"]);
+
+  const cleanUrl = new URL(await browser.url());
+  cleanUrl.search = "";
+  await browser.open(cleanUrl.href);
+  await browser.waitForControl();
+  assert.equal(new URL(await browser.url()).searchParams.has("q"), false);
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
+  assert.deepEqual(await browser.text(".gprf-summary-count"), ["3"]);
 });
