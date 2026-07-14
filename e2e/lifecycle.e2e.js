@@ -28,7 +28,12 @@ function escapeHtml(value) {
 
 function fixturePage(requestUrl) {
   const url = new URL(requestUrl, "http://127.0.0.1");
-  const query = escapeHtml(url.searchParams.get("q") || "is:pr is:open");
+  const rawQuery = url.searchParams.get("q") || "is:pr is:open";
+  const query = escapeHtml(rawQuery);
+  const nativeStatusLinks = /(?:^|\s)is:merged(?:\s|$)/i.test(rawQuery)
+    ? `<a class="btn-link" data-turbo-frame="repo-content" href="/octocat/hello-world/pulls?q=${encodeURIComponent(rawQuery)}">4 Total</a>`
+    : `<a class="btn-link" data-turbo-frame="repo-content" href="/octocat/hello-world/pulls?q=is%3Apr+is%3Aopen">3 Open</a>
+        <a class="btn-link" data-turbo-frame="repo-content" href="/octocat/hello-world/pulls?q=is%3Apr+is%3Aclosed">2 Closed</a>`;
 
   return `<!doctype html>
 <html lang="en" data-color-mode="auto" data-light-theme="light" data-dark-theme="dark">
@@ -45,8 +50,7 @@ function fixturePage(requestUrl) {
         Clear current search query, filters, and sorts
       </a>
       <div class="table-list-header-toggle states">
-        <a class="btn-link" data-turbo-frame="repo-content" href="/octocat/hello-world/pulls?q=is%3Apr+is%3Aopen">3 Open</a>
-        <a class="btn-link" data-turbo-frame="repo-content" href="/octocat/hello-world/pulls?q=is%3Apr+is%3Aclosed">2 Closed</a>
+        ${nativeStatusLinks}
       </div>
       <div id="repo-content">Fixture pull requests</div>
     </main>
@@ -306,6 +310,13 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
     ["Closed without merging"]
   );
   assert.deepEqual(await browser.text(".gprf-summary-count"), ["2"]);
+
+  await browser.click(".gprf-lifecycle-summary");
+  await browser.click(`${OPTION_SELECTOR}[data-lifecycle="merged"]`);
+  await browser.waitForUrl((url) => new URL(url).searchParams.get("q")?.includes("is:merged"));
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Merged"]);
+  assert.deepEqual(await browser.text(".gprf-summary-count"), ["4"]);
 
   await browser.click(".js-clear-search");
   await browser.waitForUrl((url) => !new URL(url).searchParams.has("q"));

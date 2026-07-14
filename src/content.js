@@ -295,15 +295,20 @@
     return [...document.querySelectorAll(".table-list-header-toggle.states")];
   }
 
-  function nativeCountForLifecycle(group, lifecycle) {
-    const desiredState = ["closed", "merged", "closed_unmerged"].includes(lifecycle)
+  function lifecycleFamily(lifecycle) {
+    return ["closed", "merged", "closed_unmerged"].includes(lifecycle)
       ? "closed"
       : "open";
+  }
+
+  function nativeCountForLifecycle(group, lifecycle) {
+    const desiredFamily = lifecycleFamily(lifecycle);
 
     for (const link of group.querySelectorAll(":scope > a.btn-link")) {
       const url = new URL(link.href, location.href);
       const query = url.searchParams.get("q") ?? url.searchParams.get("query") ?? "";
-      if (queryState.inspectQuery(query).state !== desiredState) {
+      const nativeLifecycle = queryState.inspectQuery(query).lifecycle;
+      if (!nativeLifecycle || lifecycleFamily(nativeLifecycle) !== desiredFamily) {
         continue;
       }
 
