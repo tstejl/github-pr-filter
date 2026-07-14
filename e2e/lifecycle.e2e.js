@@ -207,7 +207,7 @@ async function firefoxSession(xpiPath) {
   };
 }
 
-test(`${BROWSER}: lifecycle menu filters and persists state`, { timeout: 90_000 }, async (t) => {
+test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, async (t) => {
   const fixture = await startFixtureServer();
   const extension = await prepareExtension();
   let browser;
@@ -271,7 +271,7 @@ test(`${BROWSER}: lifecycle menu filters and persists state`, { timeout: 90_000 
   const cleanUrl = new URL(await browser.url());
   cleanUrl.search = "";
   await browser.open(cleanUrl.href);
-  await browser.waitForUrl((url) => new URL(url).searchParams.get("q")?.includes("draft:true"));
   await browser.waitForControl();
-  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Draft"]);
+  assert.equal(new URL(await browser.url()).searchParams.has("q"), false);
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["All"]);
 });

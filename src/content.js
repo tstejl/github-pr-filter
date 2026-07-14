@@ -2,11 +2,7 @@
   "use strict";
 
   const queryState = globalThis.GitHubPrFilterQuery;
-  const extensionApi = globalThis.GitHubPrFilterExtensionApi;
   const CONTROL_CLASS = "gprf-lifecycle";
-  const STORAGE_KEY = "githubPrFilterPreferences";
-  const NATIVE_QUERY_ACTION_KEY = "githubPrFilterNativeQueryAction";
-  const NATIVE_QUERY_ACTION_MAX_AGE = 15_000;
   const SUPPORTED_PATH = /^(?:\/pulls(?:\/.*)?|\/[^/]+\/[^/]+\/pulls\/?)$/;
   const LIFECYCLES = [
     {
@@ -42,15 +38,13 @@
   ];
   const CHECK_ICON = "M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z";
 
-  if (!queryState || !extensionApi) {
+  if (!queryState) {
     return;
   }
 
   let activePreferences = { ...queryState.DEFAULT_PREFERENCES };
-  let savedPreferences = { ...queryState.DEFAULT_PREFERENCES };
   let lastReconciledUrl = null;
   let scheduledTimer = null;
-  let runVersion = 0;
 
   function isSupportedPage() {
     // The manifest is the host boundary. Keeping this check path-only lets the
@@ -90,56 +84,6 @@
     return getSearchInput()?.value.trim() || "";
   }
 
-  function hasQueryParameter() {
-    const searchParams = new URL(location.href).searchParams;
-    return searchParams.has("q") || searchParams.has("query");
-  }
-
-  function markNativeQueryAction() {
-    try {
-      sessionStorage.setItem(NATIVE_QUERY_ACTION_KEY, JSON.stringify({
-        pathname: location.pathname,
-        timestamp: Date.now()
-      }));
-    } catch {
-      // Explicit URL queries remain authoritative if session storage is unavailable.
-    }
-  }
-
-  function consumeNativeQueryAction() {
-    try {
-      const serialized = sessionStorage.getItem(NATIVE_QUERY_ACTION_KEY);
-      sessionStorage.removeItem(NATIVE_QUERY_ACTION_KEY);
-      if (!serialized) {
-        return false;
-      }
-
-      const action = JSON.parse(serialized);
-      return action.pathname === location.pathname
-        && Date.now() - action.timestamp <= NATIVE_QUERY_ACTION_MAX_AGE;
-    } catch {
-      return false;
-    }
-  }
-
-  function isClearSearchAction(target) {
-    if (!(target instanceof Element)) {
-      return false;
-    }
-
-    const action = target.closest("a, button");
-    if (!action) {
-      return false;
-    }
-
-    const accessibleText = [
-      action.textContent,
-      action.getAttribute("aria-label"),
-      action.getAttribute("title")
-    ].filter(Boolean).join(" ").toLowerCase();
-    return accessibleText.includes("clear current search query");
-  }
-
   function urlForQuery(query) {
     const url = new URL(location.href);
     const normalizedQuery = query.trim();
@@ -156,48 +100,6 @@
     url.searchParams.delete(unusedParameter);
     url.searchParams.delete("page");
     return url;
-  }
-
-  async function readPreferences() {
-    try {
-      const result = await extensionApi.get(STORAGE_KEY);
-      return queryState.sanitizePreferences(result[STORAGE_KEY]);
-    } catch {
-      return { ...queryState.DEFAULT_PREFERENCES };
-    }
-  }
-
-  async function writePreferences(preferences) {
-    const safePreferences = queryState.sanitizePreferences(preferences);
-    savedPreferences = safePreferences;
-
-    try {
-      await extensionApi.set({ [STORAGE_KEY]: safePreferences });
-    } catch {
-      // Navigation still applies the selected view if storage is unavailable.
-    }
-  }
-
-  function navigateToQuery(query) {
-    const url = urlForQuery(query);
-    if (url.href === location.href) {
-      return;
-    }
-
-    const navigationLink = document.createElement("a");
-    navigationLink.href = url.href;
-    navigationLink.hidden = true;
-
-    const turboFrame = document.querySelector(
-      ".table-list-header-toggle.states > a[data-turbo-frame]"
-    )?.getAttribute("data-turbo-frame");
-    if (turboFrame) {
-      navigationLink.setAttribute("data-turbo-frame", turboFrame);
-    }
-
-    document.body.append(navigationLink);
-    navigationLink.click();
-    navigationLink.remove();
   }
 
   function createIcon(pathData) {
@@ -243,7 +145,6 @@
         return;
       }
 
-      void writePreferences({ lifecycle });
       link.closest("details")?.removeAttribute("open");
     });
 
@@ -423,9 +324,7 @@
     });
   }
 
-  async function reconcileAndMount() {
-    const version = ++runVersion;
-
+  function reconcileAndMount() {
     if (!isSupportedPage()) {
       removeControls();
       lastReconciledUrl = null;
@@ -434,31 +333,10 @@
 
     const currentUrl = location.href;
     if (lastReconciledUrl !== currentUrl) {
-      const storedPreferences = await readPreferences();
-      if (version !== runVersion) {
-        return;
-      }
-
       const currentQuery = getCurrentQuery();
-      const followsNativeQueryAction = consumeNativeQueryAction();
-      const useStoredLifecycle = !hasQueryParameter() && !followsNativeQueryAction;
-      const reconciliation = queryState.reconcileQuery(
-        currentQuery,
-        storedPreferences,
-        { useStoredLifecycle }
-      );
-      savedPreferences = reconciliation.preferences;
+      const reconciliation = queryState.reconcileQuery(currentQuery);
       activePreferences = reconciliation.effective;
       lastReconciledUrl = currentUrl;
-
-      if (storedPreferences.lifecycle !== reconciliation.preferences.lifecycle) {
-        await writePreferences(reconciliation.preferences);
-      }
-
-      if (reconciliation.query !== currentQuery) {
-        navigateToQuery(reconciliation.query);
-        return;
-      }
     }
 
     mountControls();
@@ -471,28 +349,9 @@
 
     scheduledTimer = setTimeout(() => {
       scheduledTimer = null;
-      void reconcileAndMount();
+      reconcileAndMount();
     }, 60);
   }
-
-  document.addEventListener("click", (event) => {
-    if (isClearSearchAction(event.target)) {
-      markNativeQueryAction();
-    }
-  }, true);
-
-  document.addEventListener("submit", (event) => {
-    const searchInput = getSearchInput();
-    if (searchInput && event.target instanceof Element && event.target.contains(searchInput)) {
-      markNativeQueryAction();
-    }
-  }, true);
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && event.target === getSearchInput()) {
-      markNativeQueryAction();
-    }
-  }, true);
 
   document.addEventListener("click", (event) => {
     for (const control of document.querySelectorAll(`.${CONTROL_CLASS}[open]`)) {
@@ -508,5 +367,5 @@
   const observer = new MutationObserver(scheduleReconcile);
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
-  void reconcileAndMount();
+  reconcileAndMount();
 })();

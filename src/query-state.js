@@ -12,15 +12,6 @@
   const DEFAULT_PREFERENCES = Object.freeze({ lifecycle: "all" });
   const LIFECYCLE_VALUES = new Set(["all", "ready", "draft", "merged", "closed"]);
 
-  function sanitizePreferences(value) {
-    const lifecycle = value && typeof value === "object" ? value.lifecycle : null;
-    return {
-      lifecycle: LIFECYCLE_VALUES.has(lifecycle)
-        ? lifecycle
-        : DEFAULT_PREFERENCES.lifecycle
-    };
-  }
-
   function tokenizeQuery(query) {
     const input = typeof query === "string" ? query.trim() : "";
     const tokens = [];
@@ -165,21 +156,13 @@
     return serializeTokens(tokens);
   }
 
-  function reconcileQuery(query, storedPreferences, { useStoredLifecycle = false } = {}) {
-    const stored = sanitizePreferences(storedPreferences);
+  function reconcileQuery(query) {
     const inspection = inspectQuery(query);
-
-    // GitHub's query is authoritative whenever it came from a URL or an explicit
-    // native action. Stored state is only a default for a fresh, implicit visit.
-    const lifecycle = useStoredLifecycle
-      ? stored.lifecycle
-      : inspection.lifecycle || DEFAULT_PREFERENCES.lifecycle;
-    const preferences = { lifecycle };
+    const lifecycle = inspection.lifecycle || DEFAULT_PREFERENCES.lifecycle;
 
     return {
-      query: useStoredLifecycle ? queryWithLifecycle(query, lifecycle) : query,
-      preferences,
-      effective: preferences
+      query,
+      effective: { lifecycle }
     };
   }
 
@@ -188,7 +171,6 @@
     inspectQuery,
     queryWithLifecycle,
     reconcileQuery,
-    sanitizePreferences,
     tokenizeQuery
   });
 });

@@ -10,9 +10,6 @@
     "48": "assets/icon-48.png",
     "128": "assets/icon-128.png"
   },
-  "permissions": [
-    "storage"
-  ],
   "browser_specific_settings": {
     "gecko": {
       "id": "{0ba166a1-ac85-491b-b36f-05b9177dda96}",
@@ -43,7 +40,6 @@
       ],
       "js": [
         "src/query-state.js",
-        "src/extension-api.js",
         "src/content.js"
       ],
       "run_at": "document_end"

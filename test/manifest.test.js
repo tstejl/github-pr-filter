@@ -8,7 +8,7 @@ const manifest = JSON.parse(fs.readFileSync(path.join(projectRoot, "manifest.jso
 
 test("manifest uses a minimal Manifest V3 permission set", () => {
   assert.equal(manifest.manifest_version, 3);
-  assert.deepEqual(manifest.permissions, ["storage"]);
+  assert.equal(manifest.permissions, undefined);
   assert.equal(manifest.host_permissions, undefined);
   assert.deepEqual(manifest.browser_specific_settings.gecko.data_collection_permissions, {
     required: ["none"]
@@ -28,7 +28,6 @@ test("anti-flicker CSS loads before the interactive content script", () => {
   assert.equal(interactive.run_at, "document_end");
   assert.deepEqual(interactive.js, [
     "src/query-state.js",
-    "src/extension-api.js",
     "src/content.js"
   ]);
 });

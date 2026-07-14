@@ -55,7 +55,6 @@ Each GitHub release includes SHA-256 checksums for both unsigned packages.
 - Separates merged pull requests from pull requests closed without merging.
 - Preserves GitHub's existing search terms and native review filters.
 - Treats GitHub's search query, search submission, and clear action as the source of truth.
-- Remembers the lifecycle selection globally in local browser extension storage.
 - Uses GitHub search qualifiers, so filtered views remain visible in the URL.
 - Uses GitHub's native Turbo navigation to update results without a full-page refresh.
 
@@ -87,7 +86,7 @@ data-collection manifest key arrived in Firefox for Android 142. Desktop Firefox
 has no errors; the Android target is intentionally deferred.
 
 Desktop Firefox Developer Edition has been manually verified for lifecycle filtering,
-preference persistence, Turbo navigation, and GitHub theme integration.
+query synchronization, Turbo navigation, and GitHub theme integration.
 
 ## Development
 
@@ -109,8 +108,8 @@ temporary add-on and installs it through WebDriver.
 
 ## Permissions
 
-- `storage`: remembers the global filter selection locally.
-- `https://github.com/*`: injects the filter only on GitHub. The script exits immediately outside supported pull-request list pages.
+The extension requests no browser API permissions. Its content scripts are limited to
+`https://github.com/*` and exit immediately outside supported pull-request list pages.
 
 ## Browser releases
 

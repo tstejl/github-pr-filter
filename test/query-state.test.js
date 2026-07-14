@@ -55,49 +55,31 @@ test("lifecycle changes preserve GitHub native review filters", () => {
   );
 });
 
-test("an explicit plain open query wins over stored lifecycle", () => {
+test("a plain open query maps to All without being rewritten", () => {
   assert.deepEqual(
-    queryState.reconcileQuery("is:pr is:open", { lifecycle: "ready" }),
+    queryState.reconcileQuery("is:pr is:open"),
     {
       query: "is:pr is:open",
-      preferences: { lifecycle: "all" },
       effective: { lifecycle: "all" }
     }
   );
 });
 
-test("stored lifecycle initializes an implicit default visit", () => {
+test("explicit draft view updates the displayed selection", () => {
   assert.deepEqual(
-    queryState.reconcileQuery(
-      "is:pr is:open",
-      { lifecycle: "ready" },
-      { useStoredLifecycle: true }
-    ),
-    {
-      query: "is:pr is:open draft:false",
-      preferences: { lifecycle: "ready" },
-      effective: { lifecycle: "ready" }
-    }
-  );
-});
-
-test("explicit draft view updates the persisted selection", () => {
-  assert.deepEqual(
-    queryState.reconcileQuery("is:pr is:open draft:true", { lifecycle: "ready" }),
+    queryState.reconcileQuery("is:pr is:open draft:true"),
     {
       query: "is:pr is:open draft:true",
-      preferences: { lifecycle: "draft" },
       effective: { lifecycle: "draft" }
     }
   );
 });
 
-test("explicit closed view updates the persisted selection", () => {
+test("explicit closed view updates the displayed selection", () => {
   assert.deepEqual(
-    queryState.reconcileQuery("is:pr state:closed label:bug", { lifecycle: "draft" }),
+    queryState.reconcileQuery("is:pr state:closed label:bug"),
     {
       query: "is:pr state:closed label:bug",
-      preferences: { lifecycle: "closed" },
       effective: { lifecycle: "closed" }
     }
   );
@@ -105,21 +87,19 @@ test("explicit closed view updates the persisted selection", () => {
 
 test("closed state takes precedence without rewriting contradictory qualifiers", () => {
   assert.deepEqual(
-    queryState.reconcileQuery("is:pr is:closed draft:true", { lifecycle: "ready" }),
+    queryState.reconcileQuery("is:pr is:closed draft:true"),
     {
       query: "is:pr is:closed draft:true",
-      preferences: { lifecycle: "closed" },
       effective: { lifecycle: "closed" }
     }
   );
 });
 
-test("explicit merged view updates the persisted selection", () => {
+test("explicit merged view updates the displayed selection", () => {
   assert.deepEqual(
-    queryState.reconcileQuery("is:pr is:merged label:shipped", { lifecycle: "closed" }),
+    queryState.reconcileQuery("is:pr is:merged label:shipped"),
     {
       query: "is:pr is:merged label:shipped",
-      preferences: { lifecycle: "merged" },
       effective: { lifecycle: "merged" }
     }
   );
@@ -128,11 +108,4 @@ test("explicit merged view updates the persisted selection", () => {
 test("legacy draft syntax is recognized", () => {
   assert.equal(queryState.inspectQuery("is:pr is:draft").lifecycle, "draft");
   assert.equal(queryState.inspectQuery("is:pr -is:draft").lifecycle, "ready");
-});
-
-test("old multi-filter preferences migrate safely to All", () => {
-  assert.deepEqual(
-    queryState.sanitizePreferences({ readiness: "draft", personalReview: "reviewed" }),
-    { lifecycle: "all" }
-  );
 });
