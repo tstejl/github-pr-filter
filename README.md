@@ -5,28 +5,6 @@
 
 A small Chromium and Firefox extension that makes GitHub's pull-request lifecycle views faster to use.
 
-## Preview
-
-<table>
-  <tr>
-    <td>
-      <strong>Before</strong><br>
-      <img src="docs/images/lifecycle-before-light.png" alt="GitHub's native Open and Closed pull request controls before enabling the extension" width="100%">
-    </td>
-  </tr>
-  <tr>
-    <td>
-      <strong>With the extension</strong><br>
-      <img src="docs/images/lifecycle-after-light.png" alt="GitHub pull request list with the Ready lifecycle view selected" width="100%">
-    </td>
-  </tr>
-</table>
-
-<p align="center">
-  <strong>Expanded lifecycle menu</strong><br>
-  <img src="docs/images/lifecycle-expanded-light.png" alt="Expanded pull request lifecycle menu in GitHub's light theme" width="420">
-</p>
-
 ## Installation
 
 Browser stores are the recommended installation route. Store builds are signed by the
