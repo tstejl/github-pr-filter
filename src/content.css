@@ -46,6 +46,15 @@ html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
   outline-offset: 3px;
 }
 
+.gprf-summary-copy {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.gprf-lifecycle[open] .gprf-summary-count {
+  display: none;
+}
+
 .gprf-chevron {
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;

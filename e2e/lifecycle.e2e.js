@@ -135,6 +135,12 @@ async function chromiumSession(extensionDir) {
     async attribute(selector, name) {
       return page.locator(selector).getAttribute(name);
     },
+    async cssValue(selector, name) {
+      return page.locator(selector).evaluate(
+        (element, property) => getComputedStyle(element).getPropertyValue(property),
+        name
+      );
+    },
     async click(selector) {
       await page.locator(selector).click();
     },
@@ -187,6 +193,9 @@ async function firefoxSession(xpiPath) {
     async attribute(selector, name) {
       return (await driver.findElement(By.css(selector))).getAttribute(name);
     },
+    async cssValue(selector, name) {
+      return (await driver.findElement(By.css(selector))).getCssValue(name);
+    },
     async click(selector) {
       await driver.findElement(By.css(selector)).click();
     },
@@ -226,6 +235,11 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   await browser.waitForControl();
 
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["All"]);
+  assert.deepEqual(await browser.text(".gprf-summary-count"), ["3"]);
+  assert.equal(
+    await browser.attribute(".gprf-lifecycle-summary", "aria-label"),
+    "3 pull requests: All"
+  );
   const nativeClasses = await browser.attribute(
     ".table-list-header-toggle.states > a:first-child",
     "class"
@@ -233,6 +247,7 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   assert.ok(nativeClasses.split(/\s+/).includes("gprf-native-status-hidden"));
 
   await browser.click(".gprf-lifecycle-summary");
+  assert.equal(await browser.cssValue(".gprf-summary-count", "display"), "none");
   assert.deepEqual(await browser.text(".gprf-option-label"), [
     "All", "Ready", "Draft", "Merged", "Closed"
   ]);
@@ -257,6 +272,7 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   ));
   await browser.waitForControl();
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Closed"]);
+  assert.deepEqual(await browser.text(".gprf-summary-count"), ["2"]);
 
   await browser.click(".js-clear-search");
   await browser.waitForUrl((url) => !new URL(url).searchParams.has("q"));
@@ -274,4 +290,5 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   await browser.waitForControl();
   assert.equal(new URL(await browser.url()).searchParams.has("q"), false);
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["All"]);
+  assert.deepEqual(await browser.text(".gprf-summary-count"), ["3"]);
 });

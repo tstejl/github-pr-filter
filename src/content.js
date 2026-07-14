@@ -151,7 +151,32 @@
     return link;
   }
 
-  function createControl(preferences, standalone = false) {
+  function updateSummary(summary, selectedLifecycle, count) {
+    summary.dataset.lifecycle = selectedLifecycle.value;
+    summary.setAttribute(
+      "aria-label",
+      count
+        ? `${count} pull requests: ${selectedLifecycle.label}`
+        : `Pull request state: ${selectedLifecycle.label}`
+    );
+    const summaryLabel = summary.querySelector(".gprf-summary-label");
+    if (summaryLabel.textContent !== selectedLifecycle.label) {
+      summaryLabel.textContent = selectedLifecycle.label;
+    }
+
+    const iconPath = summary.querySelector(".gprf-lifecycle-icon path");
+    if (iconPath.getAttribute("d") !== selectedLifecycle.icon) {
+      iconPath.setAttribute("d", selectedLifecycle.icon);
+    }
+
+    const summaryCount = summary.querySelector(".gprf-summary-count");
+    if (summaryCount.textContent !== (count || "")) {
+      summaryCount.textContent = count || "";
+    }
+    summaryCount.hidden = !count;
+  }
+
+  function createControl(preferences, standalone = false, count = null) {
     const control = document.createElement("details");
     control.className = `${CONTROL_CLASS}${standalone ? " gprf-lifecycle--standalone" : ""}`;
     const selectedLifecycle = LIFECYCLES.find(({ value }) => value === preferences.lifecycle)
@@ -159,17 +184,22 @@
 
     const summary = document.createElement("summary");
     summary.className = "gprf-lifecycle-summary";
-    summary.dataset.lifecycle = selectedLifecycle.value;
-    summary.setAttribute("aria-label", `Pull request state: ${selectedLifecycle.label}`);
+
+    const summaryCopy = document.createElement("span");
+    summaryCopy.className = "gprf-summary-copy";
+
+    const summaryCount = document.createElement("span");
+    summaryCount.className = "gprf-summary-count";
 
     const summaryLabel = document.createElement("span");
     summaryLabel.className = "gprf-summary-label";
-    summaryLabel.textContent = selectedLifecycle.label;
+    summaryCopy.append(summaryCount, summaryLabel);
 
     const chevron = document.createElement("span");
     chevron.className = "gprf-chevron";
     chevron.setAttribute("aria-hidden", "true");
-    summary.append(createIcon(selectedLifecycle.icon), summaryLabel, chevron);
+    summary.append(createIcon(selectedLifecycle.icon), summaryCopy, chevron);
+    updateSummary(summary, selectedLifecycle, count);
 
     const menu = document.createElement("div");
     menu.className = "gprf-lifecycle-menu";
@@ -245,14 +275,11 @@
     return control;
   }
 
-  function refreshControl(control, preferences) {
+  function refreshControl(control, preferences, count = null) {
     const selectedLifecycle = LIFECYCLES.find(({ value }) => value === preferences.lifecycle)
       || LIFECYCLES[0];
     const summary = control.querySelector(".gprf-lifecycle-summary");
-    summary.dataset.lifecycle = selectedLifecycle.value;
-    summary.setAttribute("aria-label", `Pull request state: ${selectedLifecycle.label}`);
-    summary.querySelector(".gprf-summary-label").textContent = selectedLifecycle.label;
-    summary.querySelector(".gprf-lifecycle-icon path").setAttribute("d", selectedLifecycle.icon);
+    updateSummary(summary, selectedLifecycle, count);
 
     for (const link of control.querySelectorAll(".gprf-lifecycle-option")) {
       const lifecycle = link.dataset.lifecycle;
@@ -265,6 +292,25 @@
 
   function nativeStatusGroups() {
     return [...document.querySelectorAll(".table-list-header-toggle.states")];
+  }
+
+  function nativeCountForLifecycle(group, lifecycle) {
+    const desiredState = ["merged", "closed"].includes(lifecycle) ? "closed" : "open";
+
+    for (const link of group.querySelectorAll(":scope > a.btn-link")) {
+      const url = new URL(link.href, location.href);
+      const query = url.searchParams.get("q") ?? url.searchParams.get("query") ?? "";
+      if (queryState.inspectQuery(query).state !== desiredState) {
+        continue;
+      }
+
+      const count = link.textContent.trim().match(/[\p{Number}][\p{Number}\s.,]*/u)?.[0].trim();
+      if (count) {
+        return count;
+      }
+    }
+
+    return null;
   }
 
   function syncTurboFrame(control, group) {
@@ -287,17 +333,18 @@
     const groups = nativeStatusGroups();
     if (groups.length > 0) {
       for (const group of groups) {
+        const count = nativeCountForLifecycle(group, activePreferences.lifecycle);
         const existingControl = group.querySelector(`:scope > .${CONTROL_CLASS}`);
         if (existingControl) {
           syncTurboFrame(existingControl, group);
-          refreshControl(existingControl, activePreferences);
+          refreshControl(existingControl, activePreferences, count);
           continue;
         }
 
         for (const nativeLink of group.querySelectorAll(":scope > a.btn-link")) {
           nativeLink.classList.add("gprf-native-status-hidden");
         }
-        const control = createControl(activePreferences);
+        const control = createControl(activePreferences, false, count);
         syncTurboFrame(control, group);
         group.append(control);
       }
