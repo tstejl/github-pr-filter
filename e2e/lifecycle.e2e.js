@@ -234,11 +234,11 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   await browser.open(fixture.url);
   await browser.waitForControl();
 
-  assert.deepEqual(await browser.text(".gprf-summary-label"), ["All"]);
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
   assert.deepEqual(await browser.text(".gprf-summary-count"), ["3"]);
   assert.equal(
     await browser.attribute(".gprf-lifecycle-summary", "aria-label"),
-    "3 pull requests: All"
+    "3 pull requests: Open"
   );
   const nativeClasses = await browser.attribute(
     ".table-list-header-toggle.states > a:first-child",
@@ -247,9 +247,9 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   assert.ok(nativeClasses.split(/\s+/).includes("gprf-native-status-hidden"));
 
   await browser.click(".gprf-lifecycle-summary");
-  assert.equal(await browser.cssValue(".gprf-summary-count", "display"), "none");
+  assert.notEqual(await browser.cssValue(".gprf-summary-count", "display"), "none");
   assert.deepEqual(await browser.text(".gprf-option-label"), [
-    "All", "Ready", "Draft", "Merged", "Closed"
+    "Open", "Ready", "Draft", "Closed", "Merged", "Closed without merging"
   ]);
 
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="draft"]`);
@@ -264,7 +264,7 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   await browser.search("is:pr is:open");
   await browser.waitForUrl((url) => new URL(url).searchParams.get("q") === "is:pr is:open");
   await browser.waitForControl();
-  assert.deepEqual(await browser.text(".gprf-summary-label"), ["All"]);
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
 
   await browser.search("is:pr is:closed draft:true");
   await browser.waitForUrl((url) => (
@@ -274,10 +274,22 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Closed"]);
   assert.deepEqual(await browser.text(".gprf-summary-count"), ["2"]);
 
+  await browser.click(".gprf-lifecycle-summary");
+  await browser.click(`${OPTION_SELECTOR}[data-lifecycle="closed_unmerged"]`);
+  await browser.waitForUrl((url) => (
+    new URL(url).searchParams.get("q")?.includes("is:unmerged")
+  ));
+  await browser.waitForControl();
+  assert.deepEqual(
+    await browser.text(".gprf-summary-label"),
+    ["Closed without merging"]
+  );
+  assert.deepEqual(await browser.text(".gprf-summary-count"), ["2"]);
+
   await browser.click(".js-clear-search");
   await browser.waitForUrl((url) => !new URL(url).searchParams.has("q"));
   await browser.waitForControl();
-  assert.deepEqual(await browser.text(".gprf-summary-label"), ["All"]);
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
 
   await browser.click(".gprf-lifecycle-summary");
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="draft"]`);
@@ -289,6 +301,6 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   await browser.open(cleanUrl.href);
   await browser.waitForControl();
   assert.equal(new URL(await browser.url()).searchParams.has("q"), false);
-  assert.deepEqual(await browser.text(".gprf-summary-label"), ["All"]);
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
   assert.deepEqual(await browser.text(".gprf-summary-count"), ["3"]);
 });

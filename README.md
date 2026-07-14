@@ -50,9 +50,9 @@ Each GitHub release includes SHA-256 checksums for both unsigned packages.
 ## What it does
 
 - Filters repository pull-request lists and the global GitHub pull-request page.
-- Replaces GitHub's **Open / Closed** links with a compact lifecycle menu for **All / Ready / Draft / Merged / Closed**.
-- Defines **All** as GitHub's normal open view, including drafts.
-- Separates merged pull requests from pull requests closed without merging.
+- Replaces GitHub's **Open / Closed** links with a compact six-state lifecycle menu.
+- Treats **Open** and **Closed** as aggregate views, matching GitHub's query semantics.
+- Separates **Merged** pull requests from **Closed without merging**.
 - Preserves GitHub's existing search terms and native review filters.
 - Treats GitHub's search query, search submission, and clear action as the source of truth.
 - Shows GitHub's matching PR count for the active lifecycle while the menu is collapsed.

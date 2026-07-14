@@ -51,10 +51,6 @@ html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
   gap: 4px;
 }
 
-.gprf-lifecycle[open] .gprf-summary-count {
-  display: none;
-}
-
 .gprf-chevron {
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
@@ -80,8 +76,8 @@ html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
   color: var(--fgColor-done, var(--color-done-fg, #8250df));
 }
 
-.gprf-lifecycle-summary[data-lifecycle="closed"] > .gprf-lifecycle-icon,
-.gprf-lifecycle-option[data-lifecycle="closed"] > .gprf-lifecycle-icon:first-child {
+.gprf-lifecycle-summary[data-lifecycle="closed_unmerged"] > .gprf-lifecycle-icon,
+.gprf-lifecycle-option[data-lifecycle="closed_unmerged"] > .gprf-lifecycle-icon:first-child {
   color: var(--fgColor-closed, var(--color-closed-fg, #cf222e));
 }
 

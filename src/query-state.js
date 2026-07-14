@@ -9,8 +9,15 @@
 })(typeof globalThis === "object" ? globalThis : this, function createQueryState() {
   "use strict";
 
-  const DEFAULT_PREFERENCES = Object.freeze({ lifecycle: "all" });
-  const LIFECYCLE_VALUES = new Set(["all", "ready", "draft", "merged", "closed"]);
+  const DEFAULT_PREFERENCES = Object.freeze({ lifecycle: "open" });
+  const LIFECYCLE_VALUES = new Set([
+    "open",
+    "ready",
+    "draft",
+    "closed",
+    "merged",
+    "closed_unmerged"
+  ]);
 
   function tokenizeQuery(query) {
     const input = typeof query === "string" ? query.trim() : "";
@@ -117,12 +124,14 @@
     let lifecycle = null;
     if (merge === "merged") {
       lifecycle = "merged";
+    } else if (state === "closed" && merge === "unmerged") {
+      lifecycle = "closed_unmerged";
     } else if (state === "closed") {
       lifecycle = "closed";
     } else if (readiness) {
       lifecycle = readiness;
     } else if (state === "open") {
-      lifecycle = "all";
+      lifecycle = "open";
     }
 
     return { tokens, state, readiness, merge, lifecycle };
@@ -142,8 +151,10 @@
 
     if (safeLifecycle === "merged") {
       tokens.push("is:merged");
-    } else if (safeLifecycle === "closed") {
+    } else if (safeLifecycle === "closed_unmerged") {
       tokens.push("is:closed", "is:unmerged");
+    } else if (safeLifecycle === "closed") {
+      tokens.push("is:closed");
     } else {
       tokens.push("is:open");
       if (safeLifecycle === "ready") {

@@ -51,12 +51,9 @@ test("lifecycle menu follows GitHub's fixed-caret motion pattern", () => {
   );
 });
 
-test("active count is hidden while the lifecycle menu is expanded", () => {
+test("active count remains visible while the lifecycle menu is expanded", () => {
   const stylesheet = fs.readFileSync(path.join(projectRoot, "src/content.css"), "utf8");
-  assert.match(
-    stylesheet,
-    /\.gprf-lifecycle\[open\] \.gprf-summary-count\s*{\s*display: none;/
-  );
+  assert.doesNotMatch(stylesheet, /gprf-lifecycle\[open\][^{]*gprf-summary-count/);
 });
 
 test("every packaged script, stylesheet, and icon exists", () => {

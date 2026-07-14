@@ -10,9 +10,9 @@ test("tokenizeQuery preserves quoted search terms", () => {
   );
 });
 
-test("All means open pull requests including drafts", () => {
+test("Open means all open pull requests including drafts", () => {
   assert.equal(
-    queryState.queryWithLifecycle("is:pr is:closed draft:true label:frontend", "all"),
+    queryState.queryWithLifecycle("is:pr is:closed draft:true label:frontend", "open"),
     "is:pr label:frontend is:open"
   );
 });
@@ -31,9 +31,19 @@ test("Draft replaces state and legacy readiness qualifiers", () => {
   );
 });
 
-test("Closed means closed without merging", () => {
+test("Closed includes merged pull requests", () => {
   assert.equal(
     queryState.queryWithLifecycle("is:pr is:open draft:false assignee:@me", "closed"),
+    "is:pr assignee:@me is:closed"
+  );
+});
+
+test("Closed without merging adds the unmerged qualifier", () => {
+  assert.equal(
+    queryState.queryWithLifecycle(
+      "is:pr is:open draft:false assignee:@me",
+      "closed_unmerged"
+    ),
     "is:pr assignee:@me is:closed is:unmerged"
   );
 });
@@ -55,12 +65,12 @@ test("lifecycle changes preserve GitHub native review filters", () => {
   );
 });
 
-test("a plain open query maps to All without being rewritten", () => {
+test("a plain open query maps to Open without being rewritten", () => {
   assert.deepEqual(
     queryState.reconcileQuery("is:pr is:open"),
     {
       query: "is:pr is:open",
-      effective: { lifecycle: "all" }
+      effective: { lifecycle: "open" }
     }
   );
 });
@@ -91,6 +101,16 @@ test("closed state takes precedence without rewriting contradictory qualifiers",
     {
       query: "is:pr is:closed draft:true",
       effective: { lifecycle: "closed" }
+    }
+  );
+});
+
+test("closed and unmerged query maps to Closed without merging", () => {
+  assert.deepEqual(
+    queryState.reconcileQuery("is:pr is:closed is:unmerged label:bug"),
+    {
+      query: "is:pr is:closed is:unmerged label:bug",
+      effective: { lifecycle: "closed_unmerged" }
     }
   );
 });
