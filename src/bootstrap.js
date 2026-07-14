@@ -7,7 +7,7 @@
   function isSupportedUrl(value) {
     try {
       const url = new URL(value, location.href);
-      return url.hostname === "github.com" && SUPPORTED_PATH.test(url.pathname);
+      return url.origin === location.origin && SUPPORTED_PATH.test(url.pathname);
     } catch {
       return false;
     }

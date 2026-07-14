@@ -52,7 +52,13 @@ npm test
 npm run check
 npm run lint:firefox
 npm run build:firefox
+npm run test:e2e:chromium
+npm run test:e2e:firefox
 ```
+
+The end-to-end suite loads the real extension into each browser and exercises it against a
+local GitHub-shaped fixture. Chromium uses Playwright; Firefox packages the same source as a
+temporary add-on and installs it through WebDriver.
 
 ## Permissions
 
@@ -62,8 +68,8 @@ npm run build:firefox
 ## Browser releases
 
 The repository intentionally keeps a single manifest and source tree for Chromium and
-Firefox. Automated store publishing and browser-targeted end-to-end tests are planned as
-a later phase; they are not part of the current local build workflow.
+Firefox. GitHub Actions runs unit, manifest, packaging, Chromium E2E, and Firefox E2E checks
+for pull requests and `main`. Automated store publishing remains a later phase.
 
 ## Privacy
 
