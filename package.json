@@ -18,9 +18,10 @@
     "test:e2e": "npm run test:e2e:chromium && npm run test:e2e:firefox",
     "test:e2e:chromium": "E2E_BROWSER=chromium node --test e2e/lifecycle.e2e.js",
     "test:e2e:firefox": "E2E_BROWSER=firefox node --test e2e/lifecycle.e2e.js",
-    "check": "node --check src/bootstrap.js && node --check src/query-state.js && node --check src/extension-api.js && node --check src/content.js && node --test",
+    "check": "node --check src/bootstrap.js && node --check src/query-state.js && node --check src/extension-api.js && node --check src/content.js && node --check scripts/package-release.js && node --test",
     "lint:firefox": "web-ext lint",
-    "build:firefox": "web-ext build --overwrite-dest"
+    "build:firefox": "web-ext build --overwrite-dest",
+    "release:package": "node scripts/package-release.js"
   },
   "webExt": {
     "sourceDir": ".",
@@ -31,6 +32,7 @@
       "node_modules/**",
       "test",
       "e2e",
+      "scripts",
       ".github",
       "package.json",
       "package-lock.json",

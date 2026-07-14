@@ -2,6 +2,20 @@
 
 A small Chromium and Firefox extension that makes GitHub's pull-request lifecycle views faster to use.
 
+## Install from a GitHub release
+
+Until store publishing is available, download the browser-specific package from the
+[latest GitHub release](https://github.com/tstejl/github-pr-filter/releases/latest).
+
+- **Chromium / Chrome / Dia:** extract the Chromium ZIP, open `chrome://extensions`, enable
+  developer mode, choose **Load unpacked**, and select the extracted folder.
+- **Firefox:** the Firefox ZIP is currently an unsigned developer package. Extract it, open
+  `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**, and select its
+  `manifest.json`. Firefox removes it when the browser restarts.
+
+Each release includes SHA-256 checksums. A permanently installable Mozilla-signed XPI is
+planned as the next release phase.
+
 ## What it does
 
 - Filters repository pull-request lists and the global GitHub pull-request page.
@@ -52,6 +66,7 @@ npm test
 npm run check
 npm run lint:firefox
 npm run build:firefox
+npm run release:package
 npm run test:e2e:chromium
 npm run test:e2e:firefox
 ```

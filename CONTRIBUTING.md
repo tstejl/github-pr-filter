@@ -17,6 +17,7 @@ Run:
 ```sh
 npm run check
 npm run lint:firefox
+npm run release:package
 npm run test:e2e:chromium
 npm run test:e2e:firefox
 ```
@@ -24,6 +25,9 @@ npm run test:e2e:firefox
 The Firefox E2E command expects Firefox and geckodriver to be available. GitHub-hosted Linux
 runners include both. Playwright installs its pinned Chromium build with
 `npx playwright install chromium`.
+
+`npm run release:package` verifies that `manifest.json` and `package.json` have the same
+version and writes browser-specific ZIP files plus `SHA256SUMS` to `dist/releases`.
 
 Keep changes focused. The extension intentionally avoids a framework, build step, backend,
 analytics, and broad permissions.
