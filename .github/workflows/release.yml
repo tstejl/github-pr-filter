@@ -1,0 +1,66 @@
+name: Release
+
+run-name: Release v${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version from manifest.json and package.json (without the v prefix)
+        required: true
+        type: string
+      prerelease:
+        description: Mark this GitHub release as a prerelease
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish GitHub release
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run lint:firefox
+      - run: npm run test:e2e:chromium
+      - run: npm run test:e2e:firefox
+      - run: npm run release:package
+      - name: Create draft release with assets
+        run: |
+          tag="v${RELEASE_VERSION}"
+          prerelease=()
+          if [[ "${{ inputs.prerelease }}" == "true" ]]; then
+            prerelease+=(--prerelease)
+          fi
+          gh release create "$tag" dist/releases/* \
+            --target "$GITHUB_SHA" \
+            --title "$tag" \
+            --draft \
+            --generate-notes \
+            --notes-file .github/release-notes.md \
+            "${prerelease[@]}"
+      - name: Publish completed release
+        run: |
+          if [[ "${{ inputs.prerelease }}" == "true" ]]; then
+            gh release edit "v${RELEASE_VERSION}" --draft=false
+          else
+            gh release edit "v${RELEASE_VERSION}" --draft=false --latest
+          fi

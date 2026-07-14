@@ -2,6 +2,26 @@
 
 A small Chromium and Firefox extension that makes GitHub's pull-request lifecycle views faster to use.
 
+## Installation
+
+Browser stores are the recommended installation route. Store builds are signed by the
+browser vendor, install permanently, and receive normal automatic updates. Links will be
+added here as the Firefox Add-ons and Chrome Web Store listings become available.
+
+GitHub releases contain unsigned, browser-specific ZIP builds for manual installation,
+development, and store submission. They do not contain CRX or XPI packages.
+
+- **Chromium / Chrome / Dia:** download and extract the Chromium ZIP, open
+  `chrome://extensions`, enable developer mode, choose **Load unpacked**, and select the
+  extracted folder. Keep that folder in place while the extension is installed.
+- **Firefox:** the Firefox ZIP cannot be installed permanently in standard Firefox. For
+  temporary testing, extract it, open `about:debugging#/runtime/this-firefox`, choose
+  **Load Temporary Add-on**, and select its `manifest.json`. Firefox removes the extension
+  when the browser restarts. Use the Firefox Add-ons listing for permanent installation
+  once it is available.
+
+Each GitHub release includes SHA-256 checksums for both unsigned packages.
+
 ## What it does
 
 - Filters repository pull-request lists and the global GitHub pull-request page.
@@ -52,6 +72,7 @@ npm test
 npm run check
 npm run lint:firefox
 npm run build:firefox
+npm run release:package
 npm run test:e2e:chromium
 npm run test:e2e:firefox
 ```
@@ -69,7 +90,9 @@ temporary add-on and installs it through WebDriver.
 
 The repository intentionally keeps a single manifest and source tree for Chromium and
 Firefox. GitHub Actions runs unit, manifest, packaging, Chromium E2E, and Firefox E2E checks
-for pull requests and `main`. Automated store publishing remains a later phase.
+for pull requests and `main`. GitHub Releases publish unsigned ZIP builds; signed,
+auto-updating installations are distributed through the browser stores. Automated store
+publishing remains a later phase.
 
 ## Privacy
 
