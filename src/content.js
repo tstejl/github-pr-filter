@@ -5,6 +5,8 @@
   const extensionApi = globalThis.GitHubPrFilterExtensionApi;
   const CONTROL_CLASS = "gprf-lifecycle";
   const STORAGE_KEY = "githubPrFilterPreferences";
+  const NATIVE_QUERY_ACTION_KEY = "githubPrFilterNativeQueryAction";
+  const NATIVE_QUERY_ACTION_MAX_AGE = 15_000;
   const SUPPORTED_PATH = /^(?:\/pulls(?:\/.*)?|\/[^/]+\/[^/]+\/pulls\/?)$/;
   const LIFECYCLES = [
     {
@@ -86,6 +88,56 @@
     }
 
     return getSearchInput()?.value.trim() || "";
+  }
+
+  function hasQueryParameter() {
+    const searchParams = new URL(location.href).searchParams;
+    return searchParams.has("q") || searchParams.has("query");
+  }
+
+  function markNativeQueryAction() {
+    try {
+      sessionStorage.setItem(NATIVE_QUERY_ACTION_KEY, JSON.stringify({
+        pathname: location.pathname,
+        timestamp: Date.now()
+      }));
+    } catch {
+      // Explicit URL queries remain authoritative if session storage is unavailable.
+    }
+  }
+
+  function consumeNativeQueryAction() {
+    try {
+      const serialized = sessionStorage.getItem(NATIVE_QUERY_ACTION_KEY);
+      sessionStorage.removeItem(NATIVE_QUERY_ACTION_KEY);
+      if (!serialized) {
+        return false;
+      }
+
+      const action = JSON.parse(serialized);
+      return action.pathname === location.pathname
+        && Date.now() - action.timestamp <= NATIVE_QUERY_ACTION_MAX_AGE;
+    } catch {
+      return false;
+    }
+  }
+
+  function isClearSearchAction(target) {
+    if (!(target instanceof Element)) {
+      return false;
+    }
+
+    const action = target.closest("a, button");
+    if (!action) {
+      return false;
+    }
+
+    const accessibleText = [
+      action.textContent,
+      action.getAttribute("aria-label"),
+      action.getAttribute("title")
+    ].filter(Boolean).join(" ").toLowerCase();
+    return accessibleText.includes("clear current search query");
   }
 
   function urlForQuery(query) {
@@ -388,7 +440,13 @@
       }
 
       const currentQuery = getCurrentQuery();
-      const reconciliation = queryState.reconcileQuery(currentQuery, storedPreferences);
+      const followsNativeQueryAction = consumeNativeQueryAction();
+      const useStoredLifecycle = !hasQueryParameter() && !followsNativeQueryAction;
+      const reconciliation = queryState.reconcileQuery(
+        currentQuery,
+        storedPreferences,
+        { useStoredLifecycle }
+      );
       savedPreferences = reconciliation.preferences;
       activePreferences = reconciliation.effective;
       lastReconciledUrl = currentUrl;
@@ -416,6 +474,25 @@
       void reconcileAndMount();
     }, 60);
   }
+
+  document.addEventListener("click", (event) => {
+    if (isClearSearchAction(event.target)) {
+      markNativeQueryAction();
+    }
+  }, true);
+
+  document.addEventListener("submit", (event) => {
+    const searchInput = getSearchInput();
+    if (searchInput && event.target instanceof Element && event.target.contains(searchInput)) {
+      markNativeQueryAction();
+    }
+  }, true);
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && event.target === getSearchInput()) {
+      markNativeQueryAction();
+    }
+  }, true);
 
   document.addEventListener("click", (event) => {
     for (const control of document.querySelectorAll(`.${CONTROL_CLASS}[open]`)) {

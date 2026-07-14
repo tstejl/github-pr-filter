@@ -165,23 +165,19 @@
     return serializeTokens(tokens);
   }
 
-  function reconcileQuery(query, storedPreferences) {
+  function reconcileQuery(query, storedPreferences, { useStoredLifecycle = false } = {}) {
     const stored = sanitizePreferences(storedPreferences);
     const inspection = inspectQuery(query);
 
-    // Closed and draft qualifiers are deliberate views, so let them update the
-    // global selection. A plain is:open query is GitHub's default and should not
-    // erase a user's persisted Ready or Draft selection on the next repository.
-    const explicitLifecycle = inspection.merge === "merged"
-      ? "merged"
-      : inspection.state === "closed"
-        ? "closed"
-        : inspection.readiness;
-    const lifecycle = explicitLifecycle || stored.lifecycle;
+    // GitHub's query is authoritative whenever it came from a URL or an explicit
+    // native action. Stored state is only a default for a fresh, implicit visit.
+    const lifecycle = useStoredLifecycle
+      ? stored.lifecycle
+      : inspection.lifecycle || DEFAULT_PREFERENCES.lifecycle;
     const preferences = { lifecycle };
 
     return {
-      query: queryWithLifecycle(query, lifecycle),
+      query: useStoredLifecycle ? queryWithLifecycle(query, lifecycle) : query,
       preferences,
       effective: preferences
     };

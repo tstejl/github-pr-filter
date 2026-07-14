@@ -54,6 +54,7 @@ Each GitHub release includes SHA-256 checksums for both unsigned packages.
 - Defines **All** as GitHub's normal open view, including drafts.
 - Separates merged pull requests from pull requests closed without merging.
 - Preserves GitHub's existing search terms and native review filters.
+- Treats GitHub's search query, search submission, and clear action as the source of truth.
 - Remembers the lifecycle selection globally in local browser extension storage.
 - Uses GitHub search qualifiers, so filtered views remain visible in the URL.
 - Uses GitHub's native Turbo navigation to update results without a full-page refresh.

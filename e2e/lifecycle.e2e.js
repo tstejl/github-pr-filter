@@ -38,9 +38,12 @@ function fixturePage(requestUrl) {
   </head>
   <body>
     <main>
-      <form role="search">
+      <form role="search" action="/octocat/hello-world/pulls" method="get">
         <input aria-label="Search all issues" name="q" type="search" value="${query}">
       </form>
+      <a class="js-clear-search" href="/octocat/hello-world/pulls">
+        Clear current search query, filters, and sorts
+      </a>
       <div class="table-list-header-toggle states">
         <a class="btn-link" data-turbo-frame="repo-content" href="/octocat/hello-world/pulls?q=is%3Apr+is%3Aopen">3 Open</a>
         <a class="btn-link" data-turbo-frame="repo-content" href="/octocat/hello-world/pulls?q=is%3Apr+is%3Aclosed">2 Closed</a>
@@ -135,6 +138,11 @@ async function chromiumSession(extensionDir) {
     async click(selector) {
       await page.locator(selector).click();
     },
+    async search(query) {
+      const input = page.locator('input[name="q"]');
+      await input.fill(query);
+      await input.press("Enter");
+    },
     async url() {
       return page.url();
     },
@@ -149,7 +157,7 @@ async function chromiumSession(extensionDir) {
 }
 
 async function firefoxSession(xpiPath) {
-  const { Builder, By, until } = require("selenium-webdriver");
+  const { Builder, By, Key, until } = require("selenium-webdriver");
   const firefox = require("selenium-webdriver/firefox");
   const options = new firefox.Options().addArguments("-headless");
   if (process.env.FIREFOX_BIN) {
@@ -181,6 +189,11 @@ async function firefoxSession(xpiPath) {
     },
     async click(selector) {
       await driver.findElement(By.css(selector)).click();
+    },
+    async search(query) {
+      const input = await driver.findElement(By.css('input[name="q"]'));
+      await input.clear();
+      await input.sendKeys(query, Key.ENTER);
     },
     async url() {
       return driver.getCurrentUrl();
@@ -233,8 +246,30 @@ test(`${BROWSER}: lifecycle menu filters and persists state`, { timeout: 90_000 
     "true"
   );
 
+  await browser.search("is:pr is:open");
+  await browser.waitForUrl((url) => new URL(url).searchParams.get("q") === "is:pr is:open");
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["All"]);
+
+  await browser.search("is:pr is:closed draft:true");
+  await browser.waitForUrl((url) => (
+    new URL(url).searchParams.get("q") === "is:pr is:closed draft:true"
+  ));
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Closed"]);
+
+  await browser.click(".js-clear-search");
+  await browser.waitForUrl((url) => !new URL(url).searchParams.has("q"));
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["All"]);
+
+  await browser.click(".gprf-lifecycle-summary");
+  await browser.click(`${OPTION_SELECTOR}[data-lifecycle="draft"]`);
+  await browser.waitForUrl((url) => new URL(url).searchParams.get("q")?.includes("draft:true"));
+  await browser.waitForControl();
+
   const cleanUrl = new URL(await browser.url());
-  cleanUrl.search = "?q=is%3Apr+is%3Aopen";
+  cleanUrl.search = "";
   await browser.open(cleanUrl.href);
   await browser.waitForUrl((url) => new URL(url).searchParams.get("q")?.includes("draft:true"));
   await browser.waitForControl();

@@ -55,9 +55,24 @@ test("lifecycle changes preserve GitHub native review filters", () => {
   );
 });
 
-test("stored lifecycle wins over GitHub's default plain open query", () => {
+test("an explicit plain open query wins over stored lifecycle", () => {
   assert.deepEqual(
     queryState.reconcileQuery("is:pr is:open", { lifecycle: "ready" }),
+    {
+      query: "is:pr is:open",
+      preferences: { lifecycle: "all" },
+      effective: { lifecycle: "all" }
+    }
+  );
+});
+
+test("stored lifecycle initializes an implicit default visit", () => {
+  assert.deepEqual(
+    queryState.reconcileQuery(
+      "is:pr is:open",
+      { lifecycle: "ready" },
+      { useStoredLifecycle: true }
+    ),
     {
       query: "is:pr is:open draft:false",
       preferences: { lifecycle: "ready" },
@@ -81,7 +96,18 @@ test("explicit closed view updates the persisted selection", () => {
   assert.deepEqual(
     queryState.reconcileQuery("is:pr state:closed label:bug", { lifecycle: "draft" }),
     {
-      query: "is:pr label:bug is:closed is:unmerged",
+      query: "is:pr state:closed label:bug",
+      preferences: { lifecycle: "closed" },
+      effective: { lifecycle: "closed" }
+    }
+  );
+});
+
+test("closed state takes precedence without rewriting contradictory qualifiers", () => {
+  assert.deepEqual(
+    queryState.reconcileQuery("is:pr is:closed draft:true", { lifecycle: "ready" }),
+    {
+      query: "is:pr is:closed draft:true",
       preferences: { lifecycle: "closed" },
       effective: { lifecycle: "closed" }
     }
@@ -92,7 +118,7 @@ test("explicit merged view updates the persisted selection", () => {
   assert.deepEqual(
     queryState.reconcileQuery("is:pr is:merged label:shipped", { lifecycle: "closed" }),
     {
-      query: "is:pr label:shipped is:merged",
+      query: "is:pr is:merged label:shipped",
       preferences: { lifecycle: "merged" },
       effective: { lifecycle: "merged" }
     }
