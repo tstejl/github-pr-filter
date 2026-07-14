@@ -1,6 +1,24 @@
 # GitHub PR Lifecycle Filter
 
+[![CI](https://github.com/tstejl/github-pr-filter/actions/workflows/ci.yml/badge.svg)](https://github.com/tstejl/github-pr-filter/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/tstejl/github-pr-filter?display_name=tag&sort=semver)](https://github.com/tstejl/github-pr-filter/releases/latest)
+
 A small Chromium and Firefox extension that makes GitHub's pull-request lifecycle views faster to use.
+
+## Preview
+
+<table>
+  <tr>
+    <td width="68%">
+      <strong>Collapsed</strong><br>
+      <img src="docs/images/lifecycle-collapsed-light.png" alt="GitHub pull request list with the lifecycle filter collapsed" width="100%">
+    </td>
+    <td width="32%">
+      <strong>Expanded</strong><br>
+      <img src="docs/images/lifecycle-expanded-light.png" alt="Expanded pull request lifecycle menu in GitHub's light theme" width="100%">
+    </td>
+  </tr>
+</table>
 
 ## Installation
 
