@@ -9,16 +9,23 @@ A small Chromium and Firefox extension that makes GitHub's pull-request lifecycl
 
 <table>
   <tr>
-    <td width="68%">
-      <strong>Collapsed</strong><br>
-      <img src="docs/images/lifecycle-collapsed-light.png" alt="GitHub pull request list with the lifecycle filter collapsed" width="100%">
+    <td>
+      <strong>Before</strong><br>
+      <img src="docs/images/lifecycle-before-light.png" alt="GitHub's native Open and Closed pull request controls before enabling the extension" width="100%">
     </td>
-    <td width="32%">
-      <strong>Expanded</strong><br>
-      <img src="docs/images/lifecycle-expanded-light.png" alt="Expanded pull request lifecycle menu in GitHub's light theme" width="100%">
+  </tr>
+  <tr>
+    <td>
+      <strong>With the extension</strong><br>
+      <img src="docs/images/lifecycle-after-light.png" alt="GitHub pull request list with the Ready lifecycle view selected" width="100%">
     </td>
   </tr>
 </table>
+
+<p align="center">
+  <strong>Expanded lifecycle menu</strong><br>
+  <img src="docs/images/lifecycle-expanded-light.png" alt="Expanded pull request lifecycle menu in GitHub's light theme" width="420">
+</p>
 
 ## Installation
 

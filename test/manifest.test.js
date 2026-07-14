@@ -41,6 +41,17 @@ test("navigation keeps GitHub Turbo hooks instead of forcing a page reload", () 
   assert.match(stylesheet, /html\.gprf-supported-page/);
 });
 
+test("lifecycle menu follows GitHub's fixed-caret motion pattern", () => {
+  const stylesheet = fs.readFileSync(path.join(projectRoot, "src/content.css"), "utf8");
+  assert.doesNotMatch(stylesheet, /gprf-lifecycle\[open\][^{]*gprf-chevron/);
+  assert.match(stylesheet, /animation: gprf-menu-open 120ms/);
+  assert.match(stylesheet, /@keyframes gprf-menu-open/);
+  assert.match(
+    stylesheet,
+    /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation: none;/
+  );
+});
+
 test("every packaged script, stylesheet, and icon exists", () => {
   const packagedFiles = [
     ...manifest.content_scripts.flatMap((entry) => [
