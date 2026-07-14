@@ -2,6 +2,13 @@
 
 All notable changes will be documented in this file.
 
+## 0.4.1 — 2026-07-14
+
+- Fixed the active count for Merged pull-request views using GitHub's `Total` header.
+- Added deterministic coverage for GitHub's `state:open` and `state:closed` query forms.
+- Limited the extension to repository pull-request lists while GitHub experiments with a new
+  global pull-request layout.
+
 ## 0.4.0 — 2026-07-14
 
 - Added a compact lifecycle menu for Open, Ready, Draft, Closed, Merged, and Closed without

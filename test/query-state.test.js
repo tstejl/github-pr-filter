@@ -75,6 +75,23 @@ test("a plain open query maps to Open without being rewritten", () => {
   );
 });
 
+test("state:open without is:pr maps to Open without being rewritten", () => {
+  assert.deepEqual(
+    queryState.reconcileQuery("state:open label:bug"),
+    {
+      query: "state:open label:bug",
+      effective: { lifecycle: "open" }
+    }
+  );
+});
+
+test("lifecycle changes replace state:open without inventing is:pr", () => {
+  assert.equal(
+    queryState.queryWithLifecycle("state:open label:bug", "ready"),
+    "label:bug is:open draft:false"
+  );
+});
+
 test("explicit draft view updates the displayed selection", () => {
   assert.deepEqual(
     queryState.reconcileQuery("is:pr is:open draft:true"),
@@ -85,11 +102,11 @@ test("explicit draft view updates the displayed selection", () => {
   );
 });
 
-test("explicit closed view updates the displayed selection", () => {
+test("state:closed without is:pr updates the displayed selection", () => {
   assert.deepEqual(
-    queryState.reconcileQuery("is:pr state:closed label:bug"),
+    queryState.reconcileQuery("state:closed label:bug"),
     {
-      query: "is:pr state:closed label:bug",
+      query: "state:closed label:bug",
       effective: { lifecycle: "closed" }
     }
   );

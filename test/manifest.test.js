@@ -24,12 +24,25 @@ test("anti-flicker CSS loads before the interactive content script", () => {
   const [bootstrap, interactive] = manifest.content_scripts;
   assert.equal(bootstrap.run_at, "document_start");
   assert.deepEqual(bootstrap.css, ["src/content.css"]);
-  assert.deepEqual(bootstrap.js, ["src/bootstrap.js"]);
+  assert.deepEqual(bootstrap.js, [
+    "src/page-scope.js",
+    "src/bootstrap.js"
+  ]);
   assert.equal(interactive.run_at, "document_end");
   assert.deepEqual(interactive.js, [
     "src/query-state.js",
     "src/content.js"
   ]);
+});
+
+test("page scope includes repository PR lists and excludes global pulls", () => {
+  const pageScope = require("../src/page-scope.js");
+  assert.equal(pageScope.isRepositoryPullListPath("/octocat/hello-world/pulls"), true);
+  assert.equal(pageScope.isRepositoryPullListPath("/octocat/hello-world/pulls/"), true);
+  assert.equal(pageScope.isRepositoryPullListPath("/pulls"), false);
+  assert.equal(pageScope.isRepositoryPullListPath("/pulls/assigned"), false);
+  assert.equal(pageScope.isRepositoryPullListPath("/octocat/hello-world/pull/1"), false);
+  assert.equal(pageScope.isRepositoryPullListPath("/octocat/hello-world/pulls/1"), false);
 });
 
 test("navigation keeps GitHub Turbo hooks instead of forcing a page reload", () => {

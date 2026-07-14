@@ -27,7 +27,7 @@ Each GitHub release includes SHA-256 checksums for both unsigned packages.
 
 ## What it does
 
-- Filters repository pull-request lists and the global GitHub pull-request page.
+- Filters repository pull-request lists on GitHub.
 - Replaces GitHub's **Open / Closed** links with a compact six-state lifecycle menu.
 - Treats **Open** and **Closed** as aggregate views, matching GitHub's query semantics.
 - Separates **Merged** pull requests from **Closed without merging**.
@@ -46,7 +46,7 @@ The extension does not call the GitHub API, collect analytics, use a backend, or
 2. Enable **Developer mode**.
 3. Choose **Load unpacked**.
 4. Select this project directory. Dia and other Chromium-based browsers support the same unpacked-extension flow.
-5. Open a repository's **Pull requests** page or `https://github.com/pulls`.
+5. Open a repository's **Pull requests** page.
 
 ## Run in Firefox for development
 
