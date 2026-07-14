@@ -30,6 +30,7 @@
         "src/content.css"
       ],
       "js": [
+        "src/page-scope.js",
         "src/bootstrap.js"
       ],
       "run_at": "document_start"

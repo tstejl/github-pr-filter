@@ -291,6 +291,21 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   await browser.waitForControl();
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
 
+  await browser.search("state:open label:bug");
+  await browser.waitForUrl((url) => (
+    new URL(url).searchParams.get("q") === "state:open label:bug"
+  ));
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
+
+  await browser.click(".gprf-lifecycle-summary");
+  await browser.click(`${OPTION_SELECTOR}[data-lifecycle="ready"]`);
+  await browser.waitForUrl((url) => (
+    new URL(url).searchParams.get("q") === "label:bug is:open draft:false"
+  ));
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Ready"]);
+
   await browser.search("is:pr is:closed draft:true");
   await browser.waitForUrl((url) => (
     new URL(url).searchParams.get("q") === "is:pr is:closed draft:true"
@@ -335,4 +350,13 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   assert.equal(new URL(await browser.url()).searchParams.has("q"), false);
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
   assert.deepEqual(await browser.text(".gprf-summary-count"), ["3"]);
+
+  const globalUrl = new URL(fixture.url);
+  globalUrl.pathname = "/pulls";
+  await browser.open(globalUrl.href);
+  assert.deepEqual(await browser.text(".gprf-lifecycle-summary"), []);
+  assert.equal(
+    (await browser.attribute("html", "class") || "").includes("gprf-supported-page"),
+    false
+  );
 });
