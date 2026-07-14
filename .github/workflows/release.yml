@@ -38,6 +38,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
       - run: npm run check
       - run: npm run lint:firefox
       - run: npm run test:e2e:chromium
