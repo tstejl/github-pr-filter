@@ -27,7 +27,9 @@ runners include both. Playwright installs its pinned Chromium build with
 `npx playwright install chromium`.
 
 `npm run release:package` verifies that `manifest.json` and `package.json` have the same
-version and writes browser-specific ZIP files plus `SHA256SUMS` to `dist/releases`.
+version and writes unsigned, browser-specific ZIP files plus `SHA256SUMS` to
+`dist/releases`. Browser stores sign their respective packages; GitHub Releases do not
+publish CRX or XPI files.
 
 Keep changes focused. The extension intentionally avoids a framework, build step, backend,
 analytics, and broad permissions.

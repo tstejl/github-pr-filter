@@ -1,5 +1,9 @@
 ## Installation
 
+GitHub release assets are unsigned ZIP builds for manual installation, development, and
+store submission. For a signed, permanently installed, auto-updating extension, use the
+Firefox Add-ons or Chrome Web Store listing when available.
+
 ### Chromium, Chrome, Dia, and other Chromium browsers
 
 1. Download the `chromium.zip` asset and extract it.
@@ -14,6 +18,7 @@ The `firefox.zip` asset is an unsigned developer package. Extract it, open
 `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**, and select its
 `manifest.json`. Firefox removes temporary add-ons when the browser restarts.
 
-A permanently installable, Mozilla-signed XPI will be added in a later release.
+GitHub Releases do not include XPI files. Permanent Firefox installation is provided by
+the Mozilla Add-ons listing.
 
-Checksums for both browser packages are included in `SHA256SUMS`.
+Checksums for both unsigned browser packages are included in `SHA256SUMS`.
