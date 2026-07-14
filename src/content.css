@@ -66,17 +66,15 @@ html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
   flex: 0 0 auto;
 }
 
-.gprf-lifecycle-summary[data-lifecycle="ready"] > .gprf-lifecycle-icon,
+.gprf-lifecycle-option[data-lifecycle="open"] > .gprf-lifecycle-icon:first-child,
 .gprf-lifecycle-option[data-lifecycle="ready"] > .gprf-lifecycle-icon:first-child {
   color: var(--fgColor-open, var(--color-open-fg, #1a7f37));
 }
 
-.gprf-lifecycle-summary[data-lifecycle="merged"] > .gprf-lifecycle-icon,
 .gprf-lifecycle-option[data-lifecycle="merged"] > .gprf-lifecycle-icon:first-child {
   color: var(--fgColor-done, var(--color-done-fg, #8250df));
 }
 
-.gprf-lifecycle-summary[data-lifecycle="closed_unmerged"] > .gprf-lifecycle-icon,
 .gprf-lifecycle-option[data-lifecycle="closed_unmerged"] > .gprf-lifecycle-icon:first-child {
   color: var(--fgColor-closed, var(--color-closed-fg, #cf222e));
 }

@@ -135,6 +135,12 @@ async function chromiumSession(extensionDir) {
     async attribute(selector, name) {
       return page.locator(selector).getAttribute(name);
     },
+    async attributes(selector, name) {
+      return page.locator(selector).evaluateAll(
+        (elements, attributeName) => elements.map((element) => element.getAttribute(attributeName)),
+        name
+      );
+    },
     async cssValue(selector, name) {
       return page.locator(selector).evaluate(
         (element, property) => getComputedStyle(element).getPropertyValue(property),
@@ -193,6 +199,11 @@ async function firefoxSession(xpiPath) {
     async attribute(selector, name) {
       return (await driver.findElement(By.css(selector))).getAttribute(name);
     },
+    async attributes(selector, name) {
+      return Promise.all(
+        (await elements(selector)).map((element) => element.getAttribute(name))
+      );
+    },
     async cssValue(selector, name) {
       return (await driver.findElement(By.css(selector))).getCssValue(name);
     },
@@ -240,6 +251,10 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
     await browser.attribute(".gprf-lifecycle-summary", "aria-label"),
     "3 pull requests: Open"
   );
+  assert.deepEqual(
+    await browser.text(".gprf-lifecycle-summary > .gprf-lifecycle-icon"),
+    []
+  );
   const nativeClasses = await browser.attribute(
     ".table-list-header-toggle.states > a:first-child",
     "class"
@@ -251,6 +266,12 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   assert.deepEqual(await browser.text(".gprf-option-label"), [
     "Open", "Ready", "Draft", "Closed", "Merged", "Closed without merging"
   ]);
+  const menuIconPaths = await browser.attributes(
+    ".gprf-lifecycle-option > .gprf-lifecycle-icon:first-child path",
+    "d"
+  );
+  assert.equal(menuIconPaths.length, 6);
+  assert.equal(new Set(menuIconPaths).size, 6);
 
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="draft"]`);
   await browser.waitForUrl((url) => new URL(url).searchParams.get("q")?.includes("draft:true"));

@@ -56,6 +56,7 @@ Each GitHub release includes SHA-256 checksums for both unsigned packages.
 - Preserves GitHub's existing search terms and native review filters.
 - Treats GitHub's search query, search submission, and clear action as the source of truth.
 - Shows GitHub's matching PR count for the active lifecycle while the menu is collapsed.
+- Keeps the compact trigger text-only and uses a distinct GitHub Octicon for every menu state.
 - Uses GitHub search qualifiers, so filtered views remain visible in the URL.
 - Uses GitHub's native Turbo navigation to update results without a full-page refresh.
 
