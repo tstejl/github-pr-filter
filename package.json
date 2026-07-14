@@ -1,0 +1,39 @@
+{
+  "name": "github-pr-filter",
+  "version": "0.4.0",
+  "private": true,
+  "license": "MIT",
+  "description": "A focused Chromium and Firefox extension for switching GitHub pull-request lifecycle views.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tstejl/github-pr-filter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tstejl/github-pr-filter/issues"
+  },
+  "homepage": "https://github.com/tstejl/github-pr-filter#readme",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check src/bootstrap.js && node --check src/query-state.js && node --check src/extension-api.js && node --check src/content.js && node --test",
+    "lint:firefox": "web-ext lint",
+    "build:firefox": "web-ext build --overwrite-dest"
+  },
+  "webExt": {
+    "sourceDir": ".",
+    "artifactsDir": "dist/firefox",
+    "ignoreFiles": [
+      ".codebase-memory",
+      "dist",
+      "node_modules/**",
+      "test",
+      "package.json",
+      "package-lock.json",
+      "README.md",
+      "CONTRIBUTING.md",
+      "CHANGELOG.md"
+    ]
+  },
+  "devDependencies": {
+    "web-ext": "10.5.0"
+  }
+}

@@ -1,0 +1,188 @@
+.gprf-native-status-hidden {
+  display: none !important;
+}
+
+html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
+  display: none !important;
+}
+
+.gprf-lifecycle {
+  box-sizing: border-box;
+  color: var(--fgColor-default, var(--color-fg-default, #1f2328));
+  display: inline-block;
+  font: inherit;
+  position: relative;
+  vertical-align: middle;
+}
+
+.gprf-lifecycle-summary {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--fgColor-muted, var(--color-fg-muted, #656d76));
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 600;
+  gap: 8px;
+  line-height: 21px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.gprf-lifecycle-summary::-webkit-details-marker {
+  display: none;
+}
+
+.gprf-lifecycle-summary:hover {
+  color: var(--fgColor-default, var(--color-fg-default, #1f2328));
+}
+
+.gprf-lifecycle-summary:focus-visible {
+  outline: 2px solid var(--focus-outlineColor, var(--color-accent-fg, #0969da));
+  outline-offset: 3px;
+}
+
+.gprf-chevron {
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 4px solid currentColor;
+  height: 0;
+  margin-left: 0;
+  margin-top: 2px;
+  transition: transform 100ms ease;
+  width: 0;
+}
+
+.gprf-lifecycle[open] .gprf-chevron {
+  transform: rotate(180deg);
+}
+
+.gprf-lifecycle-icon {
+  fill: currentColor;
+  flex: 0 0 auto;
+}
+
+.gprf-lifecycle-summary[data-lifecycle="ready"] > .gprf-lifecycle-icon,
+.gprf-lifecycle-option[data-lifecycle="ready"] > .gprf-lifecycle-icon:first-child {
+  color: var(--fgColor-open, var(--color-open-fg, #1a7f37));
+}
+
+.gprf-lifecycle-summary[data-lifecycle="merged"] > .gprf-lifecycle-icon,
+.gprf-lifecycle-option[data-lifecycle="merged"] > .gprf-lifecycle-icon:first-child {
+  color: var(--fgColor-done, var(--color-done-fg, #8250df));
+}
+
+.gprf-lifecycle-summary[data-lifecycle="closed"] > .gprf-lifecycle-icon,
+.gprf-lifecycle-option[data-lifecycle="closed"] > .gprf-lifecycle-icon:first-child {
+  color: var(--fgColor-closed, var(--color-closed-fg, #cf222e));
+}
+
+.gprf-lifecycle-menu {
+  background: var(--overlay-bgColor, var(--color-canvas-overlay, #fff));
+  border: 1px solid var(--borderColor-default, var(--color-border-default, #d0d7de));
+  border-radius: 6px;
+  box-shadow: var(--shadow-floating-small, var(--color-shadow-large, 0 8px 24px rgba(140, 149, 159, 0.2)));
+  color: var(--fgColor-default, var(--color-fg-default, #1f2328));
+  display: none;
+  left: 0;
+  min-width: 248px;
+  overflow: hidden;
+  position: absolute;
+  top: calc(100% + 8px);
+  width: max-content;
+  z-index: 100;
+}
+
+.gprf-lifecycle[open] > .gprf-lifecycle-menu {
+  display: block;
+}
+
+.gprf-menu-heading {
+  border-bottom: 1px solid var(--borderColor-muted, var(--color-border-muted, #d8dee4));
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 12px;
+}
+
+.gprf-lifecycle-option {
+  align-items: start;
+  color: inherit;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 16px minmax(0, 1fr) 16px;
+  min-height: 48px;
+  padding: 6px 12px;
+  text-decoration: none;
+  transition: background-color 80ms ease;
+}
+
+.gprf-lifecycle-option > .gprf-lifecycle-icon:first-child,
+.gprf-option-check {
+  margin-top: 4px;
+}
+
+.gprf-lifecycle-option:hover,
+.gprf-lifecycle-option:focus-visible {
+  background: var(--control-transparent-bgColor-hover, var(--color-action-list-item-default-hover-bg, rgba(208, 215, 222, 0.32)));
+  color: inherit;
+  outline: none;
+  text-decoration: none;
+}
+
+.gprf-option-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.gprf-option-label {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.gprf-option-description {
+  color: var(--fgColor-muted, var(--color-fg-muted, #656d76));
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.gprf-option-check {
+  color: var(--fgColor-accent, var(--color-accent-fg, #0969da));
+  opacity: 0;
+}
+
+.gprf-lifecycle-option.selected .gprf-option-check {
+  opacity: 1;
+}
+
+.gprf-menu-divider {
+  border-top: 1px solid var(--borderColor-muted, var(--color-border-muted, #d8dee4));
+  height: 0;
+}
+
+.gprf-lifecycle--standalone {
+  margin-block: 12px 4px;
+}
+
+@media (max-width: 543px) {
+  .gprf-lifecycle-menu {
+    max-width: calc(100vw - 32px);
+    min-width: 228px;
+  }
+
+  .gprf-lifecycle-option {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gprf-chevron,
+  .gprf-lifecycle-option {
+    transition: none;
+  }
+}

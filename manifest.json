@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "GitHub PR Lifecycle Filter",
+  "short_name": "PR Filter",
+  "version": "0.4.0",
+  "description": "Quickly switch GitHub pull requests between All, Ready, Draft, Merged, and Closed.",
+  "icons": {
+    "16": "assets/icon-16.png",
+    "32": "assets/icon-32.png",
+    "48": "assets/icon-48.png",
+    "128": "assets/icon-128.png"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{0ba166a1-ac85-491b-b36f-05b9177dda96}",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://github.com/*"
+      ],
+      "css": [
+        "src/content.css"
+      ],
+      "js": [
+        "src/bootstrap.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://github.com/*"
+      ],
+      "js": [
+        "src/query-state.js",
+        "src/extension-api.js",
+        "src/content.js"
+      ],
+      "run_at": "document_end"
+    }
+  ]
+}

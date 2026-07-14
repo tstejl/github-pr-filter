@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">GitHub pull request review filter</title>
+  <rect width="128" height="128" rx="28" fill="#238636"/>
+  <path d="M39 29v52.5a15.5 15.5 0 1 0 8 0V51h26.5A14.5 14.5 0 0 1 88 65.5v16a15.5 15.5 0 1 0 8 0v-16A22.5 22.5 0 0 0 73.5 43H47V29a15.5 15.5 0 1 0-8 0Zm4-8a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Zm0 83a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Zm49 0a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" fill="#fff"/>
+  <path d="M73 22h31M79 31h19M84 40h9" fill="none" stroke="#fff" stroke-linecap="round" stroke-width="7"/>
+</svg>
