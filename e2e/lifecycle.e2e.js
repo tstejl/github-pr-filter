@@ -268,14 +268,14 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   await browser.click(".gprf-lifecycle-summary");
   assert.notEqual(await browser.cssValue(".gprf-summary-count", "display"), "none");
   assert.deepEqual(await browser.text(".gprf-option-label"), [
-    "Open", "Ready", "Draft", "Closed", "Merged", "Closed without merging"
+    "Open", "Ready", "Draft", "Needs review", "Closed", "Merged", "Closed without merging"
   ]);
   const menuIconPaths = await browser.attributes(
     ".gprf-lifecycle-option > .gprf-lifecycle-icon:first-child path",
     "d"
   );
-  assert.equal(menuIconPaths.length, 6);
-  assert.equal(new Set(menuIconPaths).size, 6);
+  assert.equal(menuIconPaths.length, 7);
+  assert.equal(new Set(menuIconPaths).size, 7);
 
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="draft"]`);
   await browser.waitForUrl((url) => new URL(url).searchParams.get("q")?.includes("draft:true"));
@@ -305,6 +305,15 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   ));
   await browser.waitForControl();
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Ready"]);
+
+  await browser.click(".gprf-lifecycle-summary");
+  await browser.click(`${OPTION_SELECTOR}[data-lifecycle="needs_review"]`);
+  await browser.waitForUrl((url) => (
+    new URL(url).searchParams.get("q")
+      === "label:bug is:open draft:false -review:approved -review:changes_requested"
+  ));
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Needs review"]);
 
   await browser.search("is:pr is:closed draft:true");
   await browser.waitForUrl((url) => (

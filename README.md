@@ -28,10 +28,14 @@ Each GitHub release includes SHA-256 checksums for both unsigned packages.
 ## What it does
 
 - Filters repository pull-request lists on GitHub.
-- Replaces GitHub's **Open / Closed** links with a compact six-state lifecycle menu.
+- Replaces GitHub's **Open / Closed** links with a compact seven-state lifecycle menu.
 - Treats **Open** and **Closed** as aggregate views, matching GitHub's query semantics.
 - Separates **Merged** pull requests from **Closed without merging**.
-- Preserves GitHub's existing search terms and native review filters.
+- Adds a **Needs review** view: open, non-draft pull requests that are neither approved
+  nor awaiting changes from their author.
+- Preserves GitHub's existing search terms and native review filters. The one exception is
+  selecting **Needs review**, which replaces review-status (`review:`) qualifiers so the
+  resulting query cannot contradict itself.
 - Treats GitHub's search query, search submission, and clear action as the source of truth.
 - Shows GitHub's matching PR count for the active lifecycle while the menu is collapsed.
 - Keeps the compact trigger text-only and uses a distinct GitHub Octicon for every menu state.
