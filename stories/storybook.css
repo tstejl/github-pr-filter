@@ -1,0 +1,111 @@
+body {
+  margin: 0;
+}
+
+.gprf-storybook-shell {
+  background: var(--bgColor-default, var(--color-canvas-default, #fff));
+  color: var(--fgColor-default, var(--color-fg-default, #1f2328));
+  font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.gprf-storybook-shell[data-theme="dark"] {
+  --bgColor-default: #0d1117;
+  --overlay-bgColor: #161b22;
+  --borderColor-default: #30363d;
+  --borderColor-muted: #21262d;
+  --fgColor-default: #f0f6fc;
+  --fgColor-muted: #8b949e;
+  --fgColor-accent: #58a6ff;
+  --fgColor-open: #3fb950;
+  --fgColor-attention: #d29922;
+  --fgColor-done: #a371f7;
+  --fgColor-closed: #f85149;
+  --control-transparent-bgColor-hover: rgba(177, 186, 196, 0.12);
+  --focus-outlineColor: #1f6feb;
+  --shadow-floating-small: 0 8px 24px rgba(1, 4, 9, 0.8);
+}
+
+.gprf-storybook-shell[data-theme="high-contrast"] {
+  --bgColor-default: #0a0c10;
+  --overlay-bgColor: #0a0c10;
+  --borderColor-default: #f0f3f6;
+  --borderColor-muted: #7a828e;
+  --fgColor-default: #fff;
+  --fgColor-muted: #d9dee3;
+  --fgColor-accent: #71b7ff;
+  --fgColor-open: #4ae168;
+  --fgColor-attention: #f0b72f;
+  --fgColor-done: #b780ff;
+  --fgColor-closed: #ff6a69;
+  --control-transparent-bgColor-hover: rgba(255, 255, 255, 0.18);
+  --focus-outlineColor: #71b7ff;
+  --shadow-floating-small: 0 0 0 1px #f0f3f6;
+}
+
+.gprf-storybook-title {
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+
+.gprf-storybook-description {
+  color: var(--fgColor-muted, #656d76);
+  margin: 0 0 24px;
+}
+
+.gprf-storybook-section + .gprf-storybook-section {
+  margin-top: 32px;
+}
+
+.gprf-storybook-section-title {
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+
+.gprf-storybook-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.gprf-storybook-card {
+  background: var(--overlay-bgColor, #fff);
+  border: 1px solid var(--borderColor-default, #d0d7de);
+  border-radius: 6px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.gprf-storybook-card--expanded {
+  min-height: 540px;
+}
+
+.gprf-storybook-grid .gprf-lifecycle[open] > .gprf-lifecycle-menu {
+  animation: none;
+}
+
+.gprf-storybook-card-title {
+  color: var(--fgColor-muted, #656d76);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.gprf-storybook-interactive {
+  min-height: 540px;
+  width: min(100%, 360px);
+}
+
+.gprf-storybook-narrow {
+  border: 1px dashed var(--borderColor-default, #d0d7de);
+  min-height: 430px;
+  padding: 16px;
+  width: 280px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gprf-storybook-shell * {
+    scroll-behavior: auto !important;
+  }
+}

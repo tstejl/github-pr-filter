@@ -89,11 +89,18 @@ bun run build:firefox
 bun run release:package
 bun run test:e2e:chromium
 bun run test:e2e:firefox
+bun run storybook
+bun run test:visual
 ```
 
 The end-to-end suite loads the real extension into each browser and exercises it against a
 local GitHub-shaped fixture. Chromium uses Playwright; Firefox packages the same source as a
 temporary add-on and installs it through WebDriver.
+
+Storybook renders the production lifecycle-control module without loading the extension or
+GitHub. Its galleries show every state in light, dark, high-contrast, expanded, collapsed,
+interactive, and narrow layouts. The Playwright visual-contract suite verifies the rendered
+DOM, theme tokens, icon uniqueness, counts, menu dimensions, and responsive containment.
 
 ## Permissions
 

@@ -19,6 +19,8 @@ bun run lint:firefox
 bun run release:package
 bun run test:e2e:chromium
 bun run test:e2e:firefox
+bun run storybook:build
+bun run test:visual
 ```
 
 The Firefox E2E command expects Firefox and geckodriver to be available. GitHub-hosted Linux
@@ -29,6 +31,10 @@ runners include both. Playwright installs its pinned Chromium build with
 version and writes unsigned, browser-specific ZIP files plus `SHA256SUMS` to
 `dist/releases`. Browser stores sign their respective packages; GitHub Releases do not
 publish CRX or XPI files.
+
+Use `bun run storybook` to inspect every lifecycle-control state without loading the
+extension. Storybook imports the same typed renderer and CSS as the browser bundle; its
+visual-contract tests run in a controlled local Chromium instance.
 
 Keep changes focused. The extension intentionally avoids a runtime UI framework, backend,
 analytics, and broad permissions. TypeScript 7 checks the source and Bun emits readable

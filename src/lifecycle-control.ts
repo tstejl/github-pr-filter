@@ -15,6 +15,7 @@ export interface LifecycleControlConfiguration {
   readonly standalone?: boolean;
   readonly options?: readonly LifecycleOption[];
   readonly ownerDocument?: Document;
+  readonly exclusive?: boolean;
 }
 
 export interface LifecycleControlRefresh {
@@ -114,7 +115,8 @@ export function createLifecycleControl({
   count = null,
   standalone = false,
   options = LIFECYCLE_OPTIONS,
-  ownerDocument = document
+  ownerDocument = document,
+  exclusive = true
 }: LifecycleControlConfiguration): HTMLDetailsElement {
   const control = ownerDocument.createElement("details");
   control.className = `${CONTROL_CLASS}${standalone ? " gprf-lifecycle--standalone" : ""}`;
@@ -196,7 +198,7 @@ export function createLifecycleControl({
   });
 
   control.addEventListener("toggle", () => {
-    if (!control.open) {
+    if (!control.open || !exclusive) {
       return;
     }
     for (const otherControl of ownerDocument.querySelectorAll<HTMLDetailsElement>(`.${CONTROL_CLASS}[open]`)) {

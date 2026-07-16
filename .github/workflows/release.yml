@@ -43,6 +43,8 @@ jobs:
       - run: bun run lint:firefox
       - run: bun run test:e2e:chromium
       - run: bun run test:e2e:firefox
+      - run: bun run storybook:build
+      - run: bun run test:visual
       - run: bun run release:package
       - name: Create draft release with assets
         run: |
