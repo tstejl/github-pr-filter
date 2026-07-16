@@ -33,18 +33,20 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
+          bun-version: 1.3.11
+      - run: bun install --frozen-lockfile
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-      - run: npm run check
-      - run: npm run lint:firefox
-      - run: npm run test:e2e:chromium
-      - run: npm run test:e2e:firefox
-      - run: npm run release:package
+        run: bunx playwright install --with-deps chromium
+      - run: bun run check
+      - run: bun run test:unit
+      - run: bun run lint:firefox
+      - run: bun run test:e2e:chromium
+      - run: bun run test:e2e:firefox
+      - run: bun run storybook:build
+      - run: bun run test:visual
+      - run: bun run release:package
       - name: Create draft release with assets
         run: |
           tag="v${RELEASE_VERSION}"

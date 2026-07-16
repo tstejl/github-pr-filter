@@ -87,7 +87,10 @@ html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
   background: var(--overlay-bgColor, var(--color-canvas-overlay, #fff));
   border: 1px solid var(--borderColor-default, var(--color-border-default, #d0d7de));
   border-radius: 6px;
-  box-shadow: var(--shadow-floating-small, var(--color-shadow-large, 0 8px 24px rgba(140, 149, 159, 0.2)));
+  box-shadow: var(
+    --shadow-floating-small,
+    var(--color-shadow-large, 0 8px 24px rgba(140, 149, 159, 0.2))
+  );
   color: var(--fgColor-default, var(--color-fg-default, #1f2328));
   display: none;
   left: 0;
@@ -143,7 +146,10 @@ html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
 
 .gprf-lifecycle-option:hover,
 .gprf-lifecycle-option:focus-visible {
-  background: var(--control-transparent-bgColor-hover, var(--color-action-list-item-default-hover-bg, rgba(208, 215, 222, 0.32)));
+  background: var(
+    --control-transparent-bgColor-hover,
+    var(--color-action-list-item-default-hover-bg, rgba(208, 215, 222, 0.32))
+  );
   color: inherit;
   outline: none;
   text-decoration: none;

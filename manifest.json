@@ -15,34 +15,20 @@
       "id": "{0ba166a1-ac85-491b-b36f-05b9177dda96}",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
-        "required": [
-          "none"
-        ]
+        "required": ["none"]
       }
     }
   },
   "content_scripts": [
     {
-      "matches": [
-        "https://github.com/*"
-      ],
-      "css": [
-        "src/content.css"
-      ],
-      "js": [
-        "src/page-scope.js",
-        "src/bootstrap.js"
-      ],
+      "matches": ["https://github.com/*"],
+      "css": ["src/content.css"],
+      "js": ["src/bootstrap.js"],
       "run_at": "document_start"
     },
     {
-      "matches": [
-        "https://github.com/*"
-      ],
-      "js": [
-        "src/query-state.js",
-        "src/content.js"
-      ],
+      "matches": ["https://github.com/*"],
+      "js": ["src/content.js"],
       "run_at": "document_end"
     }
   ]

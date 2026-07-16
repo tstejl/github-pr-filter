@@ -1,0 +1,18 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "deny",
+    "perf": "deny",
+    "suspicious": "deny"
+  },
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise", "node"],
+  "ignorePatterns": ["dist/**"],
+  "overrides": [
+    {
+      "files": [".storybook/preview.ts"],
+      "rules": {
+        "import/no-unassigned-import": "allow"
+      }
+    }
+  ]
+}

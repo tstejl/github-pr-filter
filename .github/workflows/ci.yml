@@ -21,14 +21,16 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run check
-      - run: npm run lint:firefox
-      - run: npm run build:firefox
+          bun-version: 1.3.11
+      - run: bun install --frozen-lockfile
+      - name: Check formatting, lint, and types
+        run: bun run check
+      - name: Run unit, manifest, and packaging tests
+        run: bun run test:unit
+      - run: bun run lint:firefox
+      - run: bun run build:firefox
 
   e2e:
     name: E2E (${{ matrix.browser }})
@@ -40,13 +42,26 @@ jobs:
         browser: [chromium, firefox]
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
+          bun-version: 1.3.11
+      - run: bun install --frozen-lockfile
       - name: Install Chromium
         if: matrix.browser == 'chromium'
-        run: npx playwright install --with-deps chromium
+        run: bunx playwright install --with-deps chromium
       - name: Run browser test
-        run: npm run test:e2e:${{ matrix.browser }}
+        run: bun run test:e2e:${{ matrix.browser }}
+
+  visual:
+    name: Storybook visual contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run storybook:build
+      - run: bun run test:visual

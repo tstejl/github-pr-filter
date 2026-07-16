@@ -1,13 +1,13 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-
-const queryState = require("../src/query-state.js");
+import { test } from "bun:test";
+import * as assert from "node:assert/strict";
+import * as queryState from "../src/query-state";
 
 test("tokenizeQuery preserves quoted search terms", () => {
-  assert.deepEqual(
-    queryState.tokenizeQuery('is:pr label:"ready for review" "exact phrase"'),
-    ["is:pr", 'label:"ready for review"', '"exact phrase"']
-  );
+  assert.deepEqual(queryState.tokenizeQuery('is:pr label:"ready for review" "exact phrase"'), [
+    "is:pr",
+    'label:"ready for review"',
+    '"exact phrase"'
+  ]);
 });
 
 test("Open means all open pull requests including drafts", () => {
@@ -40,10 +40,7 @@ test("Closed includes merged pull requests", () => {
 
 test("Closed without merging adds the unmerged qualifier", () => {
   assert.equal(
-    queryState.queryWithLifecycle(
-      "is:pr is:open draft:false assignee:@me",
-      "closed_unmerged"
-    ),
+    queryState.queryWithLifecycle("is:pr is:open draft:false assignee:@me", "closed_unmerged"),
     "is:pr assignee:@me is:closed is:unmerged"
   );
 });
@@ -121,23 +118,17 @@ test("lifecycle changes preserve GitHub native review filters", () => {
 });
 
 test("a plain open query maps to Open without being rewritten", () => {
-  assert.deepEqual(
-    queryState.reconcileQuery("is:pr is:open"),
-    {
-      query: "is:pr is:open",
-      effective: { lifecycle: "open" }
-    }
-  );
+  assert.deepEqual(queryState.reconcileQuery("is:pr is:open"), {
+    query: "is:pr is:open",
+    effective: { lifecycle: "open" }
+  });
 });
 
 test("state:open without is:pr maps to Open without being rewritten", () => {
-  assert.deepEqual(
-    queryState.reconcileQuery("state:open label:bug"),
-    {
-      query: "state:open label:bug",
-      effective: { lifecycle: "open" }
-    }
-  );
+  assert.deepEqual(queryState.reconcileQuery("state:open label:bug"), {
+    query: "state:open label:bug",
+    effective: { lifecycle: "open" }
+  });
 });
 
 test("lifecycle changes replace state:open without inventing is:pr", () => {
@@ -148,53 +139,38 @@ test("lifecycle changes replace state:open without inventing is:pr", () => {
 });
 
 test("explicit draft view updates the displayed selection", () => {
-  assert.deepEqual(
-    queryState.reconcileQuery("is:pr is:open draft:true"),
-    {
-      query: "is:pr is:open draft:true",
-      effective: { lifecycle: "draft" }
-    }
-  );
+  assert.deepEqual(queryState.reconcileQuery("is:pr is:open draft:true"), {
+    query: "is:pr is:open draft:true",
+    effective: { lifecycle: "draft" }
+  });
 });
 
 test("state:closed without is:pr updates the displayed selection", () => {
-  assert.deepEqual(
-    queryState.reconcileQuery("state:closed label:bug"),
-    {
-      query: "state:closed label:bug",
-      effective: { lifecycle: "closed" }
-    }
-  );
+  assert.deepEqual(queryState.reconcileQuery("state:closed label:bug"), {
+    query: "state:closed label:bug",
+    effective: { lifecycle: "closed" }
+  });
 });
 
 test("closed state takes precedence without rewriting contradictory qualifiers", () => {
-  assert.deepEqual(
-    queryState.reconcileQuery("is:pr is:closed draft:true"),
-    {
-      query: "is:pr is:closed draft:true",
-      effective: { lifecycle: "closed" }
-    }
-  );
+  assert.deepEqual(queryState.reconcileQuery("is:pr is:closed draft:true"), {
+    query: "is:pr is:closed draft:true",
+    effective: { lifecycle: "closed" }
+  });
 });
 
 test("closed and unmerged query maps to Closed without merging", () => {
-  assert.deepEqual(
-    queryState.reconcileQuery("is:pr is:closed is:unmerged label:bug"),
-    {
-      query: "is:pr is:closed is:unmerged label:bug",
-      effective: { lifecycle: "closed_unmerged" }
-    }
-  );
+  assert.deepEqual(queryState.reconcileQuery("is:pr is:closed is:unmerged label:bug"), {
+    query: "is:pr is:closed is:unmerged label:bug",
+    effective: { lifecycle: "closed_unmerged" }
+  });
 });
 
 test("explicit merged view updates the displayed selection", () => {
-  assert.deepEqual(
-    queryState.reconcileQuery("is:pr is:merged label:shipped"),
-    {
-      query: "is:pr is:merged label:shipped",
-      effective: { lifecycle: "merged" }
-    }
-  );
+  assert.deepEqual(queryState.reconcileQuery("is:pr is:merged label:shipped"), {
+    query: "is:pr is:merged label:shipped",
+    effective: { lifecycle: "merged" }
+  });
 });
 
 test("legacy draft syntax is recognized", () => {

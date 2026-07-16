@@ -1,14 +1,11 @@
 "use strict";
 
-const assert = require("node:assert/strict");
-const test = require("node:test");
-const {
-  manifestForBrowser,
-  packageName,
-  validateVersion
-} = require("../scripts/package-release");
+import * as assert from "node:assert/strict";
+import { test } from "bun:test";
+import { manifestForBrowser, packageName, validateVersion } from "../scripts/package-release";
+import type { ExtensionManifest } from "../scripts/package-release";
 
-const manifest = {
+const manifest: ExtensionManifest = {
   manifest_version: 3,
   version: "0.4.0",
   browser_specific_settings: {
@@ -31,19 +28,10 @@ test("Chromium releases omit Firefox-only manifest metadata", () => {
 
 test("Firefox releases preserve the stable Gecko identity", () => {
   const firefox = manifestForBrowser(manifest, "firefox");
-  assert.equal(
-    firefox.browser_specific_settings.gecko.id,
-    "github-pr-filter@example.test"
-  );
+  assert.equal(firefox.browser_specific_settings?.gecko?.id, "github-pr-filter@example.test");
 });
 
 test("release filenames identify the version and browser flavor", () => {
-  assert.equal(
-    packageName("chromium", "0.4.0"),
-    "github-pr-filter-v0.4.0-chromium.zip"
-  );
-  assert.equal(
-    packageName("firefox", "0.4.0"),
-    "github-pr-filter-v0.4.0-firefox.zip"
-  );
+  assert.equal(packageName("chromium", "0.4.0"), "github-pr-filter-v0.4.0-chromium.zip");
+  assert.equal(packageName("firefox", "0.4.0"), "github-pr-filter-v0.4.0-firefox.zip");
 });

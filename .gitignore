@@ -2,4 +2,7 @@ node_modules/
 dist/
 .codebase-memory/
 web-ext-artifacts/
+test-results/
+playwright-report/
+blob-report/
 *.xpi

@@ -49,24 +49,25 @@ The extension does not call the GitHub API, collect analytics, use a backend, or
 
 ## Install in Chromium for development
 
-1. Open `chrome://extensions`.
-2. Enable **Developer mode**.
-3. Choose **Load unpacked**.
-4. Select this project directory. Dia and other Chromium-based browsers support the same unpacked-extension flow.
-5. Open a repository's **Pull requests** page.
+1. Run `bun install` and `bun run build`.
+2. Open `chrome://extensions`.
+3. Enable **Developer mode**.
+4. Choose **Load unpacked**.
+5. Select `dist/extension`. Dia and other Chromium-based browsers support the same flow.
+6. Open a repository's **Pull requests** page.
 
 ## Run in Firefox for development
 
 ```sh
-npm install
-npm run lint:firefox
-npx web-ext run
+bun install
+bun run lint:firefox
+bunx web-ext run
 ```
 
-The same source files and manifest are used in Chromium and Firefox. Firefox-specific
-identity and privacy declarations live under `browser_specific_settings`, which Chromium
-ignores. Firefox 140 or newer is required; Firefox for Android remains out of scope until
-its GitHub layout has dedicated testing.
+TypeScript 7 and Bun produce the same extension bundle for Chromium and Firefox.
+Firefox-specific identity and privacy declarations live under `browser_specific_settings`;
+the release packager removes them from Chromium builds. Firefox 140 or newer is required;
+Firefox for Android remains out of scope until its GitHub layout has dedicated testing.
 
 `web-ext lint` currently emits one Android-only compatibility warning because Mozilla's
 data-collection manifest key arrived in Firefox for Android 142. Desktop Firefox validation
@@ -77,21 +78,36 @@ query synchronization, Turbo navigation, and GitHub theme integration.
 
 ## Development
 
-The extension intentionally has no runtime or build dependencies.
+The packaged extension has no runtime dependencies. Bun manages development dependencies,
+TypeScript 7 provides strict type-checking, Oxlint and Oxfmt enforce consistent source quality,
+and Bun creates readable browser bundles.
 
 ```sh
-npm test
-npm run check
-npm run lint:firefox
-npm run build:firefox
-npm run release:package
-npm run test:e2e:chromium
-npm run test:e2e:firefox
+bun test
+bun run check
+bun run format
+bun run lint:fix
+bun run lint:firefox
+bun run build:firefox
+bun run release:package
+bun run test:e2e:chromium
+bun run test:e2e:firefox
+bun run storybook
+bun run test:visual
 ```
 
 The end-to-end suite loads the real extension into each browser and exercises it against a
 local GitHub-shaped fixture. Chromium uses Playwright; Firefox packages the same source as a
 temporary add-on and installs it through WebDriver.
+
+Storybook renders the production lifecycle-control module without loading the extension or
+GitHub. Its galleries show every state in light, dark, high-contrast, expanded, collapsed,
+interactive, and narrow layouts. The Playwright visual-contract suite verifies the rendered
+DOM, theme tokens, icon uniqueness, counts, menu dimensions, and responsive containment.
+
+`bun run check` is the CI static-analysis gate: it verifies formatting, lint rules, and
+TypeScript types without modifying files. Use `bun run format` and `bun run lint:fix` to apply
+safe automatic fixes locally.
 
 ## Permissions
 
