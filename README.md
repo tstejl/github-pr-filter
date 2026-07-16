@@ -28,7 +28,7 @@ Each GitHub release includes SHA-256 checksums for both unsigned packages.
 ## What it does
 
 - Filters repository pull-request lists on GitHub.
-- Replaces GitHub's **Open / Closed** links with a compact seven-view pull-request menu.
+- Replaces GitHub's **Open / Closed** links with a compact pull-request lifecycle menu.
 - Treats **Open** and **Closed** as aggregate views, matching GitHub's query semantics.
 - Separates **Merged** pull requests from **Closed without merging**.
 - Adds a **Needs review** view: open, non-draft pull requests that are neither approved

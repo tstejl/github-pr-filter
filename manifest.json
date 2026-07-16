@@ -3,7 +3,7 @@
   "name": "GitHub PR Lifecycle Filter",
   "short_name": "PR Filter",
   "version": "0.5.0",
-  "description": "Switch GitHub pull requests between seven precise open and closed lifecycle views.",
+  "description": "Switch GitHub pull requests between focused open, review, and closed lifecycle views.",
   "icons": {
     "16": "assets/icon-16.png",
     "32": "assets/icon-32.png",
