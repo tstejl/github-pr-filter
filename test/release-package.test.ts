@@ -1,14 +1,15 @@
 "use strict";
 
-const assert = require("node:assert/strict");
-const { test } = require("bun:test");
-const {
+import * as assert from "node:assert/strict";
+import { test } from "bun:test";
+import {
   manifestForBrowser,
   packageName,
   validateVersion
-} = require("../scripts/package-release");
+} from "../scripts/package-release";
+import type { ExtensionManifest } from "../scripts/package-release";
 
-const manifest = {
+const manifest: ExtensionManifest = {
   manifest_version: 3,
   version: "0.4.0",
   browser_specific_settings: {
@@ -32,7 +33,7 @@ test("Chromium releases omit Firefox-only manifest metadata", () => {
 test("Firefox releases preserve the stable Gecko identity", () => {
   const firefox = manifestForBrowser(manifest, "firefox");
   assert.equal(
-    firefox.browser_specific_settings.gecko.id,
+    firefox.browser_specific_settings?.gecko?.id,
     "github-pr-filter@example.test"
   );
 });

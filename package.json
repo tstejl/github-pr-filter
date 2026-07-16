@@ -14,19 +14,19 @@
   },
   "homepage": "https://github.com/tstejl/github-pr-filter#readme",
   "scripts": {
-    "build": "bun scripts/build-extension.js",
+    "build": "bun scripts/build-extension.ts",
     "storybook": "storybook dev --port 6006 --no-open",
     "storybook:build": "storybook build --output-dir dist/storybook",
     "test": "bun run test:unit",
     "test:unit": "bun run build && bun test test",
     "test:e2e": "bun run test:e2e:chromium && bun run test:e2e:firefox",
-    "test:e2e:chromium": "bun run build && E2E_BROWSER=chromium bun test ./e2e/lifecycle.e2e.js",
-    "test:e2e:firefox": "bun run build && E2E_BROWSER=firefox bun test ./e2e/lifecycle.e2e.js",
+    "test:e2e:chromium": "bun run build && E2E_BROWSER=chromium bun test ./e2e/lifecycle.e2e.ts",
+    "test:e2e:firefox": "bun run build && E2E_BROWSER=firefox bun test ./e2e/lifecycle.e2e.ts",
     "test:visual": "bunx playwright test --config playwright.visual.config.ts",
     "check": "tsc --noEmit && bun run test:unit",
     "lint:firefox": "bun run build && web-ext lint",
     "build:firefox": "bun run build && web-ext build --overwrite-dest",
-    "release:package": "bun run build && bun scripts/package-release.js"
+    "release:package": "bun run build && bun scripts/package-release.ts"
   },
   "webExt": {
     "sourceDir": "dist/extension",
@@ -36,6 +36,8 @@
     "@playwright/test": "^1.61.1",
     "@storybook/addon-a11y": "10.5.0",
     "@storybook/html-vite": "10.5.0",
+    "@types/bun": "1.3.11",
+    "@types/selenium-webdriver": "^4.35.6",
     "selenium-webdriver": "^4.46.0",
     "storybook": "10.5.0",
     "typescript": "7.0.2",

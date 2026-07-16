@@ -1,24 +1,58 @@
-"use strict";
+import { chromium } from "@playwright/test";
+import { afterEach, test } from "bun:test";
+import * as assert from "node:assert/strict";
+import { execFile } from "node:child_process";
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import http from "node:http";
+import type { AddressInfo } from "node:net";
+import os from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
+import { Builder, By, Key, until, type WebDriver, type WebElement } from "selenium-webdriver";
+import firefox from "selenium-webdriver/firefox";
 
-const assert = require("node:assert/strict");
-const { execFile } = require("node:child_process");
-const { mkdtemp, mkdir, cp, readFile, writeFile, readdir, rm } = require("node:fs/promises");
-const http = require("node:http");
-const os = require("node:os");
-const path = require("node:path");
-const { promisify } = require("node:util");
-const { afterEach, test } = require("bun:test");
+type BrowserName = "chromium" | "firefox";
 
-const execFileAsync = promisify(execFile);
-const ROOT = path.resolve(__dirname, "..");
-const BROWSER = process.env.E2E_BROWSER;
-const OPTION_SELECTOR = ".gprf-lifecycle-option";
-
-if (!new Set(["chromium", "firefox"]).has(BROWSER)) {
-  throw new Error("Set E2E_BROWSER to chromium or firefox.");
+interface FixtureServer {
+  url: string;
+  close: () => Promise<void>;
 }
 
-function escapeHtml(value) {
+interface PreparedExtension {
+  root: string;
+  extensionDir: string;
+  xpiPath: string | null;
+}
+
+interface BrowserSession {
+  open: (url: string) => Promise<void>;
+  waitForControl: () => Promise<void>;
+  text: (selector: string) => Promise<string[]>;
+  attribute: (selector: string, name: string) => Promise<string | null>;
+  attributes: (selector: string, name: string) => Promise<(string | null)[]>;
+  cssValue: (selector: string, name: string) => Promise<string>;
+  click: (selector: string) => Promise<void>;
+  search: (query: string) => Promise<void>;
+  url: () => Promise<string>;
+  waitForUrl: (predicate: (url: string) => boolean) => Promise<void>;
+  close: () => Promise<void>;
+}
+
+type FirefoxWebDriver = WebDriver & {
+  installAddon: (addonPath: string, temporary?: boolean) => Promise<string>;
+};
+
+const execFileAsync = promisify(execFile);
+const ROOT = path.resolve(import.meta.dir, "..");
+const browserValue = process.env.E2E_BROWSER;
+const OPTION_SELECTOR = ".gprf-lifecycle-option";
+
+if (browserValue !== "chromium" && browserValue !== "firefox") {
+  throw new Error("Set E2E_BROWSER to chromium or firefox.");
+}
+const BROWSER: BrowserName = browserValue;
+
+function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
     .replaceAll('"', "&quot;")
@@ -26,7 +60,7 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;");
 }
 
-function fixturePage(requestUrl) {
+function fixturePage(requestUrl: string): string {
   const url = new URL(requestUrl, "http://127.0.0.1");
   const rawQuery = url.searchParams.get("q") || "is:pr is:open";
   const query = escapeHtml(rawQuery);
@@ -58,34 +92,36 @@ function fixturePage(requestUrl) {
 </html>`;
 }
 
-async function startFixtureServer() {
+async function startFixtureServer(): Promise<FixtureServer> {
   const server = http.createServer((request, response) => {
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    response.end(fixturePage(request.url));
+    response.end(fixturePage(request.url ?? "/"));
   });
 
-  await new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(0, "127.0.0.1", resolve);
   });
 
-  const { port } = server.address();
+  const { port } = server.address() as AddressInfo;
   return {
     url: `http://127.0.0.1:${port}/octocat/hello-world/pulls?q=is%3Apr+is%3Aopen`,
-    close: () => new Promise((resolve, reject) => {
+    close: () => new Promise<void>((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());
     })
   };
 }
 
-async function prepareExtension() {
+async function prepareExtension(): Promise<PreparedExtension> {
   const root = await mkdtemp(path.join(os.tmpdir(), "github-pr-filter-e2e-"));
   const extensionDir = path.join(root, "extension");
   await mkdir(extensionDir);
   await cp(path.join(ROOT, "dist", "extension"), extensionDir, { recursive: true });
 
   const manifestPath = path.join(extensionDir, "manifest.json");
-  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
+    content_scripts: Array<{ matches: string[] }>;
+  };
   for (const script of manifest.content_scripts) {
     script.matches = ["http://127.0.0.1/*"];
   }
@@ -109,8 +145,7 @@ async function prepareExtension() {
   return { root, extensionDir, xpiPath };
 }
 
-async function chromiumSession(extensionDir) {
-  const { chromium } = require("@playwright/test");
+async function chromiumSession(extensionDir: string): Promise<BrowserSession> {
   const userDataDir = await mkdtemp(path.join(os.tmpdir(), "github-pr-filter-chromium-"));
   const context = await chromium.launchPersistentContext(userDataDir, {
     channel: "chromium",
@@ -123,34 +158,34 @@ async function chromiumSession(extensionDir) {
   const page = context.pages()[0] || await context.newPage();
 
   return {
-    async open(url) {
+    async open(url: string) {
       await page.goto(url);
     },
     async waitForControl() {
       await page.locator(".gprf-lifecycle-summary").waitFor();
     },
-    async text(selector) {
+    async text(selector: string) {
       return page.locator(selector).allTextContents();
     },
-    async attribute(selector, name) {
+    async attribute(selector: string, name: string) {
       return page.locator(selector).getAttribute(name);
     },
-    async attributes(selector, name) {
+    async attributes(selector: string, name: string) {
       return page.locator(selector).evaluateAll(
-        (elements, attributeName) => elements.map((element) => element.getAttribute(attributeName)),
+        (elements, attributeName: string) => elements.map((element) => element.getAttribute(attributeName)),
         name
       );
     },
-    async cssValue(selector, name) {
+    async cssValue(selector: string, name: string) {
       return page.locator(selector).evaluate(
-        (element, property) => getComputedStyle(element).getPropertyValue(property),
+        (element, property: string) => getComputedStyle(element).getPropertyValue(property),
         name
       );
     },
-    async click(selector) {
+    async click(selector: string) {
       await page.locator(selector).click();
     },
-    async search(query) {
+    async search(query: string) {
       const input = page.locator('input[name="q"]');
       await input.fill(query);
       await input.press("Enter");
@@ -158,7 +193,7 @@ async function chromiumSession(extensionDir) {
     async url() {
       return page.url();
     },
-    async waitForUrl(predicate) {
+    async waitForUrl(predicate: (url: string) => boolean) {
       await page.waitForURL((url) => predicate(url.href));
     },
     async close() {
@@ -168,9 +203,7 @@ async function chromiumSession(extensionDir) {
   };
 }
 
-async function firefoxSession(xpiPath) {
-  const { Builder, By, Key, until } = require("selenium-webdriver");
-  const firefox = require("selenium-webdriver/firefox");
+async function firefoxSession(xpiPath: string): Promise<BrowserSession> {
   const options = new firefox.Options().addArguments("-headless");
   if (process.env.FIREFOX_BIN) {
     options.setBinary(process.env.FIREFOX_BIN);
@@ -179,38 +212,38 @@ async function firefoxSession(xpiPath) {
   const driver = await new Builder()
     .forBrowser("firefox")
     .setFirefoxOptions(options)
-    .build();
+    .build() as FirefoxWebDriver;
   await driver.installAddon(xpiPath, true);
 
-  async function elements(selector) {
+  async function elements(selector: string): Promise<WebElement[]> {
     return driver.findElements(By.css(selector));
   }
 
   return {
-    async open(url) {
+    async open(url: string) {
       await driver.get(url);
     },
     async waitForControl() {
       await driver.wait(until.elementLocated(By.css(".gprf-lifecycle-summary")), 15_000);
     },
-    async text(selector) {
+    async text(selector: string) {
       return Promise.all((await elements(selector)).map((element) => element.getText()));
     },
-    async attribute(selector, name) {
+    async attribute(selector: string, name: string) {
       return (await driver.findElement(By.css(selector))).getAttribute(name);
     },
-    async attributes(selector, name) {
+    async attributes(selector: string, name: string) {
       return Promise.all(
         (await elements(selector)).map((element) => element.getAttribute(name))
       );
     },
-    async cssValue(selector, name) {
+    async cssValue(selector: string, name: string) {
       return (await driver.findElement(By.css(selector))).getCssValue(name);
     },
-    async click(selector) {
+    async click(selector: string) {
       await driver.findElement(By.css(selector)).click();
     },
-    async search(query) {
+    async search(query: string) {
       const input = await driver.findElement(By.css('input[name="q"]'));
       await input.clear();
       await input.sendKeys(query, Key.ENTER);
@@ -218,7 +251,7 @@ async function firefoxSession(xpiPath) {
     async url() {
       return driver.getCurrentUrl();
     },
-    async waitForUrl(predicate) {
+    async waitForUrl(predicate: (url: string) => boolean) {
       await driver.wait(async () => predicate(await driver.getCurrentUrl()), 15_000);
     },
     async close() {
@@ -227,9 +260,9 @@ async function firefoxSession(xpiPath) {
   };
 }
 
-let activeFixture;
-let activeExtension;
-let activeBrowser;
+let activeFixture: FixtureServer | undefined;
+let activeExtension: PreparedExtension | undefined;
+let activeBrowser: BrowserSession | undefined;
 
 afterEach(async () => {
   await activeBrowser?.close();
@@ -242,13 +275,16 @@ afterEach(async () => {
   activeBrowser = undefined;
 });
 
-test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, async () => {
+test(`${BROWSER}: lifecycle menu follows query state`, async () => {
   activeFixture = await startFixtureServer();
   activeExtension = await prepareExtension();
 
+  if (BROWSER === "firefox" && !activeExtension.xpiPath) {
+    throw new Error("Firefox E2E packaging did not produce an extension archive.");
+  }
   activeBrowser = BROWSER === "chromium"
     ? await chromiumSession(activeExtension.extensionDir)
-    : await firefoxSession(activeExtension.xpiPath);
+    : await firefoxSession(activeExtension.xpiPath as string);
 
   const fixture = activeFixture;
   const browser = activeBrowser;
@@ -270,7 +306,7 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
     ".table-list-header-toggle.states > a:first-child",
     "class"
   );
-  assert.ok(nativeClasses.split(/\s+/).includes("gprf-native-status-hidden"));
+  assert.ok(nativeClasses?.split(/\s+/).includes("gprf-native-status-hidden"));
 
   await browser.click(".gprf-lifecycle-summary");
   assert.notEqual(await browser.cssValue(".gprf-summary-count", "display"), "none");
@@ -285,7 +321,9 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   assert.equal(new Set(menuIconPaths).size, 7);
 
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="draft"]`);
-  await browser.waitForUrl((url) => new URL(url).searchParams.get("q")?.includes("draft:true"));
+  await browser.waitForUrl((url) => (
+    new URL(url).searchParams.get("q")?.includes("draft:true") === true
+  ));
   await browser.waitForControl();
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Draft"]);
   assert.equal(
@@ -333,7 +371,7 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   await browser.click(".gprf-lifecycle-summary");
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="closed_unmerged"]`);
   await browser.waitForUrl((url) => (
-    new URL(url).searchParams.get("q")?.includes("is:unmerged")
+    new URL(url).searchParams.get("q")?.includes("is:unmerged") === true
   ));
   await browser.waitForControl();
   assert.deepEqual(
@@ -344,7 +382,9 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
 
   await browser.click(".gprf-lifecycle-summary");
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="merged"]`);
-  await browser.waitForUrl((url) => new URL(url).searchParams.get("q")?.includes("is:merged"));
+  await browser.waitForUrl((url) => (
+    new URL(url).searchParams.get("q")?.includes("is:merged") === true
+  ));
   await browser.waitForControl();
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Merged"]);
   assert.deepEqual(await browser.text(".gprf-summary-count"), ["4"]);
@@ -356,7 +396,9 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
 
   await browser.click(".gprf-lifecycle-summary");
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="draft"]`);
-  await browser.waitForUrl((url) => new URL(url).searchParams.get("q")?.includes("draft:true"));
+  await browser.waitForUrl((url) => (
+    new URL(url).searchParams.get("q")?.includes("draft:true") === true
+  ));
   await browser.waitForControl();
 
   const cleanUrl = new URL(await browser.url());
@@ -375,4 +417,4 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
     (await browser.attribute("html", "class") || "").includes("gprf-supported-page"),
     false
   );
-});
+}, 90_000);

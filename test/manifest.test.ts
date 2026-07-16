@@ -1,9 +1,10 @@
-const { test } = require("bun:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
+import { test } from "bun:test";
+import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
+import path from "node:path";
+import { isRepositoryPullListPath } from "../src/page-scope";
 
-const projectRoot = path.resolve(__dirname, "..");
+const projectRoot = path.resolve(import.meta.dir, "..");
 const manifest = JSON.parse(fs.readFileSync(path.join(projectRoot, "manifest.json"), "utf8"));
 const builtRoot = path.join(projectRoot, "dist", "extension");
 
@@ -35,13 +36,12 @@ test("anti-flicker CSS loads before the interactive content script", () => {
 });
 
 test("page scope includes repository PR lists and excludes global pulls", () => {
-  const pageScope = require("../src/page-scope.ts");
-  assert.equal(pageScope.isRepositoryPullListPath("/octocat/hello-world/pulls"), true);
-  assert.equal(pageScope.isRepositoryPullListPath("/octocat/hello-world/pulls/"), true);
-  assert.equal(pageScope.isRepositoryPullListPath("/pulls"), false);
-  assert.equal(pageScope.isRepositoryPullListPath("/pulls/assigned"), false);
-  assert.equal(pageScope.isRepositoryPullListPath("/octocat/hello-world/pull/1"), false);
-  assert.equal(pageScope.isRepositoryPullListPath("/octocat/hello-world/pulls/1"), false);
+  assert.equal(isRepositoryPullListPath("/octocat/hello-world/pulls"), true);
+  assert.equal(isRepositoryPullListPath("/octocat/hello-world/pulls/"), true);
+  assert.equal(isRepositoryPullListPath("/pulls"), false);
+  assert.equal(isRepositoryPullListPath("/pulls/assigned"), false);
+  assert.equal(isRepositoryPullListPath("/octocat/hello-world/pull/1"), false);
+  assert.equal(isRepositoryPullListPath("/octocat/hello-world/pulls/1"), false);
 });
 
 test("navigation keeps GitHub Turbo hooks instead of forcing a page reload", () => {
@@ -70,7 +70,7 @@ test("active count remains visible while the lifecycle menu is expanded", () => 
 
 test("every packaged script, stylesheet, and icon exists", () => {
   const packagedFiles = [
-    ...manifest.content_scripts.flatMap((entry) => [
+    ...manifest.content_scripts.flatMap((entry: { js?: string[]; css?: string[] }) => [
       ...(entry.js || []),
       ...(entry.css || [])
     ]),

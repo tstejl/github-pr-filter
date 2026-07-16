@@ -1,22 +1,43 @@
-"use strict";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import path from "node:path";
 
-const { spawnSync } = require("node:child_process");
-const { createHash } = require("node:crypto");
-const {
-  cpSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync
-} = require("node:fs");
-const path = require("node:path");
+type BrowserFlavor = "chromium" | "firefox";
 
-const ROOT = path.resolve(__dirname, "..");
+export interface ExtensionManifest {
+  manifest_version: number;
+  version: string;
+  browser_specific_settings?: {
+    gecko?: {
+      id?: string;
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+interface BuildReleaseOptions {
+  requestedVersion?: string;
+}
+
+interface BuildReleaseResult {
+  version: string;
+  releaseRoot: string;
+  artifacts: string[];
+}
+
+const ROOT = path.resolve(import.meta.dir, "..");
 const RUNTIME_ROOT = path.join(ROOT, "dist", "extension");
-const RUNTIME_PATHS = ["LICENSE", "PRIVACY.md", "assets", "src"];
+const RUNTIME_PATHS = ["LICENSE", "PRIVACY.md", "assets", "src"] as const;
 const VERSION_PATTERN = /^(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){1,3}$/;
 
-function validateVersion(manifestVersion, packageVersion, requestedVersion) {
+export function validateVersion(
+  manifestVersion: string,
+  packageVersion: string,
+  requestedVersion?: string
+): string {
   if (!VERSION_PATTERN.test(manifestVersion)) {
     throw new Error(`Unsupported manifest version: ${manifestVersion}`);
   }
@@ -33,21 +54,26 @@ function validateVersion(manifestVersion, packageVersion, requestedVersion) {
   return manifestVersion;
 }
 
-function manifestForBrowser(manifest, browser) {
+export function manifestForBrowser(
+  manifest: ExtensionManifest,
+  browser: BrowserFlavor
+): ExtensionManifest {
   const output = structuredClone(manifest);
   if (browser === "chromium") {
     delete output.browser_specific_settings;
-  } else if (browser !== "firefox") {
-    throw new Error(`Unsupported release browser: ${browser}`);
   }
   return output;
 }
 
-function packageName(browser, version) {
+export function packageName(browser: BrowserFlavor, version: string): string {
   return `github-pr-filter-v${version}-${browser}.zip`;
 }
 
-function stageBrowser(browser, manifest, stagingRoot) {
+function stageBrowser(
+  browser: BrowserFlavor,
+  manifest: ExtensionManifest,
+  stagingRoot: string
+): string {
   const browserRoot = path.join(stagingRoot, browser);
   mkdirSync(browserRoot, { recursive: true });
   for (const runtimePath of RUNTIME_PATHS) {
@@ -64,7 +90,7 @@ function stageBrowser(browser, manifest, stagingRoot) {
   return browserRoot;
 }
 
-function runWebExt(sourceDir, artifactsDir, filename) {
+function runWebExt(sourceDir: string, artifactsDir: string, filename: string): void {
   const webExt = path.join(ROOT, "node_modules", ".bin", "web-ext");
   const result = spawnSync(webExt, [
     "build",
@@ -80,13 +106,19 @@ function runWebExt(sourceDir, artifactsDir, filename) {
   }
 }
 
-function checksum(filePath) {
+function checksum(filePath: string): string {
   return createHash("sha256").update(readFileSync(filePath)).digest("hex");
 }
 
-function buildRelease({ requestedVersion = process.env.RELEASE_VERSION } = {}) {
-  const manifest = JSON.parse(readFileSync(path.join(ROOT, "manifest.json"), "utf8"));
-  const packageJson = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8"));
+export function buildRelease(
+  { requestedVersion = process.env.RELEASE_VERSION }: BuildReleaseOptions = {}
+): BuildReleaseResult {
+  const manifest = JSON.parse(
+    readFileSync(path.join(ROOT, "manifest.json"), "utf8")
+  ) as ExtensionManifest;
+  const packageJson = JSON.parse(
+    readFileSync(path.join(ROOT, "package.json"), "utf8")
+  ) as { version: string };
   const version = validateVersion(manifest.version, packageJson.version, requestedVersion);
   const releaseRoot = path.join(ROOT, "dist", "releases");
   const stagingRoot = path.join(ROOT, "dist", "release-staging");
@@ -95,9 +127,9 @@ function buildRelease({ requestedVersion = process.env.RELEASE_VERSION } = {}) {
   rmSync(stagingRoot, { recursive: true, force: true });
   mkdirSync(releaseRoot, { recursive: true });
 
-  const artifacts = [];
+  const artifacts: string[] = [];
   try {
-    for (const browser of ["chromium", "firefox"]) {
+    for (const browser of ["chromium", "firefox"] as const) {
       const filename = packageName(browser, version);
       const sourceDir = stageBrowser(browser, manifest, stagingRoot);
       runWebExt(sourceDir, releaseRoot, filename);
@@ -115,22 +147,15 @@ function buildRelease({ requestedVersion = process.env.RELEASE_VERSION } = {}) {
   return { version, releaseRoot, artifacts };
 }
 
-if (require.main === module) {
+if (import.meta.main) {
   try {
     const result = buildRelease();
     for (const artifact of result.artifacts) {
       console.log(path.relative(ROOT, artifact));
     }
     console.log(path.relative(ROOT, path.join(result.releaseRoot, "SHA256SUMS")));
-  } catch (error) {
-    console.error(error.message);
+  } catch (error: unknown) {
+    console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;
   }
 }
-
-module.exports = {
-  buildRelease,
-  manifestForBrowser,
-  packageName,
-  validateVersion
-};

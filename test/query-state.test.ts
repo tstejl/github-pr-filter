@@ -1,7 +1,6 @@
-const { test } = require("bun:test");
-const assert = require("node:assert/strict");
-
-const queryState = require("../src/query-state.ts");
+import { test } from "bun:test";
+import * as assert from "node:assert/strict";
+import * as queryState from "../src/query-state";
 
 test("tokenizeQuery preserves quoted search terms", () => {
   assert.deepEqual(

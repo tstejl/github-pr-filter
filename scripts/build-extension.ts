@@ -1,12 +1,10 @@
-"use strict";
+import { cpSync, mkdirSync, rmSync } from "node:fs";
+import path from "node:path";
 
-const { cpSync, mkdirSync, rmSync } = require("node:fs");
-const path = require("node:path");
+const ROOT = path.resolve(import.meta.dir, "..");
+export const OUTPUT_ROOT = path.join(ROOT, "dist", "extension");
 
-const ROOT = path.resolve(__dirname, "..");
-const OUTPUT_ROOT = path.join(ROOT, "dist", "extension");
-
-async function buildExtension() {
+export async function buildExtension(): Promise<string> {
   rmSync(OUTPUT_ROOT, { recursive: true, force: true });
   mkdirSync(path.join(OUTPUT_ROOT, "src"), { recursive: true });
 
@@ -41,11 +39,9 @@ async function buildExtension() {
   return OUTPUT_ROOT;
 }
 
-if (require.main === module) {
-  buildExtension().catch((error) => {
+if (import.meta.main) {
+  buildExtension().catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;
   });
 }
-
-module.exports = { buildExtension, OUTPUT_ROOT };
