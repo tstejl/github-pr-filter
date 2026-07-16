@@ -2,7 +2,7 @@
 
 All notable changes will be documented in this file.
 
-## Unreleased
+## 0.5.0 — 2026-07-16
 
 - Added a Needs review lifecycle view for open, non-draft pull requests that are neither
   approved nor awaiting changes (`-review:approved -review:changes_requested`).

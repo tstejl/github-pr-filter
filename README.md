@@ -3,7 +3,10 @@
 [![CI](https://github.com/tstejl/github-pr-filter/actions/workflows/ci.yml/badge.svg)](https://github.com/tstejl/github-pr-filter/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/tstejl/github-pr-filter?display_name=tag&sort=semver)](https://github.com/tstejl/github-pr-filter/releases/latest)
 
-A small Chromium and Firefox extension that makes GitHub's pull-request lifecycle views faster to use.
+**A faster, more elegant way to find the pull requests that matter.**
+
+GitHub PR Lifecycle Filter is a lightweight Chromium and Firefox extension that integrates
+directly into GitHub's pull-request lists.
 
 ## Installation
 
@@ -28,7 +31,7 @@ Each GitHub release includes SHA-256 checksums for both unsigned packages.
 ## What it does
 
 - Filters repository pull-request lists on GitHub.
-- Replaces GitHub's **Open / Closed** links with a compact seven-state lifecycle menu.
+- Replaces GitHub's **Open / Closed** links with a compact pull-request lifecycle menu.
 - Treats **Open** and **Closed** as aggregate views, matching GitHub's query semantics.
 - Separates **Merged** pull requests from **Closed without merging**.
 - Adds a **Needs review** view: open, non-draft pull requests that are neither approved
