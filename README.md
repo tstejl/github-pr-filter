@@ -49,11 +49,12 @@ The extension does not call the GitHub API, collect analytics, use a backend, or
 
 ## Install in Chromium for development
 
-1. Open `chrome://extensions`.
-2. Enable **Developer mode**.
-3. Choose **Load unpacked**.
-4. Select this project directory. Dia and other Chromium-based browsers support the same unpacked-extension flow.
-5. Open a repository's **Pull requests** page.
+1. Run `bun install` and `bun run build`.
+2. Open `chrome://extensions`.
+3. Enable **Developer mode**.
+4. Choose **Load unpacked**.
+5. Select `dist/extension`. Dia and other Chromium-based browsers support the same flow.
+6. Open a repository's **Pull requests** page.
 
 ## Run in Firefox for development
 
@@ -63,10 +64,10 @@ bun run lint:firefox
 bunx web-ext run
 ```
 
-The same source files and manifest are used in Chromium and Firefox. Firefox-specific
-identity and privacy declarations live under `browser_specific_settings`, which Chromium
-ignores. Firefox 140 or newer is required; Firefox for Android remains out of scope until
-its GitHub layout has dedicated testing.
+TypeScript 7 and Bun produce the same extension bundle for Chromium and Firefox.
+Firefox-specific identity and privacy declarations live under `browser_specific_settings`;
+the release packager removes them from Chromium builds. Firefox 140 or newer is required;
+Firefox for Android remains out of scope until its GitHub layout has dedicated testing.
 
 `web-ext lint` currently emits one Android-only compatibility warning because Mozilla's
 data-collection manifest key arrived in Firefox for Android 142. Desktop Firefox validation
@@ -77,7 +78,8 @@ query synchronization, Turbo navigation, and GitHub theme integration.
 
 ## Development
 
-The extension intentionally has no runtime or build dependencies.
+The packaged extension has no runtime dependencies. Bun manages development dependencies,
+TypeScript 7 provides strict type-checking, and Bun creates readable browser bundles.
 
 ```sh
 bun test

@@ -82,11 +82,7 @@ async function prepareExtension() {
   const root = await mkdtemp(path.join(os.tmpdir(), "github-pr-filter-e2e-"));
   const extensionDir = path.join(root, "extension");
   await mkdir(extensionDir);
-  await Promise.all([
-    cp(path.join(ROOT, "src"), path.join(extensionDir, "src"), { recursive: true }),
-    cp(path.join(ROOT, "assets"), path.join(extensionDir, "assets"), { recursive: true }),
-    cp(path.join(ROOT, "manifest.json"), path.join(extensionDir, "manifest.json"))
-  ]);
+  await cp(path.join(ROOT, "dist", "extension"), extensionDir, { recursive: true });
 
   const manifestPath = path.join(extensionDir, "manifest.json");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));

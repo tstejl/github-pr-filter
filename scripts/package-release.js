@@ -12,6 +12,7 @@ const {
 const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "..");
+const RUNTIME_ROOT = path.join(ROOT, "dist", "extension");
 const RUNTIME_PATHS = ["LICENSE", "PRIVACY.md", "assets", "src"];
 const VERSION_PATTERN = /^(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){1,3}$/;
 
@@ -50,7 +51,11 @@ function stageBrowser(browser, manifest, stagingRoot) {
   const browserRoot = path.join(stagingRoot, browser);
   mkdirSync(browserRoot, { recursive: true });
   for (const runtimePath of RUNTIME_PATHS) {
-    cpSync(path.join(ROOT, runtimePath), path.join(browserRoot, runtimePath), { recursive: true });
+    cpSync(
+      path.join(RUNTIME_ROOT, runtimePath),
+      path.join(browserRoot, runtimePath),
+      { recursive: true }
+    );
   }
   writeFileSync(
     path.join(browserRoot, "manifest.json"),

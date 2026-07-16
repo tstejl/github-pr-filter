@@ -14,37 +14,25 @@
   },
   "homepage": "https://github.com/tstejl/github-pr-filter#readme",
   "scripts": {
+    "build": "bun scripts/build-extension.js",
     "test": "bun run test:unit",
-    "test:unit": "bun test test",
+    "test:unit": "bun run build && bun test test",
     "test:e2e": "bun run test:e2e:chromium && bun run test:e2e:firefox",
-    "test:e2e:chromium": "E2E_BROWSER=chromium bun test ./e2e/lifecycle.e2e.js",
-    "test:e2e:firefox": "E2E_BROWSER=firefox bun test ./e2e/lifecycle.e2e.js",
-    "check": "bun test test",
-    "lint:firefox": "web-ext lint",
-    "build:firefox": "web-ext build --overwrite-dest",
-    "release:package": "bun scripts/package-release.js"
+    "test:e2e:chromium": "bun run build && E2E_BROWSER=chromium bun test ./e2e/lifecycle.e2e.js",
+    "test:e2e:firefox": "bun run build && E2E_BROWSER=firefox bun test ./e2e/lifecycle.e2e.js",
+    "check": "tsc --noEmit && bun run test:unit",
+    "lint:firefox": "bun run build && web-ext lint",
+    "build:firefox": "bun run build && web-ext build --overwrite-dest",
+    "release:package": "bun run build && bun scripts/package-release.js"
   },
   "webExt": {
-    "sourceDir": ".",
-    "artifactsDir": "dist/firefox",
-    "ignoreFiles": [
-      ".codebase-memory",
-      "dist",
-      "node_modules/**",
-      "test",
-      "e2e",
-      "scripts",
-      ".github",
-      "package.json",
-      "bun.lock",
-      "README.md",
-      "CONTRIBUTING.md",
-      "CHANGELOG.md"
-    ]
+    "sourceDir": "dist/extension",
+    "artifactsDir": "dist/firefox"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "selenium-webdriver": "^4.46.0",
+    "typescript": "7.0.2",
     "web-ext": "10.5.0"
   }
 }

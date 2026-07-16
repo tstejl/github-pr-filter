@@ -5,6 +5,7 @@ const path = require("node:path");
 
 const projectRoot = path.resolve(__dirname, "..");
 const manifest = JSON.parse(fs.readFileSync(path.join(projectRoot, "manifest.json"), "utf8"));
+const builtRoot = path.join(projectRoot, "dist", "extension");
 
 test("manifest uses a minimal Manifest V3 permission set", () => {
   assert.equal(manifest.manifest_version, 3);
@@ -25,18 +26,16 @@ test("anti-flicker CSS loads before the interactive content script", () => {
   assert.equal(bootstrap.run_at, "document_start");
   assert.deepEqual(bootstrap.css, ["src/content.css"]);
   assert.deepEqual(bootstrap.js, [
-    "src/page-scope.js",
     "src/bootstrap.js"
   ]);
   assert.equal(interactive.run_at, "document_end");
   assert.deepEqual(interactive.js, [
-    "src/query-state.js",
     "src/content.js"
   ]);
 });
 
 test("page scope includes repository PR lists and excludes global pulls", () => {
-  const pageScope = require("../src/page-scope.js");
+  const pageScope = require("../src/page-scope.ts");
   assert.equal(pageScope.isRepositoryPullListPath("/octocat/hello-world/pulls"), true);
   assert.equal(pageScope.isRepositoryPullListPath("/octocat/hello-world/pulls/"), true);
   assert.equal(pageScope.isRepositoryPullListPath("/pulls"), false);
@@ -46,7 +45,7 @@ test("page scope includes repository PR lists and excludes global pulls", () => 
 });
 
 test("navigation keeps GitHub Turbo hooks instead of forcing a page reload", () => {
-  const content = fs.readFileSync(path.join(projectRoot, "src/content.js"), "utf8");
+  const content = fs.readFileSync(path.join(projectRoot, "src/content.ts"), "utf8");
   const stylesheet = fs.readFileSync(path.join(projectRoot, "src/content.css"), "utf8");
   assert.doesNotMatch(content, /location\.assign/);
   assert.match(content, /data-turbo-frame/);
@@ -80,7 +79,7 @@ test("every packaged script, stylesheet, and icon exists", () => {
 
   for (const packagedFile of packagedFiles) {
     assert.equal(
-      fs.existsSync(path.join(projectRoot, packagedFile)),
+      fs.existsSync(path.join(builtRoot, packagedFile)),
       true,
       `${packagedFile} should exist`
     );

@@ -5,8 +5,8 @@ Thanks for helping improve GitHub PR Lifecycle Filter.
 ## Local setup
 
 1. Install the development dependencies with `bun install`.
-2. Load the unpacked project directory in a Chromium browser, or run it in Firefox with
-   `bunx web-ext run`.
+2. Run `bun run build` and load `dist/extension` in a Chromium browser, or run it in Firefox
+   with `bunx web-ext run` after building.
 3. Exercise a repository pull-request list with both `is:open` and `state:open` query forms.
 
 ## Before opening a pull request
@@ -30,8 +30,9 @@ version and writes unsigned, browser-specific ZIP files plus `SHA256SUMS` to
 `dist/releases`. Browser stores sign their respective packages; GitHub Releases do not
 publish CRX or XPI files.
 
-Keep changes focused. The extension intentionally avoids a framework, build step, backend,
-analytics, and broad permissions.
+Keep changes focused. The extension intentionally avoids a runtime UI framework, backend,
+analytics, and broad permissions. TypeScript 7 checks the source and Bun emits readable
+browser bundles.
 
 Firefox lint currently reports one Android-only compatibility warning. Firefox for Android
 is not yet a supported target.
