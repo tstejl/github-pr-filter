@@ -268,7 +268,7 @@ test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, asyn
   await browser.click(".gprf-lifecycle-summary");
   assert.notEqual(await browser.cssValue(".gprf-summary-count", "display"), "none");
   assert.deepEqual(await browser.text(".gprf-option-label"), [
-    "Open", "Ready", "Draft", "Needs review", "Closed", "Merged", "Closed without merging"
+    "Needs review", "Open", "Ready", "Draft", "Closed", "Merged", "Closed without merging"
   ]);
   const menuIconPaths = await browser.attributes(
     ".gprf-lifecycle-option > .gprf-lifecycle-icon:first-child path",
