@@ -9,10 +9,7 @@ export async function buildExtension(): Promise<string> {
   mkdirSync(path.join(OUTPUT_ROOT, "src"), { recursive: true });
 
   const result = await Bun.build({
-    entrypoints: [
-      path.join(ROOT, "src", "bootstrap.ts"),
-      path.join(ROOT, "src", "content.ts")
-    ],
+    entrypoints: [path.join(ROOT, "src", "bootstrap.ts"), path.join(ROOT, "src", "content.ts")],
     outdir: path.join(OUTPUT_ROOT, "src"),
     target: "browser",
     format: "iife",
@@ -31,10 +28,7 @@ export async function buildExtension(): Promise<string> {
   for (const runtimePath of ["LICENSE", "PRIVACY.md", "assets", "manifest.json"]) {
     cpSync(path.join(ROOT, runtimePath), path.join(OUTPUT_ROOT, runtimePath), { recursive: true });
   }
-  cpSync(
-    path.join(ROOT, "src", "content.css"),
-    path.join(OUTPUT_ROOT, "src", "content.css")
-  );
+  cpSync(path.join(ROOT, "src", "content.css"), path.join(OUTPUT_ROOT, "src", "content.css"));
 
   return OUTPUT_ROOT;
 }

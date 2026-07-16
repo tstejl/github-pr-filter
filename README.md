@@ -79,11 +79,14 @@ query synchronization, Turbo navigation, and GitHub theme integration.
 ## Development
 
 The packaged extension has no runtime dependencies. Bun manages development dependencies,
-TypeScript 7 provides strict type-checking, and Bun creates readable browser bundles.
+TypeScript 7 provides strict type-checking, Oxlint and Oxfmt enforce consistent source quality,
+and Bun creates readable browser bundles.
 
 ```sh
 bun test
 bun run check
+bun run format
+bun run lint:fix
 bun run lint:firefox
 bun run build:firefox
 bun run release:package
@@ -101,6 +104,10 @@ Storybook renders the production lifecycle-control module without loading the ex
 GitHub. Its galleries show every state in light, dark, high-contrast, expanded, collapsed,
 interactive, and narrow layouts. The Playwright visual-contract suite verifies the rendered
 DOM, theme tokens, icon uniqueness, counts, menu dimensions, and responsive containment.
+
+`bun run check` is the CI static-analysis gate: it verifies formatting, lint rules, and
+TypeScript types without modifying files. Use `bun run format` and `bun run lint:fix` to apply
+safe automatic fixes locally.
 
 ## Permissions
 

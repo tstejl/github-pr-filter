@@ -106,9 +106,16 @@ async function startFixtureServer(): Promise<FixtureServer> {
   const { port } = server.address() as AddressInfo;
   return {
     url: `http://127.0.0.1:${port}/octocat/hello-world/pulls?q=is%3Apr+is%3Aopen`,
-    close: () => new Promise<void>((resolve, reject) => {
-      server.close((error) => error ? reject(error) : resolve());
-    })
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      })
   };
 }
 
@@ -133,8 +140,10 @@ async function prepareExtension(): Promise<PreparedExtension> {
     const webExt = path.join(ROOT, "node_modules", ".bin", "web-ext");
     await execFileAsync(webExt, [
       "build",
-      "--source-dir", extensionDir,
-      "--artifacts-dir", artifactsDir,
+      "--source-dir",
+      extensionDir,
+      "--artifacts-dir",
+      artifactsDir,
       "--overwrite-dest"
     ]);
     const artifact = (await readdir(artifactsDir)).find((name) => name.endsWith(".zip"));
@@ -150,12 +159,9 @@ async function chromiumSession(extensionDir: string): Promise<BrowserSession> {
   const context = await chromium.launchPersistentContext(userDataDir, {
     channel: "chromium",
     headless: true,
-    args: [
-      `--disable-extensions-except=${extensionDir}`,
-      `--load-extension=${extensionDir}`
-    ]
+    args: [`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`]
   });
-  const page = context.pages()[0] || await context.newPage();
+  const page = context.pages()[0] || (await context.newPage());
 
   return {
     async open(url: string) {
@@ -171,16 +177,21 @@ async function chromiumSession(extensionDir: string): Promise<BrowserSession> {
       return page.locator(selector).getAttribute(name);
     },
     async attributes(selector: string, name: string) {
-      return page.locator(selector).evaluateAll(
-        (elements, attributeName: string) => elements.map((element) => element.getAttribute(attributeName)),
-        name
-      );
+      return page
+        .locator(selector)
+        .evaluateAll(
+          (elements, attributeName: string) =>
+            elements.map((element) => element.getAttribute(attributeName)),
+          name
+        );
     },
     async cssValue(selector: string, name: string) {
-      return page.locator(selector).evaluate(
-        (element, property: string) => getComputedStyle(element).getPropertyValue(property),
-        name
-      );
+      return page
+        .locator(selector)
+        .evaluate(
+          (element, property: string) => getComputedStyle(element).getPropertyValue(property),
+          name
+        );
     },
     async click(selector: string) {
       await page.locator(selector).click();
@@ -209,10 +220,10 @@ async function firefoxSession(xpiPath: string): Promise<BrowserSession> {
     options.setBinary(process.env.FIREFOX_BIN);
   }
 
-  const driver = await new Builder()
+  const driver = (await new Builder()
     .forBrowser("firefox")
     .setFirefoxOptions(options)
-    .build() as FirefoxWebDriver;
+    .build()) as FirefoxWebDriver;
   await driver.installAddon(xpiPath, true);
 
   async function elements(selector: string): Promise<WebElement[]> {
@@ -233,9 +244,7 @@ async function firefoxSession(xpiPath: string): Promise<BrowserSession> {
       return (await driver.findElement(By.css(selector))).getAttribute(name);
     },
     async attributes(selector: string, name: string) {
-      return Promise.all(
-        (await elements(selector)).map((element) => element.getAttribute(name))
-      );
+      return Promise.all((await elements(selector)).map((element) => element.getAttribute(name)));
     },
     async cssValue(selector: string, name: string) {
       return (await driver.findElement(By.css(selector))).getCssValue(name);
@@ -282,9 +291,10 @@ test(`${BROWSER}: lifecycle menu follows query state`, async () => {
   if (BROWSER === "firefox" && !activeExtension.xpiPath) {
     throw new Error("Firefox E2E packaging did not produce an extension archive.");
   }
-  activeBrowser = BROWSER === "chromium"
-    ? await chromiumSession(activeExtension.extensionDir)
-    : await firefoxSession(activeExtension.xpiPath as string);
+  activeBrowser =
+    BROWSER === "chromium"
+      ? await chromiumSession(activeExtension.extensionDir)
+      : await firefoxSession(activeExtension.xpiPath as string);
 
   const fixture = activeFixture;
   const browser = activeBrowser;
@@ -298,10 +308,7 @@ test(`${BROWSER}: lifecycle menu follows query state`, async () => {
     await browser.attribute(".gprf-lifecycle-summary", "aria-label"),
     "3 pull requests: Open"
   );
-  assert.deepEqual(
-    await browser.text(".gprf-lifecycle-summary > .gprf-lifecycle-icon"),
-    []
-  );
+  assert.deepEqual(await browser.text(".gprf-lifecycle-summary > .gprf-lifecycle-icon"), []);
   const nativeClasses = await browser.attribute(
     ".table-list-header-toggle.states > a:first-child",
     "class"
@@ -311,7 +318,13 @@ test(`${BROWSER}: lifecycle menu follows query state`, async () => {
   await browser.click(".gprf-lifecycle-summary");
   assert.notEqual(await browser.cssValue(".gprf-summary-count", "display"), "none");
   assert.deepEqual(await browser.text(".gprf-option-label"), [
-    "Needs review", "Open", "Ready", "Draft", "Closed", "Merged", "Closed without merging"
+    "Needs review",
+    "Open",
+    "Ready",
+    "Draft",
+    "Closed",
+    "Merged",
+    "Closed without merging"
   ]);
   const menuIconPaths = await browser.attributes(
     ".gprf-lifecycle-option > .gprf-lifecycle-icon:first-child path",
@@ -321,9 +334,9 @@ test(`${BROWSER}: lifecycle menu follows query state`, async () => {
   assert.equal(new Set(menuIconPaths).size, 7);
 
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="draft"]`);
-  await browser.waitForUrl((url) => (
-    new URL(url).searchParams.get("q")?.includes("draft:true") === true
-  ));
+  await browser.waitForUrl(
+    (url) => new URL(url).searchParams.get("q")?.includes("draft:true") === true
+  );
   await browser.waitForControl();
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Draft"]);
   assert.equal(
@@ -337,54 +350,50 @@ test(`${BROWSER}: lifecycle menu follows query state`, async () => {
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
 
   await browser.search("state:open label:bug");
-  await browser.waitForUrl((url) => (
-    new URL(url).searchParams.get("q") === "state:open label:bug"
-  ));
+  await browser.waitForUrl((url) => new URL(url).searchParams.get("q") === "state:open label:bug");
   await browser.waitForControl();
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
 
   await browser.click(".gprf-lifecycle-summary");
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="ready"]`);
-  await browser.waitForUrl((url) => (
-    new URL(url).searchParams.get("q") === "label:bug is:open draft:false"
-  ));
+  await browser.waitForUrl(
+    (url) => new URL(url).searchParams.get("q") === "label:bug is:open draft:false"
+  );
   await browser.waitForControl();
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Ready"]);
 
   await browser.click(".gprf-lifecycle-summary");
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="needs_review"]`);
-  await browser.waitForUrl((url) => (
-    new URL(url).searchParams.get("q")
-      === "label:bug is:open draft:false -review:approved -review:changes_requested"
-  ));
+  await browser.waitForUrl(
+    (url) =>
+      new URL(url).searchParams.get("q") ===
+      "label:bug is:open draft:false -review:approved -review:changes_requested"
+  );
   await browser.waitForControl();
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Needs review"]);
 
   await browser.search("is:pr is:closed draft:true");
-  await browser.waitForUrl((url) => (
-    new URL(url).searchParams.get("q") === "is:pr is:closed draft:true"
-  ));
+  await browser.waitForUrl(
+    (url) => new URL(url).searchParams.get("q") === "is:pr is:closed draft:true"
+  );
   await browser.waitForControl();
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Closed"]);
   assert.deepEqual(await browser.text(".gprf-summary-count"), ["2"]);
 
   await browser.click(".gprf-lifecycle-summary");
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="closed_unmerged"]`);
-  await browser.waitForUrl((url) => (
-    new URL(url).searchParams.get("q")?.includes("is:unmerged") === true
-  ));
-  await browser.waitForControl();
-  assert.deepEqual(
-    await browser.text(".gprf-summary-label"),
-    ["Closed without merging"]
+  await browser.waitForUrl(
+    (url) => new URL(url).searchParams.get("q")?.includes("is:unmerged") === true
   );
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Closed without merging"]);
   assert.deepEqual(await browser.text(".gprf-summary-count"), ["2"]);
 
   await browser.click(".gprf-lifecycle-summary");
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="merged"]`);
-  await browser.waitForUrl((url) => (
-    new URL(url).searchParams.get("q")?.includes("is:merged") === true
-  ));
+  await browser.waitForUrl(
+    (url) => new URL(url).searchParams.get("q")?.includes("is:merged") === true
+  );
   await browser.waitForControl();
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Merged"]);
   assert.deepEqual(await browser.text(".gprf-summary-count"), ["4"]);
@@ -396,9 +405,9 @@ test(`${BROWSER}: lifecycle menu follows query state`, async () => {
 
   await browser.click(".gprf-lifecycle-summary");
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="draft"]`);
-  await browser.waitForUrl((url) => (
-    new URL(url).searchParams.get("q")?.includes("draft:true") === true
-  ));
+  await browser.waitForUrl(
+    (url) => new URL(url).searchParams.get("q")?.includes("draft:true") === true
+  );
   await browser.waitForControl();
 
   const cleanUrl = new URL(await browser.url());
@@ -414,7 +423,7 @@ test(`${BROWSER}: lifecycle menu follows query state`, async () => {
   await browser.open(globalUrl.href);
   assert.deepEqual(await browser.text(".gprf-lifecycle-summary"), []);
   assert.equal(
-    (await browser.attribute("html", "class") || "").includes("gprf-supported-page"),
+    ((await browser.attribute("html", "class")) || "").includes("gprf-supported-page"),
     false
   );
 }, 90_000);

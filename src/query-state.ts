@@ -104,7 +104,7 @@ function readinessForToken(token: string): Readiness | null {
   }
 }
 
-function needsReviewForToken(token: string): typeof NEEDS_REVIEW_TOKENS[number] | null {
+function needsReviewForToken(token: string): (typeof NEEDS_REVIEW_TOKENS)[number] | null {
   const lowered = token.toLowerCase();
   return NEEDS_REVIEW_TOKENS.find((candidate) => candidate === lowered) ?? null;
 }

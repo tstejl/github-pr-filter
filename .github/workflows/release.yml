@@ -40,6 +40,7 @@ jobs:
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium
       - run: bun run check
+      - run: bun run test:unit
       - run: bun run lint:firefox
       - run: bun run test:e2e:chromium
       - run: bun run test:e2e:firefox

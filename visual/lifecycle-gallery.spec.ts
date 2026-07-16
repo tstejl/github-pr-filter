@@ -1,9 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { LIFECYCLE_OPTIONS } from "../src/lifecycle-options";
 
-const storyUrl = (story: string): string => (
-  `/iframe.html?id=extension-lifecycle-control--${story}&viewMode=story`
-);
+const storyUrl = (story: string): string =>
+  `/iframe.html?id=extension-lifecycle-control--${story}&viewMode=story`;
 
 test("all lifecycle states share the production visual contract", async ({ page }) => {
   await page.goto(storyUrl("all-states-light"));
@@ -11,7 +10,9 @@ test("all lifecycle states share the production visual contract", async ({ page 
   const controls = page.locator(".gprf-lifecycle");
   await expect(controls).toHaveCount(LIFECYCLE_OPTIONS.length * 2);
   await expect(page.locator(".gprf-lifecycle[open]")).toHaveCount(LIFECYCLE_OPTIONS.length);
-  await expect(page.locator(".gprf-summary-count:visible")).toHaveCount(LIFECYCLE_OPTIONS.length * 2);
+  await expect(page.locator(".gprf-summary-count:visible")).toHaveCount(
+    LIFECYCLE_OPTIONS.length * 2
+  );
 
   const labels = await page.locator(".gprf-summary-label").allTextContents();
   expect(labels.slice(0, LIFECYCLE_OPTIONS.length)).toEqual(
@@ -42,12 +43,13 @@ test("all lifecycle states share the production visual contract", async ({ page 
 
 test("dark theme resolves GitHub-compatible tokens", async ({ page }) => {
   await page.goto(storyUrl("all-states-dark"));
-  const shellColor = await page.locator(".gprf-storybook-shell").evaluate(
-    (element) => getComputedStyle(element).backgroundColor
-  );
-  const menuColor = await page.locator(".gprf-lifecycle-menu").first().evaluate(
-    (element) => getComputedStyle(element).backgroundColor
-  );
+  const shellColor = await page
+    .locator(".gprf-storybook-shell")
+    .evaluate((element) => getComputedStyle(element).backgroundColor);
+  const menuColor = await page
+    .locator(".gprf-lifecycle-menu")
+    .first()
+    .evaluate((element) => getComputedStyle(element).backgroundColor);
   expect(shellColor).toBe("rgb(13, 17, 23)");
   expect(menuColor).toBe("rgb(22, 27, 34)");
 });

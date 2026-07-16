@@ -5,7 +5,11 @@ body {
 .gprf-storybook-shell {
   background: var(--bgColor-default, var(--color-canvas-default, #fff));
   color: var(--fgColor-default, var(--color-fg-default, #1f2328));
-  font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font:
+    14px -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   min-height: 100vh;
   padding: 24px;
 }

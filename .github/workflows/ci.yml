@@ -25,7 +25,10 @@ jobs:
         with:
           bun-version: 1.3.11
       - run: bun install --frozen-lockfile
-      - run: bun run check
+      - name: Check formatting, lint, and types
+        run: bun run check
+      - name: Run unit, manifest, and packaging tests
+        run: bun run test:unit
       - run: bun run lint:firefox
       - run: bun run build:firefox
 

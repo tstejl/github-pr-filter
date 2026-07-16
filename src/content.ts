@@ -110,7 +110,10 @@ function nativeCountForLifecycle(group: HTMLElement, lifecycle: Lifecycle): stri
       continue;
     }
 
-    const count = link.textContent.trim().match(/[\p{Number}][\p{Number}\s.,]*/u)?.[0].trim();
+    const count = link.textContent
+      .trim()
+      .match(/[\p{Number}][\p{Number}\s.,]*/u)?.[0]
+      .trim();
     if (count) {
       return count;
     }
@@ -119,7 +122,8 @@ function nativeCountForLifecycle(group: HTMLElement, lifecycle: Lifecycle): stri
 }
 
 function syncTurboFrame(control: HTMLDetailsElement, group: HTMLElement): void {
-  const turboFrame = group.querySelector<HTMLAnchorElement>(":scope > a[data-turbo-frame]")
+  const turboFrame = group
+    .querySelector<HTMLAnchorElement>(":scope > a[data-turbo-frame]")
     ?.getAttribute("data-turbo-frame");
   if (!turboFrame) {
     return;

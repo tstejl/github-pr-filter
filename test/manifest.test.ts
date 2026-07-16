@@ -26,13 +26,9 @@ test("anti-flicker CSS loads before the interactive content script", () => {
   const [bootstrap, interactive] = manifest.content_scripts;
   assert.equal(bootstrap.run_at, "document_start");
   assert.deepEqual(bootstrap.css, ["src/content.css"]);
-  assert.deepEqual(bootstrap.js, [
-    "src/bootstrap.js"
-  ]);
+  assert.deepEqual(bootstrap.js, ["src/bootstrap.js"]);
   assert.equal(interactive.run_at, "document_end");
-  assert.deepEqual(interactive.js, [
-    "src/content.js"
-  ]);
+  assert.deepEqual(interactive.js, ["src/content.js"]);
 });
 
 test("page scope includes repository PR lists and excludes global pulls", () => {
@@ -57,10 +53,7 @@ test("lifecycle menu follows GitHub's fixed-caret motion pattern", () => {
   assert.doesNotMatch(stylesheet, /gprf-lifecycle\[open\][^{]*gprf-chevron/);
   assert.match(stylesheet, /animation: gprf-menu-open 120ms/);
   assert.match(stylesheet, /@keyframes gprf-menu-open/);
-  assert.match(
-    stylesheet,
-    /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation: none;/
-  );
+  assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation: none;/);
 });
 
 test("active count remains visible while the lifecycle menu is expanded", () => {

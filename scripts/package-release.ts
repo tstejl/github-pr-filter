@@ -77,11 +77,9 @@ function stageBrowser(
   const browserRoot = path.join(stagingRoot, browser);
   mkdirSync(browserRoot, { recursive: true });
   for (const runtimePath of RUNTIME_PATHS) {
-    cpSync(
-      path.join(RUNTIME_ROOT, runtimePath),
-      path.join(browserRoot, runtimePath),
-      { recursive: true }
-    );
+    cpSync(path.join(RUNTIME_ROOT, runtimePath), path.join(browserRoot, runtimePath), {
+      recursive: true
+    });
   }
   writeFileSync(
     path.join(browserRoot, "manifest.json"),
@@ -92,14 +90,21 @@ function stageBrowser(
 
 function runWebExt(sourceDir: string, artifactsDir: string, filename: string): void {
   const webExt = path.join(ROOT, "node_modules", ".bin", "web-ext");
-  const result = spawnSync(webExt, [
-    "build",
-    "--source-dir", sourceDir,
-    "--artifacts-dir", artifactsDir,
-    "--filename", filename,
-    "--overwrite-dest",
-    "--no-config-discovery"
-  ], { encoding: "utf8" });
+  const result = spawnSync(
+    webExt,
+    [
+      "build",
+      "--source-dir",
+      sourceDir,
+      "--artifacts-dir",
+      artifactsDir,
+      "--filename",
+      filename,
+      "--overwrite-dest",
+      "--no-config-discovery"
+    ],
+    { encoding: "utf8" }
+  );
 
   if (result.status !== 0) {
     throw new Error(result.stderr || result.stdout || `web-ext exited with ${result.status}`);
@@ -110,15 +115,15 @@ function checksum(filePath: string): string {
   return createHash("sha256").update(readFileSync(filePath)).digest("hex");
 }
 
-export function buildRelease(
-  { requestedVersion = process.env.RELEASE_VERSION }: BuildReleaseOptions = {}
-): BuildReleaseResult {
+export function buildRelease({
+  requestedVersion = process.env.RELEASE_VERSION
+}: BuildReleaseOptions = {}): BuildReleaseResult {
   const manifest = JSON.parse(
     readFileSync(path.join(ROOT, "manifest.json"), "utf8")
   ) as ExtensionManifest;
-  const packageJson = JSON.parse(
-    readFileSync(path.join(ROOT, "package.json"), "utf8")
-  ) as { version: string };
+  const packageJson = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")) as {
+    version: string;
+  };
   const version = validateVersion(manifest.version, packageJson.version, requestedVersion);
   const releaseRoot = path.join(ROOT, "dist", "releases");
   const stagingRoot = path.join(ROOT, "dist", "release-staging");

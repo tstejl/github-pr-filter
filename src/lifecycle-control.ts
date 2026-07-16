@@ -83,7 +83,11 @@ function selectedOption(
   options: readonly LifecycleOption[],
   preferences: LifecyclePreferences
 ): LifecycleOption {
-  return options.find(({ value }) => value === preferences.lifecycle) ?? options[0] ?? LIFECYCLE_OPTIONS[0];
+  return (
+    options.find(({ value }) => value === preferences.lifecycle) ??
+    options[0] ??
+    LIFECYCLE_OPTIONS[0]
+  );
 }
 
 function updateSummary(
@@ -156,12 +160,14 @@ export function createLifecycleControl({
       divider.setAttribute("role", "separator");
       menu.append(divider);
     }
-    menu.append(createLifecycleOption(
-      ownerDocument,
-      option,
-      hrefForLifecycle(option.value),
-      preferences.lifecycle === option.value
-    ));
+    menu.append(
+      createLifecycleOption(
+        ownerDocument,
+        option,
+        hrefForLifecycle(option.value),
+        preferences.lifecycle === option.value
+      )
+    );
   }
 
   control.append(summary, menu);
@@ -190,9 +196,10 @@ export function createLifecycleControl({
     } else if (event.key === "ArrowDown") {
       nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % optionLinks.length;
     } else {
-      nextIndex = currentIndex < 0
-        ? optionLinks.length - 1
-        : (currentIndex - 1 + optionLinks.length) % optionLinks.length;
+      nextIndex =
+        currentIndex < 0
+          ? optionLinks.length - 1
+          : (currentIndex - 1 + optionLinks.length) % optionLinks.length;
     }
     optionLinks[nextIndex]?.focus();
   });
@@ -201,7 +208,9 @@ export function createLifecycleControl({
     if (!control.open || !exclusive) {
       return;
     }
-    for (const otherControl of ownerDocument.querySelectorAll<HTMLDetailsElement>(`.${CONTROL_CLASS}[open]`)) {
+    for (const otherControl of ownerDocument.querySelectorAll<HTMLDetailsElement>(
+      `.${CONTROL_CLASS}[open]`
+    )) {
       if (otherControl !== control) {
         otherControl.removeAttribute("open");
       }
