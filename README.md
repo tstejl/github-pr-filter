@@ -58,9 +58,9 @@ The extension does not call the GitHub API, collect analytics, use a backend, or
 ## Run in Firefox for development
 
 ```sh
-npm install
-npm run lint:firefox
-npx web-ext run
+bun install
+bun run lint:firefox
+bunx web-ext run
 ```
 
 The same source files and manifest are used in Chromium and Firefox. Firefox-specific
@@ -80,13 +80,13 @@ query synchronization, Turbo navigation, and GitHub theme integration.
 The extension intentionally has no runtime or build dependencies.
 
 ```sh
-npm test
-npm run check
-npm run lint:firefox
-npm run build:firefox
-npm run release:package
-npm run test:e2e:chromium
-npm run test:e2e:firefox
+bun test
+bun run check
+bun run lint:firefox
+bun run build:firefox
+bun run release:package
+bun run test:e2e:chromium
+bun run test:e2e:firefox
 ```
 
 The end-to-end suite loads the real extension into each browser and exercises it against a

@@ -4,9 +4,9 @@ Thanks for helping improve GitHub PR Lifecycle Filter.
 
 ## Local setup
 
-1. Install the development dependency with `npm install`.
+1. Install the development dependencies with `bun install`.
 2. Load the unpacked project directory in a Chromium browser, or run it in Firefox with
-   `npx web-ext run`.
+   `bunx web-ext run`.
 3. Exercise a repository pull-request list with both `is:open` and `state:open` query forms.
 
 ## Before opening a pull request
@@ -14,18 +14,18 @@ Thanks for helping improve GitHub PR Lifecycle Filter.
 Run:
 
 ```sh
-npm run check
-npm run lint:firefox
-npm run release:package
-npm run test:e2e:chromium
-npm run test:e2e:firefox
+bun run check
+bun run lint:firefox
+bun run release:package
+bun run test:e2e:chromium
+bun run test:e2e:firefox
 ```
 
 The Firefox E2E command expects Firefox and geckodriver to be available. GitHub-hosted Linux
 runners include both. Playwright installs its pinned Chromium build with
-`npx playwright install chromium`.
+`bunx playwright install chromium`.
 
-`npm run release:package` verifies that `manifest.json` and `package.json` have the same
+`bun run release:package` verifies that `manifest.json` and `package.json` have the same
 version and writes unsigned, browser-specific ZIP files plus `SHA256SUMS` to
 `dist/releases`. Browser stores sign their respective packages; GitHub Releases do not
 publish CRX or XPI files.

@@ -7,7 +7,7 @@ const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 const { promisify } = require("node:util");
-const { test } = require("node:test");
+const { afterEach, test } = require("bun:test");
 
 const execFileAsync = promisify(execFile);
 const ROOT = path.resolve(__dirname, "..");
@@ -231,20 +231,31 @@ async function firefoxSession(xpiPath) {
   };
 }
 
-test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, async (t) => {
-  const fixture = await startFixtureServer();
-  const extension = await prepareExtension();
-  let browser;
+let activeFixture;
+let activeExtension;
+let activeBrowser;
 
-  t.after(async () => {
-    await browser?.close();
-    await fixture.close();
-    await rm(extension.root, { recursive: true, force: true });
-  });
+afterEach(async () => {
+  await activeBrowser?.close();
+  await activeFixture?.close();
+  if (activeExtension) {
+    await rm(activeExtension.root, { recursive: true, force: true });
+  }
+  activeFixture = undefined;
+  activeExtension = undefined;
+  activeBrowser = undefined;
+});
 
-  browser = BROWSER === "chromium"
-    ? await chromiumSession(extension.extensionDir)
-    : await firefoxSession(extension.xpiPath);
+test(`${BROWSER}: lifecycle menu follows query state`, { timeout: 90_000 }, async () => {
+  activeFixture = await startFixtureServer();
+  activeExtension = await prepareExtension();
+
+  activeBrowser = BROWSER === "chromium"
+    ? await chromiumSession(activeExtension.extensionDir)
+    : await firefoxSession(activeExtension.xpiPath);
+
+  const fixture = activeFixture;
+  const browser = activeBrowser;
 
   await browser.open(fixture.url);
   await browser.waitForControl();
