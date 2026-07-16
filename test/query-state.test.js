@@ -55,6 +55,61 @@ test("Merged is separate from unmerged Closed", () => {
   );
 });
 
+test("Needs review adds open, non-draft, and unreviewed qualifiers", () => {
+  assert.equal(
+    queryState.queryWithLifecycle("is:pr is:open label:frontend", "needs_review"),
+    "is:pr label:frontend is:open draft:false -review:approved -review:changes_requested"
+  );
+});
+
+test("Needs review replaces review-status filters but keeps reviewer filters", () => {
+  assert.equal(
+    queryState.queryWithLifecycle(
+      "is:pr is:open review:approved reviewed-by:octocat label:frontend",
+      "needs_review"
+    ),
+    "is:pr reviewed-by:octocat label:frontend is:open draft:false -review:approved -review:changes_requested"
+  );
+});
+
+test("leaving Needs review removes its review qualifiers", () => {
+  assert.equal(
+    queryState.queryWithLifecycle(
+      "is:pr is:open draft:false -review:approved -review:changes_requested label:bug",
+      "draft"
+    ),
+    "is:pr label:bug is:open draft:true"
+  );
+});
+
+test("a needs-review query updates the displayed selection", () => {
+  assert.deepEqual(
+    queryState.reconcileQuery(
+      "is:pr is:open draft:false -review:approved -review:changes_requested"
+    ),
+    {
+      query: "is:pr is:open draft:false -review:approved -review:changes_requested",
+      effective: { lifecycle: "needs_review" }
+    }
+  );
+});
+
+test("closed state takes precedence over needs-review qualifiers", () => {
+  assert.equal(
+    queryState.inspectQuery(
+      "is:pr is:closed draft:false -review:approved -review:changes_requested"
+    ).lifecycle,
+    "closed"
+  );
+});
+
+test("a partial needs-review query still maps to Ready", () => {
+  assert.equal(
+    queryState.inspectQuery("is:pr is:open draft:false -review:approved").lifecycle,
+    "ready"
+  );
+});
+
 test("lifecycle changes preserve GitHub native review filters", () => {
   assert.equal(
     queryState.queryWithLifecycle(

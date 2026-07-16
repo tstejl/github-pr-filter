@@ -13,11 +13,13 @@
   const LIFECYCLE_VALUES = new Set([
     "open",
     "ready",
+    "needs_review",
     "draft",
     "closed",
     "merged",
     "closed_unmerged"
   ]);
+  const NEEDS_REVIEW_TOKENS = Object.freeze(["-review:approved", "-review:changes_requested"]);
 
   function tokenizeQuery(query) {
     const input = typeof query === "string" ? query.trim() : "";
@@ -97,6 +99,15 @@
     }
   }
 
+  function needsReviewForToken(token) {
+    const lowered = token.toLowerCase();
+    return NEEDS_REVIEW_TOKENS.includes(lowered) ? lowered : null;
+  }
+
+  function isReviewStatusToken(token) {
+    return /^-?review:/i.test(token);
+  }
+
   function mergeForToken(token) {
     switch (token.toLowerCase()) {
       case "is:merged":
@@ -114,11 +125,16 @@
     let state = null;
     let readiness = null;
     let merge = null;
+    const needsReviewTokens = new Set();
 
     for (const token of tokens) {
       state = stateForToken(token) || state;
       readiness = readinessForToken(token) || readiness;
       merge = mergeForToken(token) || merge;
+      const needsReview = needsReviewForToken(token);
+      if (needsReview) {
+        needsReviewTokens.add(needsReview);
+      }
     }
 
     let lifecycle = null;
@@ -128,6 +144,8 @@
       lifecycle = "closed_unmerged";
     } else if (state === "closed") {
       lifecycle = "closed";
+    } else if (readiness === "ready" && needsReviewTokens.size === NEEDS_REVIEW_TOKENS.length) {
+      lifecycle = "needs_review";
     } else if (readiness) {
       lifecycle = readiness;
     } else if (state === "open") {
@@ -146,7 +164,16 @@
       ? lifecycle
       : DEFAULT_PREFERENCES.lifecycle;
     const tokens = tokenizeQuery(query).filter((token) => {
-      return !stateForToken(token) && !readinessForToken(token) && !mergeForToken(token);
+      if (stateForToken(token) || readinessForToken(token) || mergeForToken(token)) {
+        return false;
+      }
+      // The needs-review negations are lifecycle-owned; other review-status
+      // qualifiers are user-owned and only cleared when they would contradict
+      // the Needs review view.
+      if (needsReviewForToken(token)) {
+        return false;
+      }
+      return safeLifecycle !== "needs_review" || !isReviewStatusToken(token);
     });
 
     if (safeLifecycle === "merged") {
@@ -159,6 +186,8 @@
       tokens.push("is:open");
       if (safeLifecycle === "ready") {
         tokens.push("draft:false");
+      } else if (safeLifecycle === "needs_review") {
+        tokens.push("draft:false", ...NEEDS_REVIEW_TOKENS);
       } else if (safeLifecycle === "draft") {
         tokens.push("draft:true");
       }

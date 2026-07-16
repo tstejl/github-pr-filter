@@ -2,6 +2,15 @@
 
 All notable changes will be documented in this file.
 
+## Unreleased
+
+- Added a Needs review lifecycle view for open, non-draft pull requests that are neither
+  approved nor awaiting changes (`-review:approved -review:changes_requested`).
+- Selecting Needs review replaces conflicting review-status qualifiers; all other search
+  terms and native review filters remain preserved.
+- Clarified the Ready description to "Open, not a draft" so it is not read as a review
+  queue.
+
 ## 0.4.1 — 2026-07-14
 
 - Fixed the active count for Merged pull-request views using GitHub's `Total` header.

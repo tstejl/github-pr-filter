@@ -71,6 +71,10 @@ html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
   color: var(--fgColor-open, var(--color-open-fg, #1a7f37));
 }
 
+.gprf-lifecycle-option[data-lifecycle="needs_review"] > .gprf-lifecycle-icon:first-child {
+  color: var(--fgColor-attention, var(--color-attention-fg, #9a6700));
+}
+
 .gprf-lifecycle-option[data-lifecycle="merged"] > .gprf-lifecycle-icon:first-child {
   color: var(--fgColor-done, var(--color-done-fg, #8250df));
 }
