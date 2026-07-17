@@ -7,6 +7,9 @@
   },
   "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise", "node"],
   "ignorePatterns": ["dist/**"],
+  "rules": {
+    "typescript/no-explicit-any": "deny"
+  },
   "overrides": [
     {
       "files": [".storybook/preview.ts"],

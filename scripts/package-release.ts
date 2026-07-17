@@ -33,6 +33,32 @@ const RUNTIME_ROOT = path.join(ROOT, "dist", "extension");
 const RUNTIME_PATHS = ["LICENSE", "PRIVACY.md", "assets", "src"] as const;
 const VERSION_PATTERN = /^(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){1,3}$/;
 
+function parseJsonObject(source: string, label: string): Record<string, unknown> {
+  const value: unknown = JSON.parse(source);
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${label} must contain a JSON object.`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function parseManifest(source: string): ExtensionManifest {
+  const value = parseJsonObject(source, "manifest.json");
+  if (typeof value.manifest_version !== "number" || typeof value.version !== "string") {
+    throw new Error(
+      "manifest.json must contain numeric manifest_version and string version fields."
+    );
+  }
+  return value as ExtensionManifest;
+}
+
+function parsePackageVersion(source: string): string {
+  const value = parseJsonObject(source, "package.json");
+  if (typeof value.version !== "string") {
+    throw new Error("package.json must contain a string version field.");
+  }
+  return value.version;
+}
+
 export function validateVersion(
   manifestVersion: string,
   packageVersion: string,
@@ -118,13 +144,9 @@ function checksum(filePath: string): string {
 export function buildRelease({
   requestedVersion = process.env.RELEASE_VERSION
 }: BuildReleaseOptions = {}): BuildReleaseResult {
-  const manifest = JSON.parse(
-    readFileSync(path.join(ROOT, "manifest.json"), "utf8")
-  ) as ExtensionManifest;
-  const packageJson = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")) as {
-    version: string;
-  };
-  const version = validateVersion(manifest.version, packageJson.version, requestedVersion);
+  const manifest = parseManifest(readFileSync(path.join(ROOT, "manifest.json"), "utf8"));
+  const packageVersion = parsePackageVersion(readFileSync(path.join(ROOT, "package.json"), "utf8"));
+  const version = validateVersion(manifest.version, packageVersion, requestedVersion);
   const releaseRoot = path.join(ROOT, "dist", "releases");
   const stagingRoot = path.join(ROOT, "dist", "release-staging");
 

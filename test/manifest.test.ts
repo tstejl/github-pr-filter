@@ -5,7 +5,38 @@ import path from "node:path";
 import { isRepositoryPullListPath, repositoryKeyFromPullListPath } from "../src/page-scope";
 
 const projectRoot = path.resolve(import.meta.dir, "..");
-const manifest = JSON.parse(fs.readFileSync(path.join(projectRoot, "manifest.json"), "utf8"));
+
+interface ManifestFixture {
+  manifest_version: number;
+  permissions: string[];
+  host_permissions?: string[];
+  browser_specific_settings: {
+    gecko: {
+      id: string;
+      data_collection_permissions: { required: string[] };
+    };
+  };
+  content_scripts: Array<{
+    matches: string[];
+    run_at: string;
+    css?: string[];
+    js?: string[];
+  }>;
+  icons: Record<string, string>;
+}
+
+function assertManifestFixture(value: unknown): asserts value is ManifestFixture {
+  assert.ok(typeof value === "object" && value !== null && "content_scripts" in value);
+  const candidate = value as Record<string, unknown>;
+  assert.ok(Array.isArray(candidate.content_scripts));
+  assert.ok(typeof candidate.icons === "object" && candidate.icons !== null);
+}
+
+const parsedManifest: unknown = JSON.parse(
+  fs.readFileSync(path.join(projectRoot, "manifest.json"), "utf8")
+);
+assertManifestFixture(parsedManifest);
+const manifest = parsedManifest;
 const builtRoot = path.join(projectRoot, "dist", "extension");
 
 test("manifest uses a minimal Manifest V3 permission set", () => {
@@ -24,6 +55,8 @@ test("manifest uses a minimal Manifest V3 permission set", () => {
 
 test("anti-flicker CSS loads before the interactive content script", () => {
   const [bootstrap, interactive] = manifest.content_scripts;
+  assert.ok(bootstrap);
+  assert.ok(interactive);
   assert.equal(bootstrap.run_at, "document_start");
   assert.deepEqual(bootstrap.css, ["src/content.css"]);
   assert.deepEqual(bootstrap.js, ["src/bootstrap.js"]);
@@ -65,10 +98,7 @@ test("active count remains visible while the lifecycle menu is expanded", () => 
 
 test("every packaged script, stylesheet, and icon exists", () => {
   const packagedFiles = [
-    ...manifest.content_scripts.flatMap((entry: { js?: string[]; css?: string[] }) => [
-      ...(entry.js || []),
-      ...(entry.css || [])
-    ]),
+    ...manifest.content_scripts.flatMap((entry) => [...(entry.js || []), ...(entry.css || [])]),
     ...Object.values(manifest.icons)
   ];
 

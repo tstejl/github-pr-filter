@@ -23,6 +23,8 @@
     "test": "bun run test:unit",
     "test:unit": "bun run build && bun test test",
     "test:coverage": "bun run build && bun test --coverage --coverage-reporter=lcov test",
+    "coverage:update": "bun scripts/generate-coverage-badge.ts",
+    "coverage:check": "bun scripts/generate-coverage-badge.ts --check",
     "test:e2e": "bun run test:e2e:chromium && bun run test:e2e:firefox",
     "test:e2e:chromium": "bun run build && E2E_BROWSER=chromium bun test ./e2e/lifecycle.e2e.ts",
     "test:e2e:firefox": "bun run build && E2E_BROWSER=firefox bun test ./e2e/lifecycle.e2e.ts",

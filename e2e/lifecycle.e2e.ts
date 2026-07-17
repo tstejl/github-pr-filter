@@ -131,9 +131,15 @@ async function prepareExtension(): Promise<PreparedExtension> {
   await cp(path.join(ROOT, "dist", "extension"), extensionDir, { recursive: true });
 
   const manifestPath = path.join(extensionDir, "manifest.json");
-  const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
-    content_scripts: Array<{ matches: string[] }>;
-  };
+  const parsedManifest: unknown = JSON.parse(await readFile(manifestPath, "utf8"));
+  assert.ok(
+    typeof parsedManifest === "object" &&
+      parsedManifest !== null &&
+      "content_scripts" in parsedManifest &&
+      Array.isArray(parsedManifest.content_scripts),
+    "Built manifest should contain content scripts"
+  );
+  const manifest = parsedManifest as { content_scripts: Array<{ matches: string[] }> };
   for (const script of manifest.content_scripts) {
     script.matches = ["http://127.0.0.1/*"];
   }

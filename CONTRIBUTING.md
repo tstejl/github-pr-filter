@@ -15,7 +15,8 @@ Run:
 
 ```sh
 bun run check
-bun test
+bun run test:coverage
+bun run coverage:check
 bun run lint:firefox
 bun run release:package
 bun run test:e2e:chromium
@@ -27,6 +28,10 @@ bun run test:visual
 `bun run check` verifies Oxfmt formatting, Oxlint rules, and TypeScript types. It does not
 modify files. Run `bun run format` and `bun run lint:fix` before committing to apply safe
 automatic fixes.
+
+`bun run coverage:check` verifies that `assets/coverage.svg` matches the generated LCOV
+report. If an intentional test or source change updates coverage, run
+`bun run coverage:update` and commit the refreshed badge.
 
 The Firefox E2E command expects Firefox and geckodriver to be available. GitHub-hosted Linux
 runners include both. Playwright installs its pinned Chromium build with
