@@ -1,5 +1,5 @@
 import { chromium } from "@playwright/test";
-import { afterEach, beforeEach, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, test } from "bun:test";
 import * as assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
@@ -365,31 +365,40 @@ async function firefoxSession(xpiPath: string): Promise<BrowserSession> {
 }
 
 let activeFixture: FixtureServer | undefined;
-let activeExtension: PreparedExtension | undefined;
 let activeBrowser: BrowserSession | undefined;
+let preparedExtension: PreparedExtension | undefined;
+
+beforeAll(async () => {
+  preparedExtension = await prepareExtension();
+}, 30_000);
 
 beforeEach(async () => {
+  if (!preparedExtension) {
+    throw new Error("E2E extension preparation did not complete.");
+  }
   activeFixture = await startFixtureServer();
-  activeExtension = await prepareExtension();
-  if (BROWSER === "firefox" && !activeExtension.xpiPath) {
+  if (BROWSER === "firefox" && !preparedExtension.xpiPath) {
     throw new Error("Firefox E2E packaging did not produce an extension archive.");
   }
   activeBrowser =
     BROWSER === "chromium"
-      ? await chromiumSession(activeExtension.extensionDir)
-      : await firefoxSession(activeExtension.xpiPath as string);
-});
+      ? await chromiumSession(preparedExtension.extensionDir)
+      : await firefoxSession(preparedExtension.xpiPath as string);
+}, 30_000);
 
 afterEach(async () => {
   await activeBrowser?.close();
   await activeFixture?.close();
-  if (activeExtension) {
-    await rm(activeExtension.root, { recursive: true, force: true });
-  }
   activeFixture = undefined;
-  activeExtension = undefined;
   activeBrowser = undefined;
-});
+}, 30_000);
+
+afterAll(async () => {
+  if (preparedExtension) {
+    await rm(preparedExtension.root, { recursive: true, force: true });
+  }
+  preparedExtension = undefined;
+}, 30_000);
 
 test(`${BROWSER}: query navigation, counts, and Turbo integration`, async () => {
   const fixture = activeFixture as FixtureServer;
