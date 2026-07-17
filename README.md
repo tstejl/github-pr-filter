@@ -63,8 +63,10 @@ See [PRIVACY.md](PRIVACY.md) for the complete privacy policy.
 
 ## Installation
 
-Signed Chrome Web Store and Firefox Add-ons builds are the recommended installation route.
-Store links will be added here when their listings complete review.
+Signed browser-store builds install permanently and receive automatic updates:
+
+- **Chromium:** [Install from the Chrome Web Store](https://chromewebstore.google.com/detail/github-pr-lifecycle-filte/dppkjnbbfnnphkdggclnjigfkdieooee)
+- **Firefox:** Firefox Add-ons link coming soon
 
 For testing or manual installation, each [GitHub release](https://github.com/tstejl/github-pr-filter/releases/latest)
 contains separate unsigned packages for Chromium and Firefox, plus SHA-256 checksums.
