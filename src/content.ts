@@ -1,23 +1,23 @@
 import {
   CONTROL_CLASS,
   createLifecycleControl,
-  refreshLifecycleControl
+  type LifecycleControlController
 } from "./lifecycle-control";
+import type { Lifecycle } from "./lifecycle-options";
 import {
-  DEFAULT_PREFERENCES,
-  type Lifecycle,
-  type LifecyclePreferences
-} from "./lifecycle-options";
-import { isRepositoryPullListPath } from "./page-scope";
+  createLifecyclePageCoordinator,
+  type LifecyclePageRenderState,
+  type LifecyclePageSnapshot
+} from "./page-coordinator";
+import {
+  loadRepositoryLifecycleLayout,
+  saveRepositoryLifecycleLayout,
+  subscribeRepositoryLifecycleLayouts
+} from "./lifecycle-storage";
+import { isRepositoryPullListPath, repositoryKeyFromPullListPath } from "./page-scope";
 import { inspectQuery, queryWithLifecycle, reconcileQuery } from "./query-state";
 
-let activePreferences: LifecyclePreferences = { ...DEFAULT_PREFERENCES };
-let lastReconciledUrl: string | null = null;
-let scheduledTimer: ReturnType<typeof setTimeout> | null = null;
-
-function isSupportedPage(): boolean {
-  return isRepositoryPullListPath(location.pathname);
-}
+const controls = new Map<HTMLDetailsElement, LifecycleControlController>();
 
 function getSearchInput(): HTMLInputElement | null {
   const selectors = [
@@ -70,29 +70,14 @@ function hrefForLifecycle(lifecycle: Lifecycle): string {
   return urlForQuery(queryWithLifecycle(getCurrentQuery(), lifecycle)).href;
 }
 
-function createControl(
-  preferences: LifecyclePreferences,
-  standalone = false,
-  count: string | null = null
-): HTMLDetailsElement {
-  return createLifecycleControl({
-    preferences,
-    standalone,
-    count,
-    hrefForLifecycle
-  });
-}
-
-function refreshControl(
-  control: HTMLDetailsElement,
-  preferences: LifecyclePreferences,
-  count: string | null = null
-): void {
-  refreshLifecycleControl(control, { preferences, count, hrefForLifecycle });
-}
-
-function nativeStatusGroups(): HTMLElement[] {
-  return [...document.querySelectorAll<HTMLElement>(".table-list-header-toggle.states")];
+function currentPageSnapshot(): LifecyclePageSnapshot {
+  const repository = repositoryKeyFromPullListPath(location.pathname);
+  return {
+    supported: isRepositoryPullListPath(location.pathname),
+    repository,
+    url: location.href,
+    preferences: reconcileQuery(getCurrentQuery()).effective
+  };
 }
 
 function lifecycleFamily(lifecycle: Lifecycle): "open" | "closed" {
@@ -101,7 +86,6 @@ function lifecycleFamily(lifecycle: Lifecycle): "open" | "closed" {
 
 function nativeCountForLifecycle(group: HTMLElement, lifecycle: Lifecycle): string | null {
   const desiredFamily = lifecycleFamily(lifecycle);
-
   for (const link of group.querySelectorAll<HTMLAnchorElement>(":scope > a.btn-link")) {
     const url = new URL(link.href, location.href);
     const query = url.searchParams.get("q") ?? url.searchParams.get("query") ?? "";
@@ -109,7 +93,6 @@ function nativeCountForLifecycle(group: HTMLElement, lifecycle: Lifecycle): stri
     if (!nativeLifecycle || lifecycleFamily(nativeLifecycle) !== desiredFamily) {
       continue;
     }
-
     const count = link.textContent
       .trim()
       .match(/[\p{Number}][\p{Number}\s.,]*/u)?.[0]
@@ -121,102 +104,148 @@ function nativeCountForLifecycle(group: HTMLElement, lifecycle: Lifecycle): stri
   return null;
 }
 
-function syncTurboFrame(control: HTMLDetailsElement, group: HTMLElement): void {
-  const turboFrame = group
-    .querySelector<HTMLAnchorElement>(":scope > a[data-turbo-frame]")
-    ?.getAttribute("data-turbo-frame");
-  if (!turboFrame) {
-    return;
-  }
+function turboFrameForGroup(group: HTMLElement): string | null {
+  return (
+    group
+      .querySelector<HTMLAnchorElement>(":scope > a[data-turbo-frame]")
+      ?.getAttribute("data-turbo-frame") ?? null
+  );
+}
 
-  for (const link of control.querySelectorAll<HTMLAnchorElement>(".gprf-lifecycle-option")) {
-    link.setAttribute("data-turbo-frame", turboFrame);
+function pruneControls(): void {
+  for (const [element, controller] of controls) {
+    if (!element.isConnected) {
+      controller.destroy();
+      controls.delete(element);
+    }
   }
 }
 
-function mountControls(): void {
-  if (!isSupportedPage()) {
-    return;
-  }
+function createControl(
+  state: LifecyclePageRenderState,
+  standalone = false,
+  count: string | null = null,
+  turboFrame: string | null = null
+): LifecycleControlController {
+  const controller = createLifecycleControl({
+    preferences: state.preferences,
+    standalone,
+    count,
+    hrefForLifecycle,
+    customizable: true,
+    layout: state.layout,
+    onApplyLayout: state.applyLayout,
+    turboFrame
+  });
+  controls.set(controller.element, controller);
+  return controller;
+}
 
-  const groups = nativeStatusGroups();
+function refreshControl(
+  controller: LifecycleControlController,
+  state: LifecyclePageRenderState,
+  count: string | null = null,
+  turboFrame?: string | null
+): void {
+  controller.refresh({
+    preferences: state.preferences,
+    count,
+    hrefForLifecycle,
+    layout: state.layout,
+    ...(turboFrame !== undefined ? { turboFrame } : {})
+  });
+}
+
+function renderPage(state: LifecyclePageRenderState): void {
+  pruneControls();
+  const groups = [...document.querySelectorAll<HTMLElement>(".table-list-header-toggle.states")];
   if (groups.length > 0) {
     for (const group of groups) {
-      const count = nativeCountForLifecycle(group, activePreferences.lifecycle);
-      const existingControl = group.querySelector<HTMLDetailsElement>(`:scope > .${CONTROL_CLASS}`);
-      if (existingControl) {
-        syncTurboFrame(existingControl, group);
-        refreshControl(existingControl, activePreferences, count);
+      const count = nativeCountForLifecycle(group, state.preferences.lifecycle);
+      const turboFrame = turboFrameForGroup(group);
+      const existingElement = group.querySelector<HTMLDetailsElement>(`:scope > .${CONTROL_CLASS}`);
+      const existingController = existingElement ? controls.get(existingElement) : undefined;
+      if (existingController) {
+        refreshControl(existingController, state, count, turboFrame);
         continue;
       }
-
+      existingElement?.remove();
       for (const nativeLink of group.querySelectorAll<HTMLElement>(":scope > a.btn-link")) {
         nativeLink.classList.add("gprf-native-status-hidden");
       }
-      const control = createControl(activePreferences, false, count);
-      syncTurboFrame(control, group);
-      group.append(control);
+      group.append(createControl(state, false, count, turboFrame).element);
     }
     return;
   }
 
-  const existingControl = document.querySelector<HTMLDetailsElement>(`.${CONTROL_CLASS}`);
-  if (existingControl) {
-    refreshControl(existingControl, activePreferences);
+  const existingElement = document.querySelector<HTMLDetailsElement>(`.${CONTROL_CLASS}`);
+  const existingController = existingElement ? controls.get(existingElement) : undefined;
+  if (existingController) {
+    refreshControl(existingController, state);
     return;
   }
-
+  existingElement?.remove();
   const searchInput = getSearchInput();
   const searchContainer = searchInput?.closest("form, [role='search'], search");
   if (searchContainer) {
-    searchContainer.insertAdjacentElement("afterend", createControl(activePreferences, true));
+    searchContainer.insertAdjacentElement("afterend", createControl(state, true).element);
   }
 }
 
-function removeControls(): void {
+function clearPage(): void {
+  for (const controller of controls.values()) {
+    controller.destroy();
+  }
+  controls.clear();
   document.querySelectorAll(`.${CONTROL_CLASS}`).forEach((control) => control.remove());
   document.querySelectorAll(".gprf-native-status-hidden").forEach((link) => {
     link.classList.remove("gprf-native-status-hidden");
   });
 }
 
-function reconcileAndMount(): void {
-  if (!isSupportedPage()) {
-    removeControls();
-    lastReconciledUrl = null;
-    return;
-  }
-
-  const currentUrl = location.href;
-  if (lastReconciledUrl !== currentUrl) {
-    activePreferences = reconcileQuery(getCurrentQuery()).effective;
-    lastReconciledUrl = currentUrl;
-  }
-  mountControls();
-}
-
-function scheduleReconcile(): void {
-  if (scheduledTimer !== null) {
-    clearTimeout(scheduledTimer);
-  }
-  scheduledTimer = setTimeout(() => {
-    scheduledTimer = null;
-    reconcileAndMount();
-  }, 60);
-}
-
-document.addEventListener("click", (event) => {
+function closeOpenMenus(event: MouseEvent): void {
+  const eventPath = event.composedPath();
   for (const control of document.querySelectorAll<HTMLDetailsElement>(`.${CONTROL_CLASS}[open]`)) {
-    if (!(event.target instanceof Node) || !control.contains(event.target)) {
+    if (
+      !eventPath.includes(control) &&
+      !control.classList.contains("gprf-lifecycle--configuring")
+    ) {
       control.removeAttribute("open");
     }
   }
+}
+
+function subscribePageChanges(listener: () => void): () => void {
+  const observer = new MutationObserver((mutations) => {
+    const pageChanged = mutations.some(
+      ({ target }) => !(target instanceof Element && target.closest(`.${CONTROL_CLASS}`))
+    );
+    if (pageChanged) {
+      listener();
+    }
+  });
+  document.addEventListener("click", closeOpenMenus);
+  window.addEventListener("popstate", listener);
+  document.addEventListener("turbo:load", listener);
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+
+  return () => {
+    observer.disconnect();
+    document.removeEventListener("click", closeOpenMenus);
+    window.removeEventListener("popstate", listener);
+    document.removeEventListener("turbo:load", listener);
+  };
+}
+
+const coordinator = createLifecyclePageCoordinator({
+  snapshot: currentPageSnapshot,
+  loadLayout: loadRepositoryLifecycleLayout,
+  saveLayout: saveRepositoryLifecycleLayout,
+  render: renderPage,
+  clear: clearPage,
+  subscribePageChanges,
+  subscribeLayoutChanges: subscribeRepositoryLifecycleLayouts,
+  reportError: (message, error) => console.error(`GitHub PR Filter: ${message}`, error)
 });
 
-window.addEventListener("popstate", scheduleReconcile);
-document.addEventListener("turbo:load", scheduleReconcile);
-
-const observer = new MutationObserver(scheduleReconcile);
-observer.observe(document.documentElement, { childList: true, subtree: true });
-
-reconcileAndMount();
+coordinator.start();

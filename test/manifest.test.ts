@@ -2,7 +2,7 @@ import { test } from "bun:test";
 import * as assert from "node:assert/strict";
 import * as fs from "node:fs";
 import path from "node:path";
-import { isRepositoryPullListPath } from "../src/page-scope";
+import { isRepositoryPullListPath, repositoryKeyFromPullListPath } from "../src/page-scope";
 
 const projectRoot = path.resolve(import.meta.dir, "..");
 const manifest = JSON.parse(fs.readFileSync(path.join(projectRoot, "manifest.json"), "utf8"));
@@ -10,7 +10,7 @@ const builtRoot = path.join(projectRoot, "dist", "extension");
 
 test("manifest uses a minimal Manifest V3 permission set", () => {
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.permissions, undefined);
+  assert.deepEqual(manifest.permissions, ["storage"]);
   assert.equal(manifest.host_permissions, undefined);
   assert.deepEqual(manifest.browser_specific_settings.gecko.data_collection_permissions, {
     required: ["none"]
@@ -38,6 +38,8 @@ test("page scope includes repository PR lists and excludes global pulls", () => 
   assert.equal(isRepositoryPullListPath("/pulls/assigned"), false);
   assert.equal(isRepositoryPullListPath("/octocat/hello-world/pull/1"), false);
   assert.equal(isRepositoryPullListPath("/octocat/hello-world/pulls/1"), false);
+  assert.equal(repositoryKeyFromPullListPath("/OctoCat/Hello-World/pulls"), "octocat/hello-world");
+  assert.equal(repositoryKeyFromPullListPath("/pulls"), null);
 });
 
 test("navigation keeps GitHub Turbo hooks instead of forcing a page reload", () => {

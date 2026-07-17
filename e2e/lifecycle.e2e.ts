@@ -1,5 +1,5 @@
 import { chromium } from "@playwright/test";
-import { afterEach, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, test } from "bun:test";
 import * as assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
@@ -8,7 +8,7 @@ import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { Builder, By, Key, until, type WebDriver, type WebElement } from "selenium-webdriver";
+import { Builder, By, Key, until, type WebDriver } from "selenium-webdriver";
 import firefox from "selenium-webdriver/firefox";
 
 type BrowserName = "chromium" | "firefox";
@@ -26,15 +26,20 @@ interface PreparedExtension {
 
 interface BrowserSession {
   open: (url: string) => Promise<void>;
+  openNewTab: (url: string) => Promise<void>;
+  switchToTab: (index: number) => Promise<void>;
   waitForControl: () => Promise<void>;
+  waitForText: (selector: string, text: string, present: boolean) => Promise<void>;
   text: (selector: string) => Promise<string[]>;
   attribute: (selector: string, name: string) => Promise<string | null>;
   attributes: (selector: string, name: string) => Promise<(string | null)[]>;
   cssValue: (selector: string, name: string) => Promise<string>;
   click: (selector: string) => Promise<void>;
+  clickReplacing: (selector: string) => Promise<void>;
   search: (query: string) => Promise<void>;
   url: () => Promise<string>;
   waitForUrl: (predicate: (url: string) => boolean) => Promise<void>;
+  mutationCount: (selector: string, duration: number) => Promise<number>;
   close: () => Promise<void>;
 }
 
@@ -161,14 +166,35 @@ async function chromiumSession(extensionDir: string): Promise<BrowserSession> {
     headless: true,
     args: [`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`]
   });
-  const page = context.pages()[0] || (await context.newPage());
+  let page = context.pages()[0] || (await context.newPage());
 
   return {
     async open(url: string) {
       await page.goto(url);
     },
+    async openNewTab(url: string) {
+      page = await context.newPage();
+      await page.goto(url);
+    },
+    async switchToTab(index: number) {
+      const nextPage = context.pages()[index];
+      assert.ok(nextPage, `Missing Chromium tab ${index}`);
+      page = nextPage;
+      await page.bringToFront();
+    },
     async waitForControl() {
       await page.locator(".gprf-lifecycle-summary").waitFor();
+    },
+    async waitForText(selector: string, expected: string, present: boolean) {
+      await page.waitForFunction(
+        ({ selector: target, expected: text, present: shouldBePresent }) => {
+          const contents = [...document.querySelectorAll(target)].map(
+            (element) => element.textContent ?? ""
+          );
+          return contents.some((content) => content.includes(text)) === shouldBePresent;
+        },
+        { selector, expected, present }
+      );
     },
     async text(selector: string) {
       return page.locator(selector).allTextContents();
@@ -196,6 +222,9 @@ async function chromiumSession(extensionDir: string): Promise<BrowserSession> {
     async click(selector: string) {
       await page.locator(selector).click();
     },
+    async clickReplacing(selector: string) {
+      await page.locator(selector).click();
+    },
     async search(query: string) {
       const input = page.locator('input[name="q"]');
       await input.fill(query);
@@ -206,6 +235,23 @@ async function chromiumSession(extensionDir: string): Promise<BrowserSession> {
     },
     async waitForUrl(predicate: (url: string) => boolean) {
       await page.waitForURL((url) => predicate(url.href));
+    },
+    async mutationCount(selector: string, duration: number) {
+      return page.locator(selector).evaluate(
+        (element, wait) =>
+          new Promise<number>((resolve) => {
+            let count = 0;
+            const observer = new MutationObserver((mutations) => {
+              count += mutations.length;
+            });
+            observer.observe(element, { childList: true, subtree: true });
+            setTimeout(() => {
+              observer.disconnect();
+              resolve(count);
+            }, wait);
+          }),
+        duration
+      );
     },
     async close() {
       await context.close();
@@ -226,31 +272,73 @@ async function firefoxSession(xpiPath: string): Promise<BrowserSession> {
     .build()) as FirefoxWebDriver;
   await driver.installAddon(xpiPath, true);
 
-  async function elements(selector: string): Promise<WebElement[]> {
-    return driver.findElements(By.css(selector));
-  }
-
   return {
     async open(url: string) {
       await driver.get(url);
     },
+    async openNewTab(url: string) {
+      await driver.switchTo().newWindow("tab");
+      await driver.get(url);
+    },
+    async switchToTab(index: number) {
+      const handles = await driver.getAllWindowHandles();
+      const handle = handles[index];
+      assert.ok(handle, `Missing Firefox tab ${index}`);
+      await driver.switchTo().window(handle);
+    },
     async waitForControl() {
       await driver.wait(until.elementLocated(By.css(".gprf-lifecycle-summary")), 15_000);
     },
+    async waitForText(selector: string, expected: string, present: boolean) {
+      await driver.wait(
+        async () =>
+          driver.executeScript<boolean>(
+            "const contents = Array.from(document.querySelectorAll(arguments[0]), element => element.textContent || ''); return contents.some(content => content.includes(arguments[1])) === arguments[2]",
+            selector,
+            expected,
+            present
+          ),
+        15_000
+      );
+    },
     async text(selector: string) {
-      return Promise.all((await elements(selector)).map((element) => element.getText()));
+      return driver.executeScript<string[]>(
+        "return Array.from(document.querySelectorAll(arguments[0]), element => (element.textContent || '').trim())",
+        selector
+      );
     },
     async attribute(selector: string, name: string) {
-      return (await driver.findElement(By.css(selector))).getAttribute(name);
+      return driver.executeScript<string | null>(
+        "return document.querySelector(arguments[0])?.getAttribute(arguments[1]) ?? null",
+        selector,
+        name
+      );
     },
     async attributes(selector: string, name: string) {
-      return Promise.all((await elements(selector)).map((element) => element.getAttribute(name)));
+      return driver.executeScript<(string | null)[]>(
+        "return Array.from(document.querySelectorAll(arguments[0]), element => element.getAttribute(arguments[1]))",
+        selector,
+        name
+      );
     },
     async cssValue(selector: string, name: string) {
-      return (await driver.findElement(By.css(selector))).getCssValue(name);
+      return driver.executeScript<string>(
+        "const element = document.querySelector(arguments[0]); return element ? getComputedStyle(element).getPropertyValue(arguments[1]) : ''",
+        selector,
+        name
+      );
     },
     async click(selector: string) {
-      await driver.findElement(By.css(selector)).click();
+      await driver.executeScript(
+        "const element = document.querySelector(arguments[0]); if (!element) throw new Error(`Missing ${arguments[0]}`); element.click();",
+        selector
+      );
+    },
+    async clickReplacing(selector: string) {
+      await driver.executeScript(
+        "const element = document.querySelector(arguments[0]); if (!element) throw new Error(`Missing ${arguments[0]}`); element.click();",
+        selector
+      );
     },
     async search(query: string) {
       const input = await driver.findElement(By.css('input[name="q"]'));
@@ -263,6 +351,13 @@ async function firefoxSession(xpiPath: string): Promise<BrowserSession> {
     async waitForUrl(predicate: (url: string) => boolean) {
       await driver.wait(async () => predicate(await driver.getCurrentUrl()), 15_000);
     },
+    async mutationCount(selector: string, duration: number) {
+      return driver.executeAsyncScript<number>(
+        "const done = arguments[arguments.length - 1]; const element = document.querySelector(arguments[0]); if (!element) { done(-1); return; } let count = 0; const observer = new MutationObserver(mutations => { count += mutations.length; }); observer.observe(element, { childList: true, subtree: true }); setTimeout(() => { observer.disconnect(); done(count); }, arguments[1]);",
+        selector,
+        duration
+      );
+    },
     async close() {
       await driver.quit();
     }
@@ -270,37 +365,48 @@ async function firefoxSession(xpiPath: string): Promise<BrowserSession> {
 }
 
 let activeFixture: FixtureServer | undefined;
-let activeExtension: PreparedExtension | undefined;
 let activeBrowser: BrowserSession | undefined;
+let preparedExtension: PreparedExtension | undefined;
 
-afterEach(async () => {
-  await activeBrowser?.close();
-  await activeFixture?.close();
-  if (activeExtension) {
-    await rm(activeExtension.root, { recursive: true, force: true });
+beforeAll(async () => {
+  preparedExtension = await prepareExtension();
+}, 30_000);
+
+beforeEach(async () => {
+  if (!preparedExtension) {
+    throw new Error("E2E extension preparation did not complete.");
   }
-  activeFixture = undefined;
-  activeExtension = undefined;
-  activeBrowser = undefined;
-});
-
-test(`${BROWSER}: lifecycle menu follows query state`, async () => {
   activeFixture = await startFixtureServer();
-  activeExtension = await prepareExtension();
-
-  if (BROWSER === "firefox" && !activeExtension.xpiPath) {
+  if (BROWSER === "firefox" && !preparedExtension.xpiPath) {
     throw new Error("Firefox E2E packaging did not produce an extension archive.");
   }
   activeBrowser =
     BROWSER === "chromium"
-      ? await chromiumSession(activeExtension.extensionDir)
-      : await firefoxSession(activeExtension.xpiPath as string);
+      ? await chromiumSession(preparedExtension.extensionDir)
+      : await firefoxSession(preparedExtension.xpiPath as string);
+}, 30_000);
 
-  const fixture = activeFixture;
-  const browser = activeBrowser;
+afterEach(async () => {
+  await activeBrowser?.close();
+  await activeFixture?.close();
+  activeFixture = undefined;
+  activeBrowser = undefined;
+}, 30_000);
+
+afterAll(async () => {
+  if (preparedExtension) {
+    await rm(preparedExtension.root, { recursive: true, force: true });
+  }
+  preparedExtension = undefined;
+}, 30_000);
+
+test(`${BROWSER}: query navigation, counts, and Turbo integration`, async () => {
+  const fixture = activeFixture as FixtureServer;
+  const browser = activeBrowser as BrowserSession;
 
   await browser.open(fixture.url);
   await browser.waitForControl();
+  assert.equal(await browser.mutationCount(".gprf-lifecycle", 250), 0);
 
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
   assert.deepEqual(await browser.text(".gprf-summary-count"), ["3"]);
@@ -314,6 +420,11 @@ test(`${BROWSER}: lifecycle menu follows query state`, async () => {
     "class"
   );
   assert.ok(nativeClasses?.split(/\s+/).includes("gprf-native-status-hidden"));
+  assert.ok(
+    (await browser.attributes(OPTION_SELECTOR, "data-turbo-frame")).every(
+      (frame) => frame === "repo-content"
+    )
+  );
 
   await browser.click(".gprf-lifecycle-summary");
   assert.notEqual(await browser.cssValue(".gprf-summary-count", "display"), "none");
@@ -417,7 +528,71 @@ test(`${BROWSER}: lifecycle menu follows query state`, async () => {
   assert.equal(new URL(await browser.url()).searchParams.has("q"), false);
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
   assert.deepEqual(await browser.text(".gprf-summary-count"), ["3"]);
+}, 90_000);
 
+test(`${BROWSER}: repository customization persists, cancels, resets, and synchronizes`, async () => {
+  const fixture = activeFixture as FixtureServer;
+  const browser = activeBrowser as BrowserSession;
+  const cleanUrl = new URL(fixture.url);
+  cleanUrl.search = "";
+
+  await browser.open(cleanUrl.href);
+  await browser.waitForControl();
+
+  await browser.openNewTab(cleanUrl.href);
+  await browser.waitForControl();
+  await browser.switchToTab(0);
+
+  await browser.click(".gprf-lifecycle-summary");
+  await browser.clickReplacing(".gprf-configure-action");
+  await browser.clickReplacing('.gprf-editor-row[data-lifecycle="draft"] .gprf-editor-visibility');
+  await browser.clickReplacing(".gprf-save-action");
+  assert.equal((await browser.text(".gprf-option-label")).includes("Draft"), false);
+  assert.ok(
+    (await browser.attributes(OPTION_SELECTOR, "data-turbo-frame")).every(
+      (frame) => frame === "repo-content"
+    )
+  );
+
+  await browser.switchToTab(1);
+  await browser.waitForText(".gprf-option-label", "Draft", false);
+  await browser.switchToTab(0);
+
+  await browser.open(cleanUrl.href);
+  await browser.waitForControl();
+  await browser.click(".gprf-lifecycle-summary");
+  assert.equal((await browser.text(".gprf-option-label")).includes("Draft"), false);
+
+  await browser.clickReplacing(".gprf-configure-action");
+  await browser.clickReplacing('.gprf-editor-row[data-lifecycle="draft"] .gprf-editor-visibility');
+  await browser.clickReplacing(".gprf-cancel-action");
+  assert.equal((await browser.text(".gprf-option-label")).includes("Draft"), false);
+
+  await browser.clickReplacing(".gprf-configure-action");
+  await browser.clickReplacing(".gprf-reset-action");
+  assert.equal((await browser.text(".gprf-option-label")).includes("Draft"), true);
+  assert.ok(
+    (await browser.attributes(OPTION_SELECTOR, "data-turbo-frame")).every(
+      (frame) => frame === "repo-content"
+    )
+  );
+
+  await browser.open(cleanUrl.href);
+  await browser.waitForControl();
+  await browser.click(".gprf-lifecycle-summary");
+  assert.equal((await browser.text(".gprf-option-label")).includes("Draft"), true);
+
+  const otherRepositoryUrl = new URL(cleanUrl);
+  otherRepositoryUrl.pathname = "/octocat/another-repository/pulls";
+  await browser.open(otherRepositoryUrl.href);
+  await browser.waitForControl();
+  await browser.click(".gprf-lifecycle-summary");
+  assert.equal((await browser.text(".gprf-option-label")).includes("Draft"), true);
+}, 90_000);
+
+test(`${BROWSER}: global pull request pages remain untouched`, async () => {
+  const fixture = activeFixture as FixtureServer;
+  const browser = activeBrowser as BrowserSession;
   const globalUrl = new URL(fixture.url);
   globalUrl.pathname = "/pulls";
   await browser.open(globalUrl.href);

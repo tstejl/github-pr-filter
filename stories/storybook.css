@@ -15,6 +15,7 @@ body {
 }
 
 .gprf-storybook-shell[data-theme="dark"] {
+  --bgColor-accent-muted: rgba(56, 139, 253, 0.12);
   --bgColor-default: #0d1117;
   --overlay-bgColor: #161b22;
   --borderColor-default: #30363d;
@@ -32,6 +33,7 @@ body {
 }
 
 .gprf-storybook-shell[data-theme="high-contrast"] {
+  --bgColor-accent-muted: rgba(113, 183, 255, 0.16);
   --bgColor-default: #0a0c10;
   --overlay-bgColor: #0a0c10;
   --borderColor-default: #f0f3f6;
@@ -94,6 +96,68 @@ body {
   font-size: 12px;
   font-weight: 600;
   margin-bottom: 14px;
+}
+
+.gprf-storybook-card-note {
+  color: var(--fgColor-muted, #656d76);
+  font-size: 12px;
+  margin: -8px 0 14px;
+}
+
+.gprf-treatment--trailing .gprf-lifecycle-option,
+.gprf-treatment--leading .gprf-lifecycle-option {
+  background: transparent;
+  box-shadow: none;
+}
+
+.gprf-treatment--trailing .gprf-lifecycle-option {
+  grid-template-columns: 16px minmax(0, 1fr) 16px;
+}
+
+.gprf-treatment--trailing .gprf-option-check,
+.gprf-treatment--leading .gprf-option-check {
+  display: block;
+}
+
+.gprf-treatment--trailing .gprf-lifecycle-option.selected .gprf-option-check,
+.gprf-treatment--leading .gprf-lifecycle-option.selected .gprf-option-check {
+  opacity: 1;
+}
+
+.gprf-treatment--leading .gprf-lifecycle-option {
+  grid-template-columns: 16px 16px minmax(0, 1fr);
+}
+
+.gprf-treatment--leading .gprf-lifecycle-option > .gprf-lifecycle-icon:first-child {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.gprf-treatment--leading .gprf-option-copy {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.gprf-treatment--leading .gprf-option-check {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.gprf-treatment--icon .gprf-lifecycle-option {
+  background: transparent;
+  box-shadow: none;
+  grid-template-columns: 20px minmax(0, 1fr);
+}
+
+.gprf-treatment--icon .gprf-option-check {
+  display: none;
+}
+
+.gprf-treatment--icon .gprf-lifecycle-option.selected > .gprf-lifecycle-icon:first-child {
+  background: var(--bgColor-accent-muted, var(--color-accent-subtle, #ddf4ff));
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--fgColor-accent, var(--color-accent-fg, #0969da));
+  padding: 2px;
 }
 
 .gprf-storybook-interactive {
