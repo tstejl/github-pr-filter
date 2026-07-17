@@ -1,6 +1,6 @@
 {
   "name": "github-pr-filter",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "description": "A focused Chromium and Firefox extension for switching GitHub pull-request lifecycle views.",
   "homepage": "https://github.com/tstejl/github-pr-filter#readme",

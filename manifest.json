@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "GitHub PR Lifecycle Filter",
   "short_name": "PR Filter",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "A faster, more elegant way to find the pull requests that matter.",
   "permissions": ["storage"],
   "icons": {

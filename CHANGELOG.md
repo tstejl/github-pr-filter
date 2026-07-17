@@ -2,6 +2,16 @@
 
 All notable changes will be documented in this file.
 
+## 0.6.0 — 2026-07-17
+
+- Added per-repository lifecycle menu customization for hiding, reordering, and grouping
+  states with separators.
+- Stored customized layouts locally and synchronized them between extension contexts while
+  keeping GitHub's query as the active source of truth.
+- Kept hidden active states visible and explainable when opening a matching GitHub query.
+- Added safe storage recovery: corrupted layouts are removed and replaced with defaults,
+  while unreadable or newer-format data degrades without blocking the menu.
+
 ## 0.5.0 — 2026-07-16
 
 - Added a Needs review lifecycle view for open, non-draft pull requests that are neither
