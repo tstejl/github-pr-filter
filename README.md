@@ -9,6 +9,8 @@
 GitHub PR Lifecycle Filter is a lightweight Chromium and Firefox extension that integrates
 directly into GitHub's pull-request lists.
 
+![Customizing the pull-request lifecycle menu](assets/demo/lifecycle-customization.gif)
+
 ## Installation
 
 Browser stores are the recommended installation route. Store builds are signed by the
