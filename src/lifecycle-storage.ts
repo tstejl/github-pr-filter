@@ -10,6 +10,7 @@ const STORAGE_KEY_PREFIX = "repositoryLifecycleLayout:";
 
 export interface ExtensionStorageArea {
   get(key: string): Promise<Record<string, unknown>>;
+  remove(key: string): Promise<void>;
   set(items: Record<string, unknown>): Promise<void>;
 }
 
@@ -126,7 +127,23 @@ export async function loadRepositoryLifecycleLayout(
 ): Promise<LifecycleLayout> {
   const key = storageKeyForRepository(repository);
   const stored = await storage.get(key);
-  return parseStoredLifecycleLayout(stored[key]) ?? cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT);
+  if (!(key in stored)) {
+    return cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT);
+  }
+  const storedValue = stored[key];
+  const storedVersion =
+    storedValue && typeof storedValue === "object"
+      ? (storedValue as { version?: unknown }).version
+      : undefined;
+  if (typeof storedVersion === "number" && storedVersion > 1) {
+    return cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT);
+  }
+  const layout = parseStoredLifecycleLayout(storedValue);
+  if (layout) {
+    return layout;
+  }
+  await storage.remove(key);
+  return cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT);
 }
 
 export async function saveRepositoryLifecycleLayout(

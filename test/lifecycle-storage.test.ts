@@ -18,9 +18,15 @@ import {
 
 class MemoryStorage implements ExtensionStorageArea {
   readonly values: Record<string, unknown> = {};
+  readonly removedKeys: string[] = [];
 
   async get(key: string): Promise<Record<string, unknown>> {
     return key in this.values ? { [key]: this.values[key] } : {};
+  }
+
+  async remove(key: string): Promise<void> {
+    this.removedKeys.push(key);
+    delete this.values[key];
   }
 
   async set(items: Record<string, unknown>): Promise<void> {
@@ -56,6 +62,7 @@ test("repository writes are serialized so the latest layout wins", async () => {
     async get() {
       return {};
     },
+    async remove() {},
     set(items) {
       return new Promise<void>((resolve) => writes.push({ items, resolve }));
     }
@@ -117,14 +124,16 @@ test("stored layouts are cloned across the storage boundary", async () => {
   assert.deepEqual(stored, layout);
 });
 
-test("invalid or obsolete stored layouts fall back to defaults", async () => {
+test("corrupted stored layouts are removed and fall back to defaults", async () => {
   const storage = new MemoryStorage();
   const key = storageKeyForRepository("octocat/hello-world");
-  storage.values[key] = { version: 2, entries: [] };
+  storage.values[key] = { version: 1, entries: [] };
   assert.deepEqual(
     await loadRepositoryLifecycleLayout("octocat/hello-world", storage),
     DEFAULT_LIFECYCLE_LAYOUT
   );
+  assert.equal(key in storage.values, false);
+  assert.deepEqual(storage.removedKeys, [key]);
 
   assert.equal(parseStoredLifecycleLayout({ version: 1, entries: [] }), null);
   assert.equal(
@@ -137,4 +146,18 @@ test("invalid or obsolete stored layouts fall back to defaults", async () => {
     }),
     null
   );
+});
+
+test("newer stored layout versions fall back without destroying future data", async () => {
+  const storage = new MemoryStorage();
+  const key = storageKeyForRepository("octocat/hello-world");
+  const futureLayout = { version: 2, entries: [] };
+  storage.values[key] = futureLayout;
+
+  assert.deepEqual(
+    await loadRepositoryLifecycleLayout("octocat/hello-world", storage),
+    DEFAULT_LIFECYCLE_LAYOUT
+  );
+  assert.equal(storage.values[key], futureLayout);
+  assert.deepEqual(storage.removedKeys, []);
 });

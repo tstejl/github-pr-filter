@@ -74,6 +74,38 @@ test("coordinator ignores stale repository loads and clears unsupported pages", 
   assert.equal(clearCount, 1);
 });
 
+test("coordinator falls back to defaults when repository storage cannot be read", async () => {
+  const renders: LifecyclePageRenderState[] = [];
+  const errors: Array<{ message: string; error: unknown }> = [];
+  const storageError = new Error("Storage unavailable");
+  const coordinator = createLifecyclePageCoordinator({
+    snapshot: () => ({
+      supported: true,
+      repository: "octocat/hello-world",
+      url: "https://github.com/octocat/hello-world/pulls",
+      preferences: { lifecycle: "open" }
+    }),
+    loadLayout: async () => {
+      throw storageError;
+    },
+    saveLayout: async () => undefined,
+    render: (state) => renders.push(state),
+    clear: () => undefined,
+    subscribePageChanges: () => () => undefined,
+    subscribeLayoutChanges: () => () => undefined,
+    reportError: (message, error) => errors.push({ message, error })
+  });
+
+  coordinator.start();
+  await nextTask();
+
+  assert.equal(renders.length, 1);
+  assert.deepEqual(renders[0]?.layout, DEFAULT_LIFECYCLE_LAYOUT);
+  assert.deepEqual(errors, [
+    { message: "Could not load this repository's menu layout.", error: storageError }
+  ]);
+});
+
 test("coordinator persists local edits and applies matching storage changes", async () => {
   const renders: LifecyclePageRenderState[] = [];
   const saves: Array<{ repository: string; layout: LifecycleLayout }> = [];
