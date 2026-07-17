@@ -5,4 +5,7 @@ web-ext-artifacts/
 test-results/
 playwright-report/
 blob-report/
+coverage/
 *.xpi
+.DS_Store
+debug-storybook.log

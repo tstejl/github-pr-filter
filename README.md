@@ -1,6 +1,7 @@
 # GitHub PR Lifecycle Filter
 
 [![CI](https://github.com/tstejl/github-pr-filter/actions/workflows/ci.yml/badge.svg)](https://github.com/tstejl/github-pr-filter/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/tstejl/github-pr-filter/graph/badge.svg)](https://codecov.io/gh/tstejl/github-pr-filter)
 [![Latest release](https://img.shields.io/github/v/release/tstejl/github-pr-filter?display_name=tag&sort=semver)](https://github.com/tstejl/github-pr-filter/releases/latest)
 
 **A faster, more elegant way to find the pull requests that matter.**
@@ -41,6 +42,9 @@ Each GitHub release includes SHA-256 checksums for both unsigned packages.
   resulting query cannot contradict itself.
 - Treats GitHub's search query, search submission, and clear action as the source of truth.
 - Shows GitHub's matching PR count for the active lifecycle while the menu is collapsed.
+- Lets each repository hide, reorder, and section its lifecycle choices independently.
+- Keeps repository layouts on the device and shares them between normal and private windows
+  when the extension is enabled there.
 - Keeps the compact trigger text-only and uses a distinct GitHub Octicon for every menu state.
 - Uses GitHub search qualifiers, so filtered views remain visible in the URL.
 - Uses GitHub's native Turbo navigation to update results without a full-page refresh.
@@ -111,8 +115,9 @@ safe automatic fixes locally.
 
 ## Permissions
 
-The extension requests no browser API permissions. Its content scripts are limited to
-`https://github.com/*` and exit immediately outside supported pull-request list pages.
+The extension requests only the `storage` permission so it can persist each repository's
+customized lifecycle menu locally. Its content scripts are limited to `https://github.com/*`
+and exit immediately outside supported pull-request list pages.
 
 ## Browser releases
 

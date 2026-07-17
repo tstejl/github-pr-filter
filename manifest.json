@@ -4,6 +4,7 @@
   "short_name": "PR Filter",
   "version": "0.5.0",
   "description": "A faster, more elegant way to find the pull requests that matter.",
+  "permissions": ["storage"],
   "icons": {
     "16": "assets/icon-16.png",
     "32": "assets/icon-32.png",
