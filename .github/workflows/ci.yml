@@ -19,9 +19,6 @@ jobs:
     name: Unit, manifest, and packaging checks
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
@@ -32,11 +29,8 @@ jobs:
         run: bun run check
       - name: Run unit, manifest, and packaging tests with coverage
         run: bun run test:coverage
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage/lcov.info
-          use_oidc: true
+      - name: Verify coverage badge
+        run: bun run coverage:check
       - run: bun run lint:firefox
       - run: bun run build:firefox
 
