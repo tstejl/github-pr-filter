@@ -63,7 +63,8 @@ See [PRIVACY.md](PRIVACY.md) for the complete privacy policy.
 
 ## Installation
 
-Signed browser-store builds install permanently and receive automatic updates:
+Signed browser-store builds are the recommended installation route. New releases may appear
+there after a short delay while each store completes its review:
 
 - **Chromium:** [Install from the Chrome Web Store](https://chromewebstore.google.com/detail/github-pr-lifecycle-filte/dppkjnbbfnnphkdggclnjigfkdieooee)
 - **Firefox:** Firefox Add-ons link coming soon
