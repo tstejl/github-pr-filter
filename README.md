@@ -67,7 +67,7 @@ Signed browser-store builds are the recommended installation route. New releases
 there after a short delay while each store completes its review:
 
 - **Chromium:** [Install from the Chrome Web Store](https://chromewebstore.google.com/detail/github-pr-lifecycle-filte/dppkjnbbfnnphkdggclnjigfkdieooee)
-- **Firefox:** Firefox Add-ons link coming soon
+- **Firefox:** [Install from Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/github-pr-lifecycle-filter/)
 
 For testing or manual installation, each [GitHub release](https://github.com/tstejl/github-pr-filter/releases/latest)
 contains separate unsigned packages for Chromium and Firefox, plus SHA-256 checksums.
