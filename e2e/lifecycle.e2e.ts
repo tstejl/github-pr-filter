@@ -40,6 +40,7 @@ interface BrowserSession {
   url: () => Promise<string>;
   waitForUrl: (predicate: (url: string) => boolean) => Promise<void>;
   mutationCount: (selector: string, duration: number) => Promise<number>;
+  reset: () => Promise<void>;
   close: () => Promise<void>;
 }
 
@@ -47,15 +48,44 @@ type FirefoxWebDriver = WebDriver & {
   installAddon: (addonPath: string, temporary?: boolean) => Promise<string>;
 };
 
+async function closeFirefoxWindows(
+  driver: FirefoxWebDriver,
+  handles: readonly string[]
+): Promise<void> {
+  const [handle, ...remainingHandles] = handles;
+  if (!handle) return;
+  await driver.switchTo().window(handle);
+  await driver.close();
+  await closeFirefoxWindows(driver, remainingHandles);
+}
+
 const execFileAsync = promisify(execFile);
 const ROOT = path.resolve(import.meta.dir, "..");
 const browserValue = process.env.E2E_BROWSER;
 const OPTION_SELECTOR = ".gprf-lifecycle-option";
+const REVIEW_STATUSES = ["none", "required", "approved", "changes_requested"] as const;
 
 if (browserValue !== "chromium" && browserValue !== "firefox") {
   throw new Error("Set E2E_BROWSER to chromium or firefox.");
 }
 const BROWSER: BrowserName = browserValue;
+
+async function measuredStep<T>(label: string, operation: () => Promise<T>): Promise<T> {
+  const startedAt = performance.now();
+  console.info(`[e2e:${BROWSER}] ${label} started`);
+  try {
+    const result = await operation();
+    console.info(
+      `[e2e:${BROWSER}] ${label} finished in ${Math.round(performance.now() - startedAt)}ms`
+    );
+    return result;
+  } catch (error: unknown) {
+    console.error(
+      `[e2e:${BROWSER}] ${label} failed after ${Math.round(performance.now() - startedAt)}ms`
+    );
+    throw error;
+  }
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -259,6 +289,13 @@ async function chromiumSession(extensionDir: string): Promise<BrowserSession> {
         duration
       );
     },
+    async reset() {
+      const [firstPage, ...extraPages] = context.pages();
+      assert.ok(firstPage, "Chromium session should retain its initial page");
+      await Promise.all(extraPages.map((extraPage) => extraPage.close()));
+      page = firstPage;
+      await page.goto("about:blank");
+    },
     async close() {
       await context.close();
       await rm(userDataDir, { recursive: true, force: true });
@@ -272,11 +309,15 @@ async function firefoxSession(xpiPath: string): Promise<BrowserSession> {
     options.setBinary(process.env.FIREFOX_BIN);
   }
 
-  const driver = (await new Builder()
-    .forBrowser("firefox")
-    .setFirefoxOptions(options)
-    .build()) as FirefoxWebDriver;
-  await driver.installAddon(xpiPath, true);
+  const driver = (await measuredStep("create Firefox WebDriver", () =>
+    new Builder().forBrowser("firefox").setFirefoxOptions(options).build()
+  )) as FirefoxWebDriver;
+  try {
+    await measuredStep("install Firefox add-on", () => driver.installAddon(xpiPath, true));
+  } catch (error: unknown) {
+    await driver.quit();
+    throw error;
+  }
 
   return {
     async open(url: string) {
@@ -364,6 +405,13 @@ async function firefoxSession(xpiPath: string): Promise<BrowserSession> {
         duration
       );
     },
+    async reset() {
+      const [firstHandle, ...extraHandles] = await driver.getAllWindowHandles();
+      assert.ok(firstHandle, "Firefox session should retain its initial window");
+      await closeFirefoxWindows(driver, extraHandles);
+      await driver.switchTo().window(firstHandle);
+      await driver.get("about:blank");
+    },
     async close() {
       await driver.quit();
     }
@@ -374,36 +422,46 @@ let activeFixture: FixtureServer | undefined;
 let activeBrowser: BrowserSession | undefined;
 let preparedExtension: PreparedExtension | undefined;
 
-beforeAll(async () => {
-  preparedExtension = await prepareExtension();
-}, 30_000);
+beforeAll(
+  async () => {
+    const prepared = await measuredStep("prepare extension", prepareExtension);
+    preparedExtension = prepared;
+    if (BROWSER === "chromium") {
+      activeBrowser = await measuredStep("start browser session", () =>
+        chromiumSession(prepared.extensionDir)
+      );
+    } else {
+      const { xpiPath } = prepared;
+      assert.ok(xpiPath, "Firefox E2E packaging should produce an extension archive");
+      activeBrowser = await measuredStep("start browser session", () => firefoxSession(xpiPath));
+    }
+  },
+  BROWSER === "firefox" ? 60_000 : 30_000
+);
 
 beforeEach(async () => {
-  if (!preparedExtension) {
-    throw new Error("E2E extension preparation did not complete.");
-  }
   activeFixture = await startFixtureServer();
-  if (BROWSER === "firefox" && !preparedExtension.xpiPath) {
-    throw new Error("Firefox E2E packaging did not produce an extension archive.");
-  }
-  activeBrowser =
-    BROWSER === "chromium"
-      ? await chromiumSession(preparedExtension.extensionDir)
-      : await firefoxSession(preparedExtension.xpiPath as string);
-}, 30_000);
+}, 10_000);
 
 afterEach(async () => {
-  await activeBrowser?.close();
-  await activeFixture?.close();
-  activeFixture = undefined;
-  activeBrowser = undefined;
+  try {
+    await activeBrowser?.reset();
+  } finally {
+    await activeFixture?.close();
+    activeFixture = undefined;
+  }
 }, 30_000);
 
 afterAll(async () => {
-  if (preparedExtension) {
-    await rm(preparedExtension.root, { recursive: true, force: true });
+  try {
+    await activeBrowser?.close();
+  } finally {
+    activeBrowser = undefined;
+    if (preparedExtension) {
+      await rm(preparedExtension.root, { recursive: true, force: true });
+    }
+    preparedExtension = undefined;
   }
-  preparedExtension = undefined;
 }, 30_000);
 
 test(`${BROWSER}: query navigation, counts, and Turbo integration`, async () => {
@@ -534,6 +592,55 @@ test(`${BROWSER}: query navigation, counts, and Turbo integration`, async () => 
   assert.equal(new URL(await browser.url()).searchParams.has("q"), false);
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
   assert.deepEqual(await browser.text(".gprf-summary-count"), ["3"]);
+}, 90_000);
+
+for (const reviewStatus of REVIEW_STATUSES) {
+  test(`${BROWSER}: review:${reviewStatus} remains orthogonal to lifecycle`, async () => {
+    const fixture = activeFixture as FixtureServer;
+    const browser = activeBrowser as BrowserSession;
+    const query = `is:pr is:open draft:false review:${reviewStatus}`;
+
+    await browser.open(fixture.url);
+    await browser.waitForControl();
+    await browser.search(query);
+    await browser.waitForUrl((url) => new URL(url).searchParams.get("q") === query);
+    await browser.waitForControl();
+    assert.deepEqual(await browser.text(".gprf-summary-label"), ["Ready"]);
+
+    await browser.click(".gprf-lifecycle-summary");
+    assert.equal(
+      await browser.attribute(`${OPTION_SELECTOR}[data-lifecycle="ready"]`, "aria-checked"),
+      "true"
+    );
+  }, 90_000);
+}
+
+test(`${BROWSER}: reviewer-specific qualifiers survive lifecycle changes`, async () => {
+  const fixture = activeFixture as FixtureServer;
+  const browser = activeBrowser as BrowserSession;
+
+  const reviewerQuery =
+    "is:pr is:open draft:false review:changes_requested reviewed-by:octocat review-requested:hubot user-review-requested:@me team-review-requested:github/docs";
+  await browser.open(fixture.url);
+  await browser.waitForControl();
+  await browser.search(reviewerQuery);
+  await browser.waitForUrl((url) => new URL(url).searchParams.get("q") === reviewerQuery);
+  await browser.waitForControl();
+  await browser.click(".gprf-lifecycle-summary");
+  await browser.click(`${OPTION_SELECTOR}[data-lifecycle="draft"]`);
+  await browser.waitForUrl((url) => {
+    const query = new URL(url).searchParams.get("q") ?? "";
+    return (
+      query.includes("review:changes_requested") &&
+      query.includes("reviewed-by:octocat") &&
+      query.includes("review-requested:hubot") &&
+      query.includes("user-review-requested:@me") &&
+      query.includes("team-review-requested:github/docs") &&
+      query.includes("draft:true")
+    );
+  });
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Draft"]);
 }, 90_000);
 
 test(`${BROWSER}: repository customization persists, cancels, resets, and synchronizes`, async () => {

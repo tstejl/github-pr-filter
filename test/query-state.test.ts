@@ -2,6 +2,8 @@ import { test } from "bun:test";
 import * as assert from "node:assert/strict";
 import * as queryState from "../src/query-state";
 
+const REVIEW_STATUSES = ["none", "required", "approved", "changes_requested"] as const;
+
 test("tokenizeQuery preserves quoted search terms", () => {
   assert.deepEqual(queryState.tokenizeQuery('is:pr label:"ready for review" "exact phrase"'), [
     "is:pr",
@@ -114,6 +116,37 @@ test("lifecycle changes preserve GitHub native review filters", () => {
       "ready"
     ),
     "is:pr review:changes_requested reviewed-by:octocat label:frontend is:open draft:false"
+  );
+});
+
+test("GitHub review statuses remain orthogonal to non-draft lifecycle", () => {
+  for (const reviewStatus of REVIEW_STATUSES) {
+    const query = `is:pr is:open draft:false review:${reviewStatus}`;
+    assert.equal(queryState.inspectQuery(query).lifecycle, "ready");
+    assert.equal(
+      queryState.queryWithLifecycle(query, "draft"),
+      `is:pr review:${reviewStatus} is:open draft:true`
+    );
+  }
+});
+
+test("review status alone does not imply non-draft readiness", () => {
+  for (const reviewStatus of REVIEW_STATUSES) {
+    assert.equal(queryState.inspectQuery(`is:pr is:open review:${reviewStatus}`).lifecycle, "open");
+  }
+});
+
+test("reviewer-specific qualifiers survive lifecycle changes", () => {
+  const reviewerQualifiers = [
+    "reviewed-by:octocat",
+    "review-requested:hubot",
+    "user-review-requested:@me",
+    "team-review-requested:github/docs"
+  ].join(" ");
+
+  assert.equal(
+    queryState.queryWithLifecycle(`is:pr is:open draft:false ${reviewerQualifiers}`, "closed"),
+    `is:pr ${reviewerQualifiers} is:closed`
   );
 });
 
