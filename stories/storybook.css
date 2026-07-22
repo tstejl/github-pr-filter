@@ -17,11 +17,13 @@ body {
 .gprf-storybook-shell[data-theme="dark"] {
   --bgColor-accent-muted: rgba(56, 139, 253, 0.12);
   --bgColor-default: #0d1117;
+  --bgColor-emphasis: #6e7681;
   --overlay-bgColor: #161b22;
   --borderColor-default: #30363d;
   --borderColor-muted: #21262d;
   --fgColor-default: #f0f6fc;
   --fgColor-muted: #8b949e;
+  --fgColor-onEmphasis: #fff;
   --fgColor-accent: #58a6ff;
   --fgColor-open: #3fb950;
   --fgColor-attention: #d29922;
@@ -35,11 +37,13 @@ body {
 .gprf-storybook-shell[data-theme="high-contrast"] {
   --bgColor-accent-muted: rgba(113, 183, 255, 0.16);
   --bgColor-default: #0a0c10;
+  --bgColor-emphasis: #fff;
   --overlay-bgColor: #0a0c10;
   --borderColor-default: #f0f3f6;
   --borderColor-muted: #7a828e;
   --fgColor-default: #fff;
   --fgColor-muted: #d9dee3;
+  --fgColor-onEmphasis: #0a0c10;
   --fgColor-accent: #71b7ff;
   --fgColor-open: #4ae168;
   --fgColor-attention: #f0b72f;
@@ -102,6 +106,85 @@ body {
   color: var(--fgColor-muted, #656d76);
   font-size: 12px;
   margin: -8px 0 14px;
+}
+
+.gprf-storybook-preview-label {
+  color: var(--fgColor-muted, #656d76);
+  font-size: 11px;
+  font-weight: 600;
+  margin: 20px 0 10px;
+  text-transform: uppercase;
+}
+
+.gprf-custom-help-grid {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.gprf-custom-help-card {
+  min-height: 700px;
+}
+
+.gprf-custom-help-expanded {
+  min-height: 520px;
+}
+
+.gprf-custom-help {
+  align-items: center;
+  color: var(--fgColor-muted, var(--color-fg-muted, #656d76));
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.gprf-custom-help-icon {
+  height: 14px;
+  opacity: 0.8;
+  width: 14px;
+}
+
+.gprf-custom-help-tooltip {
+  background: var(--bgColor-emphasis, var(--color-neutral-emphasis-plus, #25292e));
+  border-radius: 6px;
+  box-shadow: var(--shadow-floating-small, 0 8px 24px rgba(140, 149, 159, 0.2));
+  color: var(--fgColor-onEmphasis, var(--color-fg-on-emphasis, #fff));
+  font-size: 11px;
+  font-weight: 400;
+  left: 12px;
+  line-height: 16px;
+  opacity: 0;
+  padding: 8px 10px;
+  pointer-events: none;
+  position: absolute;
+  right: 12px;
+  text-align: left;
+  top: 48px;
+  transition:
+    opacity 80ms ease,
+    visibility 80ms ease;
+  visibility: hidden;
+  white-space: normal;
+  z-index: 3;
+}
+
+.gprf-custom-help:hover .gprf-custom-help-tooltip,
+.gprf-custom-help.is-open .gprf-custom-help-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.gprf-custom-help--summary {
+  position: relative;
+}
+
+.gprf-custom-help--summary .gprf-custom-help-tooltip {
+  left: 0;
+  right: auto;
+  top: calc(100% + 8px);
+  width: 220px;
+}
+
+.gprf-lifecycle-summary.has-custom-help:focus .gprf-custom-help-tooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 .gprf-treatment--trailing .gprf-lifecycle-option,

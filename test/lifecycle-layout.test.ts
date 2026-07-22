@@ -1,5 +1,6 @@
 import { test } from "bun:test";
 import * as assert from "node:assert/strict";
+import { LIFECYCLES } from "../src/lifecycle";
 import {
   addLifecycleDivider,
   createDefaultLifecycleLayout,
@@ -12,9 +13,17 @@ import {
 } from "../src/lifecycle-layout";
 import { LIFECYCLE_OPTIONS } from "../src/lifecycle-options";
 
+test("the UI catalog exhaustively represents the lifecycle domain", () => {
+  assert.deepEqual(
+    LIFECYCLE_OPTIONS.map(({ value }) => value),
+    LIFECYCLES
+  );
+});
+
 test("default layout preserves all options and the two current sections", () => {
   const layout = createDefaultLifecycleLayout();
-  assert.equal(layout.entries.filter(({ type }) => type === "option").length, 7);
+  assert.equal(layout.version, 2);
+  assert.equal(layout.entries.filter(({ type }) => type === "option").length, 8);
   assert.equal(layout.entries.filter(({ type }) => type === "divider").length, 2);
   assert.deepEqual(
     visibleLifecycleLayoutEntries(layout).filter((entry) => !("type" in entry)),
@@ -24,6 +33,7 @@ test("default layout preserves all options and the two current sections", () => 
 
 test("hidden options are omitted and orphaned separators collapse", () => {
   let layout = createDefaultLifecycleLayout();
+  layout = setLifecycleVisibility(layout, "all", false);
   layout = setLifecycleVisibility(layout, "needs_review", false);
   layout = setLifecycleVisibility(layout, "open", false);
   const visible = visibleLifecycleLayoutEntries(layout);
@@ -88,6 +98,21 @@ test("a persisted custom separator cannot collide with a newly added separator",
 
   assert.equal(new Set(ids).size, ids.length);
   assert.deepEqual(ids.slice(0, persistedIds.length), persistedIds);
+});
+
+test("option and divider editor keys occupy separate namespaces", () => {
+  assert.equal(
+    lifecycleLayoutEntryKey({ type: "option", value: "open", visible: true }),
+    "option:open"
+  );
+  assert.equal(
+    lifecycleLayoutEntryKey({ type: "divider", id: "option-open" }),
+    "divider:option-open"
+  );
+  assert.notEqual(
+    lifecycleLayoutEntryKey({ type: "option", value: "open", visible: true }),
+    lifecycleLayoutEntryKey({ type: "divider", id: "open" })
+  );
 });
 
 test("entries can be placed after the final row", () => {

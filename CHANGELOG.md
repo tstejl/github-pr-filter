@@ -2,6 +2,17 @@
 
 All notable changes will be documented in this file.
 
+## 0.7.0 — 2026-07-22
+
+- Added explicit All and Custom query states so the lifecycle menu always reflects GitHub's
+  current search instead of guessing a nearby preset.
+- Reworked lifecycle-query parsing and rewriting to preserve unrelated filters and disable
+  preset actions when a query cannot be changed safely.
+- Added contextual help for Custom queries, including distinct guidance for replaceable and
+  unsafe searches.
+- Expanded controlled unit, browser, and Storybook coverage for query interpretation,
+  navigation, accessibility, and GitHub theme variants.
+
 ## 0.6.0 — 2026-07-17
 
 - Added per-repository lifecycle menu customization for hiding, reordering, and grouping

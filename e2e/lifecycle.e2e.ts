@@ -10,6 +10,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { Builder, By, Key, until, type WebDriver } from "selenium-webdriver";
 import firefox from "selenium-webdriver/firefox";
+import { analyzeLifecycleQuery } from "../src/lifecycle-query";
 
 type BrowserName = "chromium" | "firefox";
 
@@ -29,6 +30,7 @@ interface BrowserSession {
   openNewTab: (url: string) => Promise<void>;
   switchToTab: (index: number) => Promise<void>;
   waitForControl: () => Promise<void>;
+  waitForElementCount: (selector: string, count: number) => Promise<void>;
   waitForText: (selector: string, text: string, present: boolean) => Promise<void>;
   text: (selector: string) => Promise<string[]>;
   attribute: (selector: string, name: string) => Promise<string | null>;
@@ -39,6 +41,9 @@ interface BrowserSession {
   search: (query: string) => Promise<void>;
   url: () => Promise<string>;
   waitForUrl: (predicate: (url: string) => boolean) => Promise<void>;
+  duplicateLifecycleControl: () => Promise<void>;
+  navigateRepository: (pathname: string) => Promise<void>;
+  setNativeStatusHeader: (present: boolean) => Promise<void>;
   mutationCount: (selector: string, duration: number) => Promise<number>;
   reset: () => Promise<void>;
   close: () => Promise<void>;
@@ -99,10 +104,17 @@ function fixturePage(requestUrl: string): string {
   const url = new URL(requestUrl, "http://127.0.0.1");
   const rawQuery = url.searchParams.get("q") || "is:pr is:open";
   const query = escapeHtml(rawQuery);
-  const nativeStatusLinks = /(?:^|\s)is:merged(?:\s|$)/i.test(rawQuery)
-    ? `<a class="btn-link" data-turbo-frame="repo-content" href="/octocat/hello-world/pulls?q=${encodeURIComponent(rawQuery)}">4 Total</a>`
-    : `<a class="btn-link" data-turbo-frame="repo-content" href="/octocat/hello-world/pulls?q=is%3Apr+is%3Aopen">3 Open</a>
-        <a class="btn-link" data-turbo-frame="repo-content" href="/octocat/hello-world/pulls?q=is%3Apr+is%3Aclosed">2 Closed</a>`;
+  const analysis = analyzeLifecycleQuery({ source: rawQuery, parameterPresent: true });
+  const selectedScope =
+    analysis.statePartition === "open" || analysis.statePartition === "closed"
+      ? analysis.statePartition
+      : null;
+  const rendersTotal =
+    /(?:^|\s)is:merged(?:\s|$)/i.test(rawQuery) || rawQuery === "is:pr is:unmerged";
+  const nativeStatusLinks = rendersTotal
+    ? `<a class="btn-link selected" data-turbo-frame="repo-content" href="/octocat/hello-world/pulls?q=${encodeURIComponent(rawQuery)}">4 Total</a>`
+    : `<a class="btn-link${selectedScope === "open" ? " selected" : ""}" data-turbo-frame="repo-content" href="/octocat/hello-world/pulls?q=is%3Apr+is%3Aopen">3 Open</a>
+        <a class="btn-link${selectedScope === "closed" ? " selected" : ""}" data-turbo-frame="repo-content" href="/octocat/hello-world/pulls?q=is%3Apr+is%3Aclosed">2 Closed</a>`;
 
   return `<!doctype html>
 <html lang="en" data-color-mode="auto" data-light-theme="light" data-dark-theme="dark">
@@ -221,6 +233,13 @@ async function chromiumSession(extensionDir: string): Promise<BrowserSession> {
     async waitForControl() {
       await page.locator(".gprf-lifecycle-summary").waitFor();
     },
+    async waitForElementCount(selector: string, count: number) {
+      await page.waitForFunction(
+        ({ selector: target, count: expected }) =>
+          document.querySelectorAll(target).length === expected,
+        { selector, count }
+      );
+    },
     async waitForText(selector: string, expected: string, present: boolean) {
       await page.waitForFunction(
         ({ selector: target, expected: text, present: shouldBePresent }) => {
@@ -271,6 +290,41 @@ async function chromiumSession(extensionDir: string): Promise<BrowserSession> {
     },
     async waitForUrl(predicate: (url: string) => boolean) {
       await page.waitForURL((url) => predicate(url.href));
+    },
+    async duplicateLifecycleControl() {
+      await page.evaluate(() => {
+        const group = document.querySelector(".table-list-header-toggle.states");
+        const control = group?.querySelector(":scope > .gprf-lifecycle");
+        if (!group || !control) {
+          throw new Error("Missing native lifecycle control");
+        }
+        group.append(control.cloneNode(true));
+        document.dispatchEvent(new Event("turbo:load"));
+      });
+    },
+    async navigateRepository(pathname: string) {
+      await page.evaluate((nextPathname) => {
+        const url = new URL(location.href);
+        url.pathname = nextPathname;
+        history.pushState({}, "", url);
+        document.dispatchEvent(new Event("turbo:load"));
+      }, pathname);
+    },
+    async setNativeStatusHeader(present: boolean) {
+      await page.evaluate((shouldBePresent) => {
+        document.querySelectorAll(".table-list-header-toggle.states").forEach((group) => {
+          group.remove();
+        });
+        if (shouldBePresent) {
+          const group = document.createElement("div");
+          group.className = "table-list-header-toggle states";
+          group.innerHTML =
+            '<a class="btn-link selected" data-turbo-frame="repo-content" href="?q=is%3Apr+is%3Aopen">3 Open</a>' +
+            '<a class="btn-link" data-turbo-frame="repo-content" href="?q=is%3Apr+is%3Aclosed">2 Closed</a>';
+          document.querySelector("main")?.append(group);
+        }
+        document.dispatchEvent(new Event("turbo:load"));
+      }, present);
     },
     async mutationCount(selector: string, duration: number) {
       return page.locator(selector).evaluate(
@@ -336,6 +390,17 @@ async function firefoxSession(xpiPath: string): Promise<BrowserSession> {
     async waitForControl() {
       await driver.wait(until.elementLocated(By.css(".gprf-lifecycle-summary")), 15_000);
     },
+    async waitForElementCount(selector: string, count: number) {
+      await driver.wait(
+        async () =>
+          driver.executeScript<boolean>(
+            "return document.querySelectorAll(arguments[0]).length === arguments[1]",
+            selector,
+            count
+          ),
+        15_000
+      );
+    },
     async waitForText(selector: string, expected: string, present: boolean) {
       await driver.wait(
         async () =>
@@ -397,6 +462,23 @@ async function firefoxSession(xpiPath: string): Promise<BrowserSession> {
     },
     async waitForUrl(predicate: (url: string) => boolean) {
       await driver.wait(async () => predicate(await driver.getCurrentUrl()), 15_000);
+    },
+    async duplicateLifecycleControl() {
+      await driver.executeScript(
+        "const group = document.querySelector('.table-list-header-toggle.states'); const control = group?.querySelector(':scope > .gprf-lifecycle'); if (!group || !control) throw new Error('Missing native lifecycle control'); group.append(control.cloneNode(true)); document.dispatchEvent(new Event('turbo:load'));"
+      );
+    },
+    async navigateRepository(pathname: string) {
+      await driver.executeScript(
+        "const url = new URL(location.href); url.pathname = arguments[0]; history.pushState({}, '', url); document.dispatchEvent(new Event('turbo:load'));",
+        pathname
+      );
+    },
+    async setNativeStatusHeader(present: boolean) {
+      await driver.executeScript(
+        "document.querySelectorAll('.table-list-header-toggle.states').forEach(group => group.remove()); if (arguments[0]) { const group = document.createElement('div'); group.className = 'table-list-header-toggle states'; group.innerHTML = '<a class=\"btn-link selected\" data-turbo-frame=\"repo-content\" href=\"?q=is%3Apr+is%3Aopen\">3 Open</a><a class=\"btn-link\" data-turbo-frame=\"repo-content\" href=\"?q=is%3Apr+is%3Aclosed\">2 Closed</a>'; document.querySelector('main')?.append(group); } document.dispatchEvent(new Event('turbo:load'));",
+        present
+      );
     },
     async mutationCount(selector: string, duration: number) {
       return driver.executeAsyncScript<number>(
@@ -493,6 +575,7 @@ test(`${BROWSER}: query navigation, counts, and Turbo integration`, async () => 
   await browser.click(".gprf-lifecycle-summary");
   assert.notEqual(await browser.cssValue(".gprf-summary-count", "display"), "none");
   assert.deepEqual(await browser.text(".gprf-option-label"), [
+    "All",
     "Needs review",
     "Open",
     "Ready",
@@ -505,8 +588,8 @@ test(`${BROWSER}: query navigation, counts, and Turbo integration`, async () => 
     ".gprf-lifecycle-option > .gprf-lifecycle-icon:first-child path",
     "d"
   );
-  assert.equal(menuIconPaths.length, 7);
-  assert.equal(new Set(menuIconPaths).size, 7);
+  assert.equal(menuIconPaths.length, 8);
+  assert.equal(new Set(menuIconPaths).size, 8);
 
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="draft"]`);
   await browser.waitForUrl(
@@ -523,6 +606,43 @@ test(`${BROWSER}: query navigation, counts, and Turbo integration`, async () => 
   await browser.waitForUrl((url) => new URL(url).searchParams.get("q") === "is:pr is:open");
   await browser.waitForControl();
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
+
+  await browser.click(".gprf-lifecycle-summary");
+  await browser.click(`${OPTION_SELECTOR}[data-lifecycle="all"]`);
+  await browser.waitForUrl((url) => new URL(url).searchParams.get("q") === "is:pr");
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["All"]);
+  assert.deepEqual(await browser.text(".gprf-summary-count"), ["5"]);
+
+  await browser.search("is:pr is:unmerged");
+  await browser.waitForUrl((url) => new URL(url).searchParams.get("q") === "is:pr is:unmerged");
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Custom"]);
+  assert.deepEqual(await browser.text(".gprf-summary-count"), ["4"]);
+
+  await browser.search("is:pr draft:true");
+  await browser.waitForUrl((url) => new URL(url).searchParams.get("q") === "is:pr draft:true");
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Custom"]);
+  assert.deepEqual(await browser.text(".gprf-summary-count"), ["5"]);
+
+  await browser.search("is:pr -review:approved -review:changes_requested");
+  await browser.waitForUrl(
+    (url) =>
+      new URL(url).searchParams.get("q") === "is:pr -review:approved -review:changes_requested"
+  );
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["All"]);
+  assert.deepEqual(await browser.text(".gprf-summary-count"), ["5"]);
+
+  await browser.click(".gprf-lifecycle-summary");
+  await browser.click(`${OPTION_SELECTOR}[data-lifecycle="open"]`);
+  await browser.waitForUrl(
+    (url) =>
+      new URL(url).searchParams.get("q") ===
+      "is:pr -review:approved -review:changes_requested is:open"
+  );
+  await browser.waitForControl();
 
   await browser.search("state:open label:bug");
   await browser.waitForUrl((url) => new URL(url).searchParams.get("q") === "state:open label:bug");
@@ -552,10 +672,15 @@ test(`${BROWSER}: query navigation, counts, and Turbo integration`, async () => 
     (url) => new URL(url).searchParams.get("q") === "is:pr is:closed draft:true"
   );
   await browser.waitForControl();
-  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Closed"]);
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Custom"]);
   assert.deepEqual(await browser.text(".gprf-summary-count"), ["2"]);
 
   await browser.click(".gprf-lifecycle-summary");
+  assert.equal(
+    await browser.attribute(`${OPTION_SELECTOR}[data-lifecycle="custom"]`, "aria-checked"),
+    "true"
+  );
+  assert.deepEqual((await browser.text(".gprf-option-label")).slice(0, 2), ["Custom query", "All"]);
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="closed_unmerged"]`);
   await browser.waitForUrl(
     (url) => new URL(url).searchParams.get("q")?.includes("is:unmerged") === true
@@ -573,6 +698,18 @@ test(`${BROWSER}: query navigation, counts, and Turbo integration`, async () => 
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Merged"]);
   assert.deepEqual(await browser.text(".gprf-summary-count"), ["4"]);
 
+  const correlatedQuery = "(is:open AND label:bug) OR label:docs";
+  await browser.search(correlatedQuery);
+  await browser.waitForUrl((url) => new URL(url).searchParams.get("q") === correlatedQuery);
+  await browser.waitForControl();
+  assert.deepEqual(await browser.text(".gprf-summary-label"), ["Custom"]);
+  assert.deepEqual(await browser.text(".gprf-summary-count"), [""]);
+  await browser.click(".gprf-lifecycle-summary");
+  assert.ok(
+    (
+      await browser.attributes(`${OPTION_SELECTOR}:not([data-lifecycle="custom"])`, "aria-disabled")
+    ).every((disabled) => disabled === "true")
+  );
   await browser.click(".js-clear-search");
   await browser.waitForUrl((url) => !new URL(url).searchParams.has("q"));
   await browser.waitForControl();
@@ -592,6 +729,62 @@ test(`${BROWSER}: query navigation, counts, and Turbo integration`, async () => 
   assert.equal(new URL(await browser.url()).searchParams.has("q"), false);
   assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
   assert.deepEqual(await browser.text(".gprf-summary-count"), ["3"]);
+}, 90_000);
+
+test(`${BROWSER}: Turbo target changes keep exactly one lifecycle control`, async () => {
+  const fixture = activeFixture as FixtureServer;
+  const browser = activeBrowser as BrowserSession;
+
+  await browser.open(fixture.url);
+  await browser.waitForControl();
+  await browser.waitForElementCount(".table-list-header-toggle.states > .gprf-lifecycle", 1);
+  await browser.waitForElementCount(".gprf-lifecycle", 1);
+
+  await browser.duplicateLifecycleControl();
+  await browser.waitForElementCount(".table-list-header-toggle.states > .gprf-lifecycle", 1);
+  await browser.waitForElementCount(".gprf-lifecycle", 1);
+
+  await browser.setNativeStatusHeader(false);
+  await browser.waitForElementCount(".gprf-lifecycle--standalone", 1);
+  await browser.waitForElementCount(".gprf-lifecycle", 1);
+  await browser.waitForElementCount(".gprf-native-status-hidden", 0);
+
+  await browser.setNativeStatusHeader(true);
+  await browser.waitForElementCount(".table-list-header-toggle.states > .gprf-lifecycle", 1);
+  await browser.waitForElementCount(".gprf-lifecycle--standalone", 0);
+  await browser.waitForElementCount(".gprf-lifecycle", 1);
+  await browser.waitForElementCount(".gprf-native-status-hidden", 2);
+}, 90_000);
+
+test(`${BROWSER}: repository Turbo navigation discards the previous repository editor`, async () => {
+  const fixture = activeFixture as FixtureServer;
+  const browser = activeBrowser as BrowserSession;
+
+  await browser.open(fixture.url);
+  await browser.waitForControl();
+  await browser.click(".gprf-lifecycle-summary");
+  await browser.clickReplacing(".gprf-configure-action");
+  await browser.clickReplacing('.gprf-editor-row[data-lifecycle="draft"] .gprf-editor-visibility');
+  assert.equal(
+    await browser.attribute(
+      '.gprf-editor-row[data-lifecycle="draft"] .gprf-editor-visibility',
+      "aria-label"
+    ),
+    "Show Draft"
+  );
+
+  await browser.navigateRepository("/octocat/another-repository/pulls");
+  await browser.waitForElementCount(".gprf-lifecycle", 1);
+  await browser.waitForElementCount(".gprf-lifecycle--configuring", 0);
+  await browser.click(".gprf-lifecycle-summary");
+  await browser.clickReplacing(".gprf-configure-action");
+  assert.equal(
+    await browser.attribute(
+      '.gprf-editor-row[data-lifecycle="draft"] .gprf-editor-visibility',
+      "aria-label"
+    ),
+    "Hide Draft"
+  );
 }, 90_000);
 
 for (const reviewStatus of REVIEW_STATUSES) {

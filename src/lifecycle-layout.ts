@@ -1,4 +1,5 @@
-import { LIFECYCLE_OPTIONS, type Lifecycle, type LifecycleOption } from "./lifecycle-options";
+import type { Lifecycle } from "./lifecycle";
+import { LIFECYCLE_OPTIONS, type LifecycleOption } from "./lifecycle-options";
 
 export interface LifecycleLayoutOptionEntry {
   readonly type: "option";
@@ -13,8 +14,10 @@ export interface LifecycleLayoutDividerEntry {
 
 export type LifecycleLayoutEntry = LifecycleLayoutOptionEntry | LifecycleLayoutDividerEntry;
 
+export const LIFECYCLE_LAYOUT_VERSION = 2 as const;
+
 export interface LifecycleLayout {
-  readonly version: 1;
+  readonly version: typeof LIFECYCLE_LAYOUT_VERSION;
   readonly entries: readonly LifecycleLayoutEntry[];
 }
 
@@ -37,17 +40,20 @@ export function createDefaultLifecycleLayout(): LifecycleLayout {
     }
     entries.push({ type: "option", value: option.value, visible: true });
   }
-  return { version: 1, entries };
+  return { version: LIFECYCLE_LAYOUT_VERSION, entries };
 }
 
 export const DEFAULT_LIFECYCLE_LAYOUT = createDefaultLifecycleLayout();
 
 export function cloneLifecycleLayout(layout: LifecycleLayout): LifecycleLayout {
-  return { version: 1, entries: layout.entries.map((entry) => ({ ...entry })) };
+  return {
+    version: LIFECYCLE_LAYOUT_VERSION,
+    entries: layout.entries.map((entry) => ({ ...entry }))
+  };
 }
 
 export function lifecycleLayoutEntryKey(entry: LifecycleLayoutEntry): string {
-  return entry.type === "option" ? `option-${entry.value}` : entry.id;
+  return entry.type === "option" ? `option:${entry.value}` : `divider:${entry.id}`;
 }
 
 export function moveLifecycleLayoutEntry(
@@ -64,7 +70,7 @@ export function moveLifecycleLayoutEntry(
   }
   entries.splice(from, 1);
   entries.splice(to, 0, entry);
-  return { version: 1, entries };
+  return { version: LIFECYCLE_LAYOUT_VERSION, entries };
 }
 
 export function placeLifecycleLayoutEntry(
@@ -91,7 +97,7 @@ export function placeLifecycleLayoutEntry(
   } else {
     entries.splice(targetIndex + (placement === "after" ? 1 : 0), 0, entry);
   }
-  return { version: 1, entries };
+  return { version: LIFECYCLE_LAYOUT_VERSION, entries };
 }
 
 export function setLifecycleVisibility(
@@ -106,7 +112,7 @@ export function setLifecycleVisibility(
     return cloneLifecycleLayout(layout);
   }
   return {
-    version: 1,
+    version: LIFECYCLE_LAYOUT_VERSION,
     entries: layout.entries.map((entry) =>
       entry.type === "option" && entry.value === lifecycle ? { ...entry, visible } : { ...entry }
     )
@@ -115,14 +121,14 @@ export function setLifecycleVisibility(
 
 export function addLifecycleDivider(layout: LifecycleLayout): LifecycleLayout {
   return {
-    version: 1,
+    version: LIFECYCLE_LAYOUT_VERSION,
     entries: [...layout.entries, { type: "divider", id: nextDividerId(layout.entries) }]
   };
 }
 
 export function removeLifecycleDivider(layout: LifecycleLayout, id: string): LifecycleLayout {
   return {
-    version: 1,
+    version: LIFECYCLE_LAYOUT_VERSION,
     entries: layout.entries.filter((entry) => entry.type !== "divider" || entry.id !== id)
   };
 }

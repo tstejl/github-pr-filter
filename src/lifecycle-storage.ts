@@ -1,12 +1,14 @@
 import {
   cloneLifecycleLayout,
   DEFAULT_LIFECYCLE_LAYOUT,
+  LIFECYCLE_LAYOUT_VERSION,
   type LifecycleLayout,
   type LifecycleLayoutEntry
 } from "./lifecycle-layout";
-import { isLifecycle, LIFECYCLE_OPTIONS } from "./lifecycle-options";
+import { isLifecycle, LIFECYCLES } from "./lifecycle";
 
-const STORAGE_KEY_PREFIX = "repositoryLifecycleLayout:";
+const LEGACY_STORAGE_KEY_PREFIX = "repositoryLifecycleLayout:";
+const STORAGE_KEY_PREFIX = `${LEGACY_STORAGE_KEY_PREFIX}v${LIFECYCLE_LAYOUT_VERSION}:`;
 
 export interface ExtensionStorageArea {
   get(key: string): Promise<Record<string, unknown>>;
@@ -58,6 +60,10 @@ export function storageKeyForRepository(repository: string): string {
   return `${STORAGE_KEY_PREFIX}${repository}`;
 }
 
+function legacyStorageKeyForRepository(repository: string): string {
+  return `${LEGACY_STORAGE_KEY_PREFIX}${repository}`;
+}
+
 function repositoryForStorageKey(key: string): string | null {
   if (!key.startsWith(STORAGE_KEY_PREFIX)) {
     return null;
@@ -66,12 +72,20 @@ function repositoryForStorageKey(key: string): string | null {
   return repository || null;
 }
 
-export function parseStoredLifecycleLayout(value: unknown): LifecycleLayout | null {
+interface ParsedLifecycleLayout {
+  readonly layout: LifecycleLayout;
+  readonly migrated: boolean;
+}
+
+function parseStoredLifecycleLayoutValue(value: unknown): ParsedLifecycleLayout | null {
   if (!value || typeof value !== "object") {
     return null;
   }
   const candidate = value as { version?: unknown; entries?: unknown };
-  if (candidate.version !== 1 || !Array.isArray(candidate.entries)) {
+  if (
+    (candidate.version !== 1 && candidate.version !== LIFECYCLE_LAYOUT_VERSION) ||
+    !Array.isArray(candidate.entries)
+  ) {
     return null;
   }
 
@@ -111,14 +125,31 @@ export function parseStoredLifecycleLayout(value: unknown): LifecycleLayout | nu
     return null;
   }
 
-  if (
-    visibleOptions === 0 ||
-    lifecycleValues.size !== LIFECYCLE_OPTIONS.length ||
-    LIFECYCLE_OPTIONS.some(({ value: lifecycle }) => !lifecycleValues.has(lifecycle))
-  ) {
+  if (visibleOptions === 0) {
     return null;
   }
-  return { version: 1, entries };
+
+  const expectedLifecycles =
+    candidate.version === 1 ? LIFECYCLES.filter((lifecycle) => lifecycle !== "all") : LIFECYCLES;
+  const hasEveryExpectedLifecycle = expectedLifecycles.every((lifecycle) =>
+    lifecycleValues.has(lifecycle)
+  );
+  if (lifecycleValues.size !== expectedLifecycles.length || !hasEveryExpectedLifecycle) {
+    return null;
+  }
+
+  const migrated = candidate.version === 1;
+  if (migrated) {
+    entries.unshift({ type: "option", value: "all", visible: true });
+  }
+  return {
+    layout: { version: LIFECYCLE_LAYOUT_VERSION, entries },
+    migrated
+  };
+}
+
+export function parseStoredLifecycleLayout(value: unknown): LifecycleLayout | null {
+  return parseStoredLifecycleLayoutValue(value)?.layout ?? null;
 }
 
 export async function loadRepositoryLifecycleLayout(
@@ -126,23 +157,50 @@ export async function loadRepositoryLifecycleLayout(
   storage: ExtensionStorageArea = extensionStorage()
 ): Promise<LifecycleLayout> {
   const key = storageKeyForRepository(repository);
-  const stored = await storage.get(key);
+  let stored = await storage.get(key);
+  let storedKey = key;
+  let fromLegacyKey = false;
   if (!(key in stored)) {
+    storedKey = legacyStorageKeyForRepository(repository);
+    stored = await storage.get(storedKey);
+    fromLegacyKey = storedKey in stored;
+  }
+  if (!(storedKey in stored)) {
     return cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT);
   }
-  const storedValue = stored[key];
+  const storedValue = stored[storedKey];
   const storedVersion =
     storedValue && typeof storedValue === "object"
       ? (storedValue as { version?: unknown }).version
       : undefined;
-  if (typeof storedVersion === "number" && storedVersion > 1) {
+  if (typeof storedVersion === "number" && storedVersion > LIFECYCLE_LAYOUT_VERSION) {
     return cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT);
   }
-  const layout = parseStoredLifecycleLayout(storedValue);
-  if (layout) {
-    return layout;
+  const parsed = parseStoredLifecycleLayoutValue(storedValue);
+  if (parsed) {
+    if (parsed.migrated || fromLegacyKey) {
+      try {
+        await saveRepositoryLifecycleLayout(repository, parsed.layout, storage);
+        if (fromLegacyKey) {
+          await storage.remove(storedKey);
+        }
+      } catch (error) {
+        console.error(
+          "[GitHub PR Lifecycle Filter] Could not persist a migrated repository layout.",
+          error
+        );
+      }
+    }
+    return parsed.layout;
   }
-  await storage.remove(key);
+  try {
+    await storage.remove(storedKey);
+  } catch (error) {
+    console.error(
+      "[GitHub PR Lifecycle Filter] Could not remove a corrupted repository layout.",
+      error
+    );
+  }
   return cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT);
 }
 

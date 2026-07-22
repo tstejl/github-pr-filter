@@ -4,13 +4,13 @@ import {
   type LifecycleControlConfiguration
 } from "../src/lifecycle-control";
 import { createDefaultLifecycleLayout, setLifecycleVisibility } from "../src/lifecycle-layout";
-import {
-  LIFECYCLE_OPTIONS,
-  type Lifecycle,
-  type LifecyclePreferences
-} from "../src/lifecycle-options";
+import type { ActiveLifecycleSelection, Lifecycle } from "../src/lifecycle";
+import { LIFECYCLE_OPTIONS, customLifecycleOption } from "../src/lifecycle-options";
+import { OCTICONS } from "../src/octicons";
+import { createIcon } from "../src/ui-primitives";
 
 type Theme = "light" | "dark" | "high-contrast";
+type CustomHelpPlacement = "expanded-only" | "both";
 
 interface StoryArgs {
   lifecycle: Lifecycle;
@@ -20,6 +20,7 @@ interface StoryArgs {
 }
 
 const COUNTS: Readonly<Record<Lifecycle, string>> = {
+  all: "1,612",
   needs_review: "23",
   open: "408",
   ready: "356",
@@ -45,19 +46,19 @@ function createShell(theme: Theme): HTMLElement {
 }
 
 function createCard(
-  preferences: LifecyclePreferences,
+  selection: ActiveLifecycleSelection,
   expanded: boolean,
-  count = COUNTS[preferences.lifecycle]
+  count = selection.kind === "preset" ? COUNTS[selection.lifecycle] : ""
 ): HTMLElement {
   const card = document.createElement("article");
   card.className = `gprf-storybook-card${expanded ? " gprf-storybook-card--expanded" : ""}`;
 
   const title = document.createElement("div");
   title.className = "gprf-storybook-card-title";
-  title.textContent = preferences.lifecycle;
+  title.textContent = selection.kind === "preset" ? selection.lifecycle : "custom";
 
   const control = createControlElement({
-    preferences,
+    selection,
     count,
     hrefForLifecycle: lifecycleHref,
     exclusive: !expanded
@@ -86,7 +87,7 @@ function renderGallery(theme: Theme): HTMLElement {
     const grid = document.createElement("div");
     grid.className = "gprf-storybook-grid";
     for (const option of LIFECYCLE_OPTIONS) {
-      grid.append(createCard({ lifecycle: option.value }, expanded));
+      grid.append(createCard({ kind: "preset", lifecycle: option.value }, expanded));
     }
     section.append(sectionTitle, grid);
     shell.append(section);
@@ -99,7 +100,7 @@ function renderInteractive(args: StoryArgs): HTMLElement {
   const frame = document.createElement("div");
   frame.className = "gprf-storybook-interactive";
   const control = createControlElement({
-    preferences: { lifecycle: args.lifecycle },
+    selection: { kind: "preset", lifecycle: args.lifecycle },
     count: args.count || null,
     hrefForLifecycle: lifecycleHref,
     customizable: true
@@ -107,6 +108,129 @@ function renderInteractive(args: StoryArgs): HTMLElement {
   control.open = args.expanded;
   frame.append(control);
   shell.append(frame);
+  return shell;
+}
+
+function renderCustomQuery(theme: Theme, unsafe: boolean): HTMLElement {
+  const shell = createShell(theme);
+  const frame = document.createElement("div");
+  frame.className = "gprf-storybook-interactive";
+  const control = createControlElement({
+    selection: { kind: "custom", reason: unsafe ? "correlated" : "partial" },
+    count: unsafe ? null : "17",
+    hrefForLifecycle: unsafe ? () => null : lifecycleHref,
+    customizable: true,
+    exclusive: false
+  });
+  control.open = true;
+  frame.append(control);
+  shell.append(frame);
+  return shell;
+}
+
+let customHelpSequence = 0;
+
+function createSummaryHelp(text: string): HTMLElement {
+  customHelpSequence += 1;
+  const help = document.createElement("span");
+  help.className = "gprf-custom-help gprf-custom-help--summary";
+  const icon = createIcon(document, OCTICONS.question);
+  icon.classList.add("gprf-custom-help-icon");
+  const tooltip = document.createElement("span");
+  tooltip.id = `gprf-custom-help-${customHelpSequence}`;
+  tooltip.className = "gprf-custom-help-tooltip";
+  tooltip.setAttribute("role", "tooltip");
+  tooltip.textContent = text;
+  help.append(icon, tooltip);
+  help.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    help.classList.toggle("is-open");
+  });
+  return help;
+}
+
+function decorateSummaryHelp(control: HTMLDetailsElement): void {
+  const explanation = customLifecycleOption("correlated").help;
+  const summary = control.querySelector<HTMLElement>(".gprf-lifecycle-summary");
+  const summaryCopy = summary?.querySelector<HTMLElement>(".gprf-summary-copy");
+  if (summary && summaryCopy) {
+    const help = createSummaryHelp(explanation);
+    summary.classList.add("has-custom-help");
+    summary.setAttribute(
+      "aria-describedby",
+      help.querySelector<HTMLElement>(".gprf-custom-help-tooltip")?.id ?? ""
+    );
+    summaryCopy.append(help);
+  }
+}
+
+function renderCustomHelpPlacement(theme: Theme): HTMLElement {
+  const shell = createShell(theme);
+  const heading = document.createElement("h1");
+  heading.className = "gprf-storybook-title";
+  heading.textContent = "Custom query help placement";
+  const description = document.createElement("p");
+  description.className = "gprf-storybook-description";
+  description.textContent =
+    "Compare a contextual help icon only inside the menu with repeating it in the compact selector.";
+  const grid = document.createElement("div");
+  grid.className = "gprf-storybook-grid gprf-custom-help-grid";
+  const treatments: readonly [CustomHelpPlacement, string, string][] = [
+    ["expanded-only", "Expanded only", "Selected: contextual without changing the compact header"],
+    [
+      "both",
+      "Compact + expanded",
+      "More discoverable before opening, but adds permanent header density"
+    ]
+  ];
+
+  for (const [placement, label, detail] of treatments) {
+    const card = document.createElement("article");
+    card.className = "gprf-storybook-card gprf-custom-help-card";
+    card.dataset.placement = placement;
+    const title = document.createElement("div");
+    title.className = "gprf-storybook-card-title";
+    title.textContent = label;
+    const note = document.createElement("div");
+    note.className = "gprf-storybook-card-note";
+    note.textContent = detail;
+    const compactLabel = document.createElement("div");
+    compactLabel.className = "gprf-storybook-preview-label";
+    compactLabel.textContent = "Compact";
+    const compact = createControlElement({
+      selection: { kind: "custom", reason: "correlated" },
+      count: null,
+      hrefForLifecycle: () => null,
+      customizable: true,
+      exclusive: false
+    });
+    if (placement === "both") {
+      decorateSummaryHelp(compact);
+    }
+
+    const expandedLabel = document.createElement("div");
+    expandedLabel.className = "gprf-storybook-preview-label";
+    expandedLabel.textContent = "Expanded";
+    const expandedFrame = document.createElement("div");
+    expandedFrame.className = "gprf-custom-help-expanded";
+    const expanded = createControlElement({
+      selection: { kind: "custom", reason: "correlated" },
+      count: null,
+      hrefForLifecycle: () => null,
+      customizable: true,
+      exclusive: false
+    });
+    expanded.open = true;
+    if (placement === "both") {
+      decorateSummaryHelp(expanded);
+    }
+    expandedFrame.append(expanded);
+    card.append(title, note, compactLabel, compact, expandedLabel, expandedFrame);
+    grid.append(card);
+  }
+
+  shell.append(heading, description, grid);
   return shell;
 }
 
@@ -131,7 +255,7 @@ function renderHiddenActiveGallery(theme: Theme): HTMLElement {
     title.textContent = option.label;
     const layout = setLifecycleVisibility(createDefaultLifecycleLayout(), option.value, false);
     const control = createControlElement({
-      preferences: { lifecycle: option.value },
+      selection: { kind: "preset", lifecycle: option.value },
       count: COUNTS[option.value],
       hrefForLifecycle: lifecycleHref,
       customizable: true,
@@ -175,7 +299,7 @@ function renderActiveTreatmentGallery(theme: Theme): HTMLElement {
     note.className = "gprf-storybook-card-note";
     note.textContent = detail;
     const control = createControlElement({
-      preferences: { lifecycle: "closed_unmerged" },
+      selection: { kind: "preset", lifecycle: "closed_unmerged" },
       count: COUNTS.closed_unmerged,
       hrefForLifecycle: lifecycleHref,
       customizable: true,
@@ -230,6 +354,21 @@ export const HiddenActiveState = {
   parameters: { controls: { include: ["theme"] } }
 } satisfies Story;
 
+export const CustomQuery = {
+  render: (args) => renderCustomQuery(args.theme, false),
+  parameters: { controls: { include: ["theme"] } }
+} satisfies Story;
+
+export const UnsafeBooleanQuery = {
+  render: (args) => renderCustomQuery(args.theme, true),
+  parameters: { controls: { include: ["theme"] } }
+} satisfies Story;
+
+export const CustomHelpPlacement = {
+  render: (args) => renderCustomHelpPlacement(args.theme),
+  parameters: { controls: { include: ["theme"] } }
+} satisfies Story;
+
 export const ActiveStateTreatments = {
   render: (args) => renderActiveTreatmentGallery(args.theme),
   parameters: { controls: { include: ["theme"] } }
@@ -256,7 +395,7 @@ export const NarrowExpanded = {
     const frame = document.createElement("div");
     frame.className = "gprf-storybook-narrow";
     const control = createControlElement({
-      preferences: { lifecycle: args.lifecycle },
+      selection: { kind: "preset", lifecycle: args.lifecycle },
       count: args.count,
       hrefForLifecycle: lifecycleHref
     });
