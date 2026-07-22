@@ -575,14 +575,14 @@ test(`${BROWSER}: query navigation, counts, and Turbo integration`, async () => 
   await browser.click(".gprf-lifecycle-summary");
   assert.notEqual(await browser.cssValue(".gprf-summary-count", "display"), "none");
   assert.deepEqual(await browser.text(".gprf-option-label"), [
-    "All",
     "Needs review",
     "Open",
     "Ready",
     "Draft",
     "Closed",
     "Merged",
-    "Closed without merging"
+    "Closed without merging",
+    "All"
   ]);
   const menuIconPaths = await browser.attributes(
     ".gprf-lifecycle-option > .gprf-lifecycle-icon:first-child path",
@@ -680,7 +680,11 @@ test(`${BROWSER}: query navigation, counts, and Turbo integration`, async () => 
     await browser.attribute(`${OPTION_SELECTOR}[data-lifecycle="custom"]`, "aria-checked"),
     "true"
   );
-  assert.deepEqual((await browser.text(".gprf-option-label")).slice(0, 2), ["Custom query", "All"]);
+  assert.deepEqual((await browser.text(".gprf-option-label")).slice(0, 2), [
+    "Custom query",
+    "Needs review"
+  ]);
+  assert.equal((await browser.text(".gprf-option-label")).at(-1), "All");
   await browser.click(`${OPTION_SELECTOR}[data-lifecycle="closed_unmerged"]`);
   await browser.waitForUrl(
     (url) => new URL(url).searchParams.get("q")?.includes("is:unmerged") === true

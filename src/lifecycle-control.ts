@@ -152,6 +152,7 @@ function selectedOption(
   return (
     options.find(({ value }) => value === selection.lifecycle) ??
     LIFECYCLE_OPTIONS.find(({ value }) => value === selection.lifecycle) ??
+    LIFECYCLE_OPTIONS.find(({ value }) => value === "all") ??
     LIFECYCLE_OPTIONS[0]
   );
 }

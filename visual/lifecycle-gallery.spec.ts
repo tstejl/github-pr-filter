@@ -22,7 +22,7 @@ test("all lifecycle states share the production visual contract", async ({ page 
   const firstMenu = page.locator(".gprf-lifecycle[open] .gprf-lifecycle-menu").first();
   await expect(firstMenu.locator(".gprf-lifecycle-option")).toHaveCount(LIFECYCLE_OPTIONS.length);
   await expect(firstMenu.locator(".gprf-lifecycle-option.selected")).toHaveCount(1);
-  await expect(firstMenu.locator(".gprf-menu-divider")).toHaveCount(2);
+  await expect(firstMenu.locator(".gprf-menu-divider")).toHaveCount(3);
 
   const iconPaths = await firstMenu
     .locator(".gprf-lifecycle-option > .gprf-lifecycle-icon:first-child path")
@@ -69,7 +69,7 @@ test("configuration mode uses an explicit cancel and action footer", async ({ pa
   await page.goto(storyUrl("configuring"));
   await expect(page.locator(".gprf-lifecycle--configuring")).toHaveCount(1);
   await expect(page.locator(".gprf-editor-row--option")).toHaveCount(LIFECYCLE_OPTIONS.length);
-  await expect(page.locator(".gprf-editor-row--divider")).toHaveCount(2);
+  await expect(page.locator(".gprf-editor-row--divider")).toHaveCount(3);
   await expect(page.locator(".gprf-menu-heading")).toHaveText("Customizing this repo");
   await expect(page.getByRole("button", { name: "Cancel changes" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Save changes" })).toBeVisible();

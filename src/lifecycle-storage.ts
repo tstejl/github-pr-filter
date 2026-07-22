@@ -1,4 +1,5 @@
 import {
+  addLifecycleDivider,
   cloneLifecycleLayout,
   DEFAULT_LIFECYCLE_LAYOUT,
   LIFECYCLE_LAYOUT_VERSION,
@@ -139,11 +140,18 @@ function parseStoredLifecycleLayoutValue(value: unknown): ParsedLifecycleLayout 
   }
 
   const migrated = candidate.version === 1;
+  let normalizedEntries: readonly LifecycleLayoutEntry[] = entries;
   if (migrated) {
-    entries.unshift({ type: "option", value: "all", visible: true });
+    const legacyLayout = { version: LIFECYCLE_LAYOUT_VERSION, entries };
+    const separatedLayout =
+      entries.at(-1)?.type === "divider" ? legacyLayout : addLifecycleDivider(legacyLayout);
+    normalizedEntries = [
+      ...separatedLayout.entries,
+      { type: "option", value: "all", visible: true }
+    ];
   }
   return {
-    layout: { version: LIFECYCLE_LAYOUT_VERSION, entries },
+    layout: { version: LIFECYCLE_LAYOUT_VERSION, entries: normalizedEntries },
     migrated
   };
 }

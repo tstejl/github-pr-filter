@@ -21,12 +21,6 @@ export type LifecycleDisplayOption = LifecycleOption | CustomLifecycleOption;
 
 export const LIFECYCLE_OPTIONS = Object.freeze([
   {
-    value: "all",
-    label: "All",
-    description: "All pull requests",
-    icon: "listUnordered"
-  },
-  {
     value: "needs_review",
     label: "Needs review",
     description: "Open and awaiting review",
@@ -69,6 +63,13 @@ export const LIFECYCLE_OPTIONS = Object.freeze([
     label: "Closed without merging",
     description: "Closed and unmerged",
     icon: "gitPullRequestClosed"
+  },
+  {
+    value: "all",
+    label: "All",
+    description: "All pull requests",
+    icon: "listUnordered",
+    startsSection: true
   }
 ] as const satisfies readonly LifecycleOption[]);
 

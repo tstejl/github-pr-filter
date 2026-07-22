@@ -14,20 +14,32 @@ import {
 import { LIFECYCLE_OPTIONS } from "../src/lifecycle-options";
 
 test("the UI catalog exhaustively represents the lifecycle domain", () => {
-  assert.deepEqual(
-    LIFECYCLE_OPTIONS.map(({ value }) => value),
-    LIFECYCLES
-  );
+  assert.equal(LIFECYCLE_OPTIONS.length, LIFECYCLES.length);
+  assert.deepEqual(new Set(LIFECYCLE_OPTIONS.map(({ value }) => value)), new Set(LIFECYCLES));
 });
 
-test("default layout preserves all options and the two current sections", () => {
+test("default layout places All in its own final section", () => {
   const layout = createDefaultLifecycleLayout();
   assert.equal(layout.version, 2);
   assert.equal(layout.entries.filter(({ type }) => type === "option").length, 8);
-  assert.equal(layout.entries.filter(({ type }) => type === "divider").length, 2);
+  assert.equal(layout.entries.filter(({ type }) => type === "divider").length, 3);
   assert.deepEqual(
-    visibleLifecycleLayoutEntries(layout).filter((entry) => !("type" in entry)),
-    LIFECYCLE_OPTIONS
+    visibleLifecycleLayoutEntries(layout).map((entry) =>
+      "type" in entry ? "divider" : entry.value
+    ),
+    [
+      "needs_review",
+      "divider",
+      "open",
+      "ready",
+      "draft",
+      "divider",
+      "closed",
+      "merged",
+      "closed_unmerged",
+      "divider",
+      "all"
+    ]
   );
 });
 
@@ -60,9 +72,11 @@ test("at least one option remains visible", () => {
   for (const option of LIFECYCLE_OPTIONS) {
     layout = setLifecycleVisibility(layout, option.value, false);
   }
-  assert.equal(
-    layout.entries.filter((entry) => entry.type === "option" && entry.visible).length,
-    1
+  assert.deepEqual(
+    layout.entries.flatMap((entry) =>
+      entry.type === "option" && entry.visible ? [entry.value] : []
+    ),
+    ["all"]
   );
 });
 

@@ -34,6 +34,15 @@ class MemoryStorage implements ExtensionStorageArea {
   }
 }
 
+function legacySevenStateEntries() {
+  const entriesWithoutAll = DEFAULT_LIFECYCLE_LAYOUT.entries.filter(
+    (entry) => entry.type !== "option" || entry.value !== "all"
+  );
+  return entriesWithoutAll.at(-1)?.type === "divider"
+    ? entriesWithoutAll.slice(0, -1)
+    : entriesWithoutAll;
+}
+
 test("repository layouts use isolated extension-local keys", async () => {
   const storage = new MemoryStorage();
   const hiddenDraft = setLifecycleVisibility(DEFAULT_LIFECYCLE_LAYOUT, "draft", false);
@@ -128,19 +137,22 @@ test("legacy seven-state layouts migrate without losing repository customization
   const storage = new MemoryStorage();
   const key = storageKeyForRepository("octocat/hello-world");
   const legacyKey = "repositoryLifecycleLayout:octocat/hello-world";
-  const legacyEntries = DEFAULT_LIFECYCLE_LAYOUT.entries
-    .filter((entry) => entry.type !== "option" || entry.value !== "all")
-    .map((entry) =>
-      entry.type === "option" && entry.value === "draft"
-        ? { type: "option" as const, value: entry.value, visible: false }
-        : entry
-    );
+  const legacyEntries = legacySevenStateEntries().map((entry) =>
+    entry.type === "option" && entry.value === "draft"
+      ? { type: "option" as const, value: entry.value, visible: false }
+      : entry
+  );
   storage.values[legacyKey] = { version: 1, entries: legacyEntries };
 
   const migrated = await loadRepositoryLifecycleLayout("octocat/hello-world", storage);
 
-  assert.deepEqual(migrated.entries[0], { type: "option", value: "all", visible: true });
-  assert.deepEqual(migrated.entries.slice(1), legacyEntries);
+  assert.deepEqual(migrated.entries.slice(0, legacyEntries.length), legacyEntries);
+  assert.equal(migrated.entries.at(-2)?.type, "divider");
+  assert.deepEqual(migrated.entries.at(-1), {
+    type: "option",
+    value: "all",
+    visible: true
+  });
   assert.equal(
     migrated.entries.some(
       (entry) => entry.type === "option" && entry.value === "draft" && !entry.visible
@@ -151,6 +163,23 @@ test("legacy seven-state layouts migrate without losing repository customization
   assert.deepEqual(storage.values[key], migrated);
   assert.equal(legacyKey in storage.values, false);
   assert.deepEqual(storage.removedKeys, [legacyKey]);
+});
+
+test("a legacy trailing separator becomes the All section boundary", () => {
+  const legacyEntries = [
+    ...legacySevenStateEntries(),
+    { type: "divider" as const, id: "custom-final-divider" }
+  ];
+
+  const migrated = parseStoredLifecycleLayout({ version: 1, entries: legacyEntries });
+
+  assert.ok(migrated);
+  assert.deepEqual(migrated.entries.slice(0, -1), legacyEntries);
+  assert.deepEqual(migrated.entries.at(-1), {
+    type: "option",
+    value: "all",
+    visible: true
+  });
 });
 
 test("the unversioned 0.6 storage key migrates its current layout", async () => {
@@ -170,9 +199,7 @@ test("a failed migration write does not discard a valid legacy layout for the se
   const storage = new MemoryStorage();
   const key = storageKeyForRepository("octocat/hello-world");
   const legacyKey = "repositoryLifecycleLayout:octocat/hello-world";
-  const legacyEntries = DEFAULT_LIFECYCLE_LAYOUT.entries.filter(
-    (entry) => entry.type !== "option" || entry.value !== "all"
-  );
+  const legacyEntries = legacySevenStateEntries();
   storage.values[legacyKey] = { version: 1, entries: legacyEntries };
   storage.set = async () => {
     throw new Error("storage quota exceeded");
@@ -184,8 +211,13 @@ test("a failed migration write does not discard a valid legacy layout for the se
   try {
     const migrated = await loadRepositoryLifecycleLayout("octocat/hello-world", storage);
 
-    assert.deepEqual(migrated.entries[0], { type: "option", value: "all", visible: true });
-    assert.deepEqual(migrated.entries.slice(1), legacyEntries);
+    assert.deepEqual(migrated.entries.slice(0, legacyEntries.length), legacyEntries);
+    assert.equal(migrated.entries.at(-2)?.type, "divider");
+    assert.deepEqual(migrated.entries.at(-1), {
+      type: "option",
+      value: "all",
+      visible: true
+    });
     assert.equal(migrated.version, 2);
     assert.equal(key in storage.values, false);
     assert.deepEqual(storage.values[legacyKey], { version: 1, entries: legacyEntries });
