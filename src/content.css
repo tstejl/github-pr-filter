@@ -260,11 +260,11 @@ html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
   cursor: help;
   display: inline-flex;
   flex: 0 0 auto;
-  opacity: 0.8;
 }
 
 .gprf-option-help-icon {
   height: 14px;
+  opacity: 0.8;
   width: 14px;
 }
 

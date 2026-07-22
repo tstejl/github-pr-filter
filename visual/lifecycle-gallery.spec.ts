@@ -242,6 +242,11 @@ test("Custom query is transient, selected, and excluded from configuration", asy
   await expect(customTooltip).toHaveText(
     "This GitHub query doesn’t exactly match a lifecycle preset. Choose a preset below or edit the search query directly."
   );
+  await customHelp.hover();
+  await expect(customHelp).toHaveCSS("opacity", "1");
+  await expect(customHelp.locator(".gprf-option-help-icon")).toHaveCSS("opacity", "0.8");
+  await expect(customTooltip).toBeVisible();
+  await expect(customTooltip).toHaveCSS("opacity", "1");
   await expect(custom).toHaveAttribute(
     "aria-describedby",
     (await customTooltip.getAttribute("id")) ?? ""
