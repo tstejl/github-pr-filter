@@ -14,11 +14,13 @@ work without rebuilding the same searches every day.
 
 ## Find the right pull requests faster
 
-- Jump between **Needs review**, **Ready**, **Draft**, **Merged**, and other useful lifecycle
-  views from one compact menu.
+- Jump between **All**, **Needs review**, **Ready**, **Draft**, **Merged**, and other useful
+  lifecycle views from one compact menu.
 - Keep **Merged** work separate from pull requests that were **Closed without merging**.
 - See the number of matching pull requests before opening the menu.
 - Combine lifecycle views with GitHub's author, label, milestone, assignee, and review filters.
+- Keep advanced GitHub searches understandable: queries that do not exactly match a built-in
+  lifecycle are shown honestly as **Custom** instead of being mistaken for another view.
 - Share or bookmark the resulting page normally—the selected lifecycle remains visible in the
   GitHub search query and URL.
 
@@ -53,8 +55,7 @@ The extension:
 - does not require a GitHub token;
 - does not use analytics or a backend;
 - does not collect or transmit browsing activity; and
-- automatically discards an unreadable saved layout and safely returns that repository to the
-  defaults.
+- ignores an unreadable saved layout and safely returns that repository to the defaults.
 
 Only the browser's `storage` permission is requested. Content scripts are limited to
 `https://github.com/*` and activate only on supported repository pull-request lists.
@@ -86,6 +87,35 @@ The extension supports current desktop Chromium browsers and Firefox 140 or newe
 `github.com/owner/repository/pulls`; GitHub's separate global pull-request page is not modified.
 
 Firefox for Android and custom GitHub domains are not currently supported.
+
+## Known limitations
+
+### Why the menu may show Custom query
+
+GitHub's search box remains the source of truth. The menu shows **Custom query** when the
+current search cannot be represented exactly by one built-in lifecycle view. This commonly
+happens when:
+
+- lifecycle qualifiers combine into a narrower or different view than the available presets;
+- open, closed, draft, or merged qualifiers are repeated with conflicting or order-sensitive
+  values; or
+- lifecycle qualifiers appear inside parentheses or an `AND`/`OR` expression, use unsupported
+  syntax, or are malformed.
+
+This is intentional: the extension will not give an ambiguous query a misleading name or
+rewrite it in a way that could change its meaning. GitHub's author, label, milestone, assignee,
+and review filters continue to work normally alongside lifecycle views.
+
+To return to a built-in view:
+
+- If the preset choices remain enabled, select one normally. The extension will replace only
+  the lifecycle portion it can safely separate from the rest of the search.
+- If the preset choices are disabled, edit GitHub's search box to remove or simplify the
+  conflicting lifecycle qualifiers, parentheses, or Boolean expression, then submit the
+  search again. Clearing the search and choosing a lifecycle view also starts from a clean
+  query.
+- Hover or focus the question-mark icon beside **Custom query** for an explanation of the
+  current state.
 
 <details>
 <summary><strong>Development and testing</strong></summary>

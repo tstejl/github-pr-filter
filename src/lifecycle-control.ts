@@ -8,18 +8,21 @@ import {
 } from "./lifecycle-layout";
 import {
   LIFECYCLE_OPTIONS,
-  type Lifecycle,
-  type LifecycleOption,
-  type LifecyclePreferences
+  customLifecycleOption,
+  type LifecycleDisplayOption,
+  type LifecycleOption
 } from "./lifecycle-options";
+import type { ActiveLifecycleSelection, Lifecycle } from "./lifecycle";
 import { OCTICONS } from "./octicons";
 import { createIcon, createIconButton, createTextButton } from "./ui-primitives";
 
 export const CONTROL_CLASS = "gprf-lifecycle";
 
+let optionHelpSequence = 0;
+
 export interface LifecycleControlConfiguration {
-  readonly preferences: LifecyclePreferences;
-  readonly hrefForLifecycle: (lifecycle: Lifecycle) => string;
+  readonly selection: ActiveLifecycleSelection;
+  readonly hrefForLifecycle: (lifecycle: Lifecycle) => string | null;
   readonly count?: string | null;
   readonly standalone?: boolean;
   readonly options?: readonly LifecycleOption[];
@@ -32,8 +35,8 @@ export interface LifecycleControlConfiguration {
 }
 
 export interface LifecycleControlRefresh {
-  readonly preferences: LifecyclePreferences;
-  readonly hrefForLifecycle: (lifecycle: Lifecycle) => string;
+  readonly selection: ActiveLifecycleSelection;
+  readonly hrefForLifecycle: (lifecycle: Lifecycle) => string | null;
   readonly count?: string | null;
   readonly options?: readonly LifecycleOption[];
   readonly layout?: LifecycleLayout;
@@ -48,19 +51,31 @@ export interface LifecycleControlController {
 
 function createLifecycleOption(
   document: Document,
-  lifecycle: LifecycleOption,
-  href: string,
+  lifecycle: LifecycleDisplayOption,
+  href: string | null,
   selected: boolean,
   hiddenFromMenu = false,
-  turboFrame: string | null = null
+  turboFrame: string | null = null,
+  currentOnly = false
 ): HTMLAnchorElement {
   const link = document.createElement("a");
   link.className = `gprf-lifecycle-option${selected ? " selected" : ""}`;
-  link.href = href;
+  if (href !== null) {
+    link.href = href;
+  } else if (currentOnly) {
+    link.tabIndex = 0;
+  } else {
+    const unavailableReason = "This state can’t be changed safely from the current query";
+    link.tabIndex = 0;
+    link.classList.add("is-disabled");
+    link.setAttribute("aria-disabled", "true");
+    link.setAttribute("aria-label", `${lifecycle.label}. ${unavailableReason}.`);
+    link.title = unavailableReason;
+  }
   link.dataset.lifecycle = lifecycle.value;
   link.setAttribute("role", "menuitemradio");
   link.setAttribute("aria-checked", String(selected));
-  if (turboFrame) {
+  if (turboFrame && href !== null) {
     link.setAttribute("data-turbo-frame", turboFrame);
   }
 
@@ -72,6 +87,28 @@ function createLifecycleOption(
   const optionLabelRow = document.createElement("span");
   optionLabelRow.className = "gprf-option-label-row";
   optionLabelRow.append(optionLabel);
+  if (lifecycle.value === "custom") {
+    optionHelpSequence += 1;
+    const helpId = `gprf-option-help-${optionHelpSequence}`;
+    const help = document.createElement("span");
+    help.className = "gprf-option-help";
+    const helpIcon = createIcon(document, OCTICONS.question);
+    helpIcon.classList.add("gprf-option-help-icon");
+    const tooltip = document.createElement("span");
+    tooltip.id = helpId;
+    tooltip.className = "gprf-option-help-tooltip";
+    tooltip.setAttribute("role", "tooltip");
+    tooltip.textContent = lifecycle.help;
+    help.append(helpIcon, tooltip);
+    help.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      help.classList.toggle("is-open");
+    });
+    link.classList.add("has-option-help");
+    link.setAttribute("aria-describedby", helpId);
+    optionLabelRow.append(help);
+  }
   if (hiddenFromMenu) {
     optionLabelRow.classList.add("has-hidden-indicator");
     const hiddenIndicator = document.createElement("span");
@@ -91,6 +128,12 @@ function createLifecycleOption(
   link.append(createIcon(document, OCTICONS[lifecycle.icon]), copy, check);
 
   link.addEventListener("click", (event) => {
+    if (link.getAttribute("aria-disabled") === "true" || currentOnly) {
+      event.preventDefault();
+    }
+    if (link.getAttribute("aria-disabled") === "true") {
+      return;
+    }
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return;
     }
@@ -101,34 +144,43 @@ function createLifecycleOption(
 
 function selectedOption(
   options: readonly LifecycleOption[],
-  preferences: LifecyclePreferences
-): LifecycleOption {
+  selection: ActiveLifecycleSelection
+): LifecycleDisplayOption {
+  if (selection.kind === "custom") {
+    return customLifecycleOption(selection.reason);
+  }
   return (
-    options.find(({ value }) => value === preferences.lifecycle) ??
-    options[0] ??
-    LIFECYCLE_OPTIONS[0]
+    options.find(({ value }) => value === selection.lifecycle) ??
+    LIFECYCLE_OPTIONS.find(({ value }) => value === selection.lifecycle) ??
+    LIFECYCLE_OPTIONS.find(({ value }) => value === "all") ??
+    LIFECYCLE_OPTIONS[0]!
   );
 }
 
 function updateSummary(
   summary: HTMLElement,
-  selectedLifecycle: LifecycleOption,
+  selectedLifecycle: LifecycleDisplayOption,
   count: string | null
 ): void {
   summary.dataset.lifecycle = selectedLifecycle.value;
+  const isCustom = selectedLifecycle.value === "custom";
+  const visibleLabel = isCustom ? "Custom" : selectedLifecycle.label;
+  const countPrefix = count ? `${count} pull requests. ` : "";
   summary.setAttribute(
     "aria-label",
-    count
-      ? `${count} pull requests: ${selectedLifecycle.label}`
-      : `Pull request state: ${selectedLifecycle.label}`
+    isCustom
+      ? `${countPrefix}Pull request state: Custom. ${selectedLifecycle.description}.`
+      : count
+        ? `${count} pull requests: ${visibleLabel}`
+        : `Pull request state: ${visibleLabel}`
   );
   const summaryLabel = summary.querySelector<HTMLElement>(".gprf-summary-label");
   const summaryCount = summary.querySelector<HTMLElement>(".gprf-summary-count");
   if (!summaryLabel || !summaryCount) {
     return;
   }
-  if (summaryLabel.textContent !== selectedLifecycle.label) {
-    summaryLabel.textContent = selectedLifecycle.label;
+  if (summaryLabel.textContent !== visibleLabel) {
+    summaryLabel.textContent = visibleLabel;
   }
   const nextCount = count ?? "";
   if (summaryCount.textContent !== nextCount) {
@@ -138,7 +190,7 @@ function updateSummary(
 }
 
 export function createLifecycleControl({
-  preferences,
+  selection,
   hrefForLifecycle,
   count = null,
   standalone = false,
@@ -152,13 +204,12 @@ export function createLifecycleControl({
 }: LifecycleControlConfiguration): LifecycleControlController {
   const control = ownerDocument.createElement("details");
   control.className = `${CONTROL_CLASS}${standalone ? " gprf-lifecycle--standalone" : ""}`;
-  const activeOption = selectedOption(options, preferences);
-  let renderedPreferences = preferences;
+  const activeOption = selectedOption(options, selection);
+  let renderedSelection = selection;
   let renderedHrefForLifecycle = hrefForLifecycle;
   let renderedOptions = options;
   let currentLayout = cloneLifecycleLayout(layout);
   let renderedTurboFrame = turboFrame;
-  let lastOptionsSignature: string | null = null;
   let editor: LifecycleEditor | null = null;
   let configuring = false;
 
@@ -196,31 +247,27 @@ export function createLifecycleControl({
   header.append(heading, actions);
   menu.append(header, body, footer);
 
-  const renderOptions = (force = false): void => {
-    const activeLifecycle = renderedPreferences.lifecycle;
-    const activeIsHidden = !isLifecycleVisible(currentLayout, activeLifecycle);
+  const renderOptions = (): void => {
+    const activeLifecycle =
+      renderedSelection.kind === "preset" ? renderedSelection.lifecycle : null;
+    const activeIsHidden =
+      activeLifecycle !== null && !isLifecycleVisible(currentLayout, activeLifecycle);
     const visibleEntries = visibleLifecycleLayoutEntries(
       currentLayout,
       renderedOptions,
-      activeLifecycle
+      activeLifecycle ?? undefined
     );
-    const signature = JSON.stringify({
-      activeLifecycle,
-      layout: currentLayout.entries,
-      options: renderedOptions.map((option) => [
-        option.value,
-        option.label,
-        option.description,
-        option.icon,
-        renderedHrefForLifecycle(option.value)
-      ]),
-      turboFrame: renderedTurboFrame
-    });
-    if (!force && signature === lastOptionsSignature) {
-      return;
-    }
-    lastOptionsSignature = signature;
     body.replaceChildren();
+    if (renderedSelection.kind === "custom") {
+      const customOption = customLifecycleOption(renderedSelection.reason);
+      body.append(
+        createLifecycleOption(ownerDocument, customOption, null, true, false, null, true)
+      );
+      const divider = ownerDocument.createElement("div");
+      divider.className = "gprf-menu-divider";
+      divider.setAttribute("role", "separator");
+      body.append(divider);
+    }
     for (const entry of visibleEntries) {
       if ("type" in entry && entry.type === "divider") {
         const divider = ownerDocument.createElement("div");
@@ -235,7 +282,7 @@ export function createLifecycleControl({
             ownerDocument,
             option,
             renderedHrefForLifecycle(option.value),
-            activeLifecycle === option.value,
+            renderedSelection.kind === "preset" && activeLifecycle === option.value,
             hiddenFromMenu,
             renderedTurboFrame
           )
@@ -277,7 +324,7 @@ export function createLifecycleControl({
     footer.hidden = true;
     footer.replaceChildren();
     const configure = renderNormalActions();
-    renderOptions(true);
+    renderOptions();
     if (restoreFocus) {
       configure?.focus();
     }
@@ -366,6 +413,7 @@ export function createLifecycleControl({
 
   control.addEventListener("toggle", () => {
     if (!control.open) {
+      control.querySelector(".gprf-option-help.is-open")?.classList.remove("is-open");
       leaveConfiguration(false);
       return;
     }
@@ -382,14 +430,14 @@ export function createLifecycleControl({
   });
 
   const refresh = ({
-    preferences: nextPreferences,
+    selection: nextSelection,
     hrefForLifecycle: nextHrefForLifecycle,
     count: nextCount = null,
     options: nextOptions = LIFECYCLE_OPTIONS,
     layout: nextLayout,
     turboFrame: nextTurboFrame
   }: LifecycleControlRefresh): void => {
-    renderedPreferences = nextPreferences;
+    renderedSelection = nextSelection;
     renderedHrefForLifecycle = nextHrefForLifecycle;
     renderedOptions = nextOptions;
     if (nextLayout) {
@@ -398,7 +446,7 @@ export function createLifecycleControl({
     if (nextTurboFrame !== undefined) {
       renderedTurboFrame = nextTurboFrame;
     }
-    updateSummary(summary, selectedOption(renderedOptions, renderedPreferences), nextCount);
+    updateSummary(summary, selectedOption(renderedOptions, renderedSelection), nextCount);
     if (!configuring) {
       renderOptions();
     }

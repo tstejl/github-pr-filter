@@ -35,6 +35,13 @@ export function createLifecycleEditor({
   let draggedKey: string | null = null;
   const optionByValue = new Map(options.map((option) => [option.value, option]));
 
+  const focusEntryAction = (key: string, selector: string): void => {
+    const row = [...editor.querySelectorAll<HTMLElement>(".gprf-editor-row")].find(
+      (candidate) => candidate.dataset.entryKey === key
+    );
+    row?.querySelector<HTMLButtonElement>(selector)?.focus();
+  };
+
   const render = (): void => {
     const previousPositions = new Map(
       [...editor.querySelectorAll<HTMLElement>(".gprf-editor-row")].map((row) => [
@@ -67,9 +74,7 @@ export function createLifecycleEditor({
         event.preventDefault();
         layout = moveLifecycleLayoutEntry(layout, key, event.key === "ArrowUp" ? -1 : 1);
         render();
-        editor
-          .querySelector<HTMLButtonElement>(`[data-entry-key="${key}"] .gprf-editor-handle`)
-          ?.focus();
+        focusEntryAction(key, ".gprf-editor-handle");
       });
 
       row.addEventListener("dragstart", (event) => {

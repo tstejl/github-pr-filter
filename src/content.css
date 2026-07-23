@@ -1,8 +1,5 @@
-.gprf-native-status-hidden {
-  display: none !important;
-}
-
-html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
+html.gprf-replacement-pending .table-list-header-toggle.states > a.btn-link,
+html.gprf-replacement-mounted .gprf-native-status-hidden {
   display: none !important;
 }
 
@@ -221,6 +218,16 @@ html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
   text-decoration: none;
 }
 
+.gprf-lifecycle-option.is-disabled {
+  color: var(--fgColor-muted, var(--color-fg-muted, #656d76));
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.gprf-lifecycle-option.is-disabled:hover {
+  background: transparent;
+}
+
 .gprf-option-copy {
   display: flex;
   flex-direction: column;
@@ -238,6 +245,58 @@ html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
   align-items: start;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 12px;
+}
+
+.gprf-lifecycle-option.has-option-help {
+  position: relative;
+}
+
+.gprf-option-help {
+  align-items: center;
+  color: var(--fgColor-muted, var(--color-fg-muted, #656d76));
+  cursor: help;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.gprf-option-help-icon {
+  height: 14px;
+  opacity: 0.8;
+  width: 14px;
+}
+
+.gprf-option-help-tooltip {
+  background: var(--bgColor-emphasis, var(--color-neutral-emphasis-plus, #25292e));
+  border-radius: 6px;
+  box-shadow: var(
+    --shadow-floating-small,
+    var(--color-shadow-large, 0 8px 24px rgba(140, 149, 159, 0.2))
+  );
+  color: var(--fgColor-onEmphasis, var(--color-fg-on-emphasis, #fff));
+  font-size: 11px;
+  font-weight: 400;
+  left: 12px;
+  line-height: 16px;
+  opacity: 0;
+  padding: 8px 10px;
+  pointer-events: none;
+  position: absolute;
+  right: 12px;
+  text-align: left;
+  top: calc(100% - 2px);
+  transition:
+    opacity 80ms ease,
+    visibility 80ms ease;
+  visibility: hidden;
+  white-space: normal;
+  z-index: 3;
+}
+
+.gprf-option-help:hover .gprf-option-help-tooltip,
+.gprf-option-help.is-open .gprf-option-help-tooltip,
+.gprf-lifecycle-option.has-option-help:focus-visible .gprf-option-help-tooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 .gprf-option-label {

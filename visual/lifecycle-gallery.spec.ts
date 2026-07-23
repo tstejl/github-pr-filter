@@ -22,7 +22,7 @@ test("all lifecycle states share the production visual contract", async ({ page 
   const firstMenu = page.locator(".gprf-lifecycle[open] .gprf-lifecycle-menu").first();
   await expect(firstMenu.locator(".gprf-lifecycle-option")).toHaveCount(LIFECYCLE_OPTIONS.length);
   await expect(firstMenu.locator(".gprf-lifecycle-option.selected")).toHaveCount(1);
-  await expect(firstMenu.locator(".gprf-menu-divider")).toHaveCount(2);
+  await expect(firstMenu.locator(".gprf-menu-divider")).toHaveCount(3);
 
   const iconPaths = await firstMenu
     .locator(".gprf-lifecycle-option > .gprf-lifecycle-icon:first-child path")
@@ -69,7 +69,7 @@ test("configuration mode uses an explicit cancel and action footer", async ({ pa
   await page.goto(storyUrl("configuring"));
   await expect(page.locator(".gprf-lifecycle--configuring")).toHaveCount(1);
   await expect(page.locator(".gprf-editor-row--option")).toHaveCount(LIFECYCLE_OPTIONS.length);
-  await expect(page.locator(".gprf-editor-row--divider")).toHaveCount(2);
+  await expect(page.locator(".gprf-editor-row--divider")).toHaveCount(3);
   await expect(page.locator(".gprf-menu-heading")).toHaveText("Customizing this repo");
   await expect(page.getByRole("button", { name: "Cancel changes" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Save changes" })).toBeVisible();
@@ -221,4 +221,121 @@ test("row accent remains subtle and visible in dark mode", async ({ page }) => {
   await expect(selected).toHaveCSS("background-color", "rgba(56, 139, 253, 0.12)");
   await expect(selected).toHaveCSS("box-shadow", /rgb\(88, 166, 255\)/);
   await expect(selected.locator(".gprf-option-check")).toHaveCSS("display", "none");
+});
+
+test("Custom query is transient, selected, and excluded from configuration", async ({ page }) => {
+  await page.goto(storyUrl("custom-query"));
+
+  await expect(page.locator(".gprf-summary-label")).toHaveText("Custom");
+  await expect(page.locator(".gprf-summary-count")).toHaveText("17");
+  const custom = page.locator('.gprf-lifecycle-option[data-lifecycle="custom"]');
+  await expect(custom).toHaveClass(/selected/);
+  await expect(custom).toHaveAttribute("aria-checked", "true");
+  await expect(custom.locator(".gprf-option-label")).toHaveText("Custom query");
+  await expect(custom.locator(".gprf-option-description")).toHaveText(
+    "Current search doesn’t match a preset"
+  );
+  const customHelp = custom.locator(".gprf-option-help");
+  const customTooltip = custom.locator(".gprf-option-help-tooltip");
+  await expect(page.locator(".gprf-lifecycle-summary .gprf-option-help")).toHaveCount(0);
+  await expect(customHelp).toHaveCount(1);
+  await expect(customTooltip).toHaveText(
+    "This GitHub query doesn’t exactly match a lifecycle preset. Choose a preset below or edit the search query directly."
+  );
+  await customHelp.hover();
+  await expect(customHelp).toHaveCSS("opacity", "1");
+  await expect(customHelp.locator(".gprf-option-help-icon")).toHaveCSS("opacity", "0.8");
+  await expect(customTooltip).toBeVisible();
+  await expect(customTooltip).toHaveCSS("opacity", "1");
+  await expect(custom).toHaveAttribute(
+    "aria-describedby",
+    (await customTooltip.getAttribute("id")) ?? ""
+  );
+  await expect(page.locator(".gprf-lifecycle-option")).toHaveCount(LIFECYCLE_OPTIONS.length + 1);
+
+  await page.getByRole("button", { name: "Customize states" }).click();
+  await expect(page.locator(".gprf-editor-row--option")).toHaveCount(LIFECYCLE_OPTIONS.length);
+  await expect(page.locator('.gprf-editor-row[data-lifecycle="custom"]')).toHaveCount(0);
+});
+
+test("correlated Boolean lifecycle queries disable unsafe preset actions", async ({ page }) => {
+  await page.goto(storyUrl("unsafe-boolean-query"));
+
+  await expect(page.locator(".gprf-summary-label")).toHaveText("Custom");
+  await expect(page.locator(".gprf-summary-count")).toBeHidden();
+  await expect(page.locator('.gprf-lifecycle-option:not([data-lifecycle="custom"])')).toHaveCount(
+    LIFECYCLE_OPTIONS.length
+  );
+  await expect(
+    page.locator('.gprf-lifecycle-option:not([data-lifecycle="custom"])[aria-disabled="true"]')
+  ).toHaveCount(LIFECYCLE_OPTIONS.length);
+  await expect(
+    page.locator('.gprf-lifecycle-option:not([data-lifecycle="custom"])').first()
+  ).toHaveAttribute("tabindex", "0");
+  await expect(page.locator('.gprf-lifecycle-option[data-lifecycle="custom"]')).not.toHaveAttribute(
+    "aria-disabled",
+    "true"
+  );
+  await expect(
+    page.locator('.gprf-lifecycle-option[data-lifecycle="custom"] .gprf-option-description')
+  ).toHaveText("Presets can’t be applied safely");
+  await expect(
+    page.locator('.gprf-lifecycle-option[data-lifecycle="custom"] .gprf-option-help-tooltip')
+  ).toHaveText(
+    "This GitHub query can’t be safely changed by the extension. Edit the search query directly to choose another view."
+  );
+  await expect(page.locator(".gprf-lifecycle-summary")).toHaveAttribute(
+    "aria-label",
+    "Pull request state: Custom. Presets can’t be applied safely."
+  );
+});
+
+test("Custom help placement comparison keeps the recommended treatment contextual", async ({
+  page
+}) => {
+  await page.goto(storyUrl("custom-help-placement"));
+  const expandedOnly = page.locator('[data-placement="expanded-only"]');
+  const both = page.locator('[data-placement="both"]');
+
+  await expect(expandedOnly.locator(".gprf-lifecycle-summary .gprf-custom-help")).toHaveCount(0);
+  await expect(
+    expandedOnly.locator(
+      '.gprf-custom-help-expanded .gprf-lifecycle-option[data-lifecycle="custom"] .gprf-option-help'
+    )
+  ).toHaveCount(1);
+  await expect(both.locator(".gprf-lifecycle-summary .gprf-custom-help")).toHaveCount(2);
+  await expect(
+    both.locator(
+      '.gprf-custom-help-expanded .gprf-lifecycle-option[data-lifecycle="custom"] .gprf-option-help'
+    )
+  ).toHaveCount(1);
+
+  const help = expandedOnly.locator(".gprf-custom-help-expanded .gprf-option-help");
+  await help.hover();
+  await expect(help.locator(".gprf-option-help-tooltip")).toBeVisible();
+  await expect(help.locator(".gprf-option-help-tooltip")).toContainText("can’t be safely changed");
+  await help.click();
+  await expect(expandedOnly.locator(".gprf-custom-help-expanded .gprf-lifecycle")).toHaveAttribute(
+    "open",
+    ""
+  );
+  await expect(help).toHaveClass(/is-open/);
+  await expandedOnly.locator(".gprf-custom-help-expanded .gprf-lifecycle-summary").click();
+  await expect(
+    expandedOnly.locator(".gprf-custom-help-expanded .gprf-lifecycle")
+  ).not.toHaveAttribute("open", "");
+  await expect(help).not.toHaveClass(/is-open/);
+});
+
+test("Custom query help follows dark-theme emphasis tokens", async ({ page }) => {
+  await page.goto(`${storyUrl("custom-help-placement")}&args=theme:dark`);
+  const help = page.locator(
+    '[data-placement="expanded-only"] .gprf-custom-help-expanded .gprf-option-help'
+  );
+  const tooltip = help.locator(".gprf-option-help-tooltip");
+
+  await help.hover();
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveCSS("background-color", "rgb(110, 118, 129)");
+  await expect(tooltip).toHaveCSS("color", "rgb(255, 255, 255)");
 });

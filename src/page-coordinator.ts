@@ -3,19 +3,25 @@ import {
   DEFAULT_LIFECYCLE_LAYOUT,
   type LifecycleLayout
 } from "./lifecycle-layout";
-import type { LifecyclePreferences } from "./lifecycle-options";
+import type { ActiveLifecycleSelection } from "./lifecycle";
+import type { LifecycleActionUrls } from "./lifecycle-navigation";
+import type { LifecycleStatePartition } from "./lifecycle-query";
 
 type TimerHandle = number | ReturnType<typeof setTimeout>;
 
 export interface LifecyclePageSnapshot {
   readonly supported: boolean;
   readonly repository: string | null;
-  readonly url: string;
-  readonly preferences: LifecyclePreferences;
+  readonly selection: ActiveLifecycleSelection;
+  readonly statePartition: LifecycleStatePartition;
+  readonly actionUrls: LifecycleActionUrls;
 }
 
 export interface LifecyclePageRenderState {
-  readonly preferences: LifecyclePreferences;
+  readonly repository: string;
+  readonly selection: ActiveLifecycleSelection;
+  readonly statePartition: LifecycleStatePartition;
+  readonly actionUrls: LifecycleActionUrls;
   readonly layout: LifecycleLayout;
   readonly applyLayout: (layout: LifecycleLayout) => void;
 }
@@ -25,6 +31,7 @@ export interface LifecyclePageCoordinatorDependencies {
   readonly loadLayout: (repository: string) => Promise<LifecycleLayout>;
   readonly saveLayout: (repository: string, layout: LifecycleLayout) => Promise<void>;
   readonly render: (state: LifecyclePageRenderState) => void;
+  readonly suspend: () => void;
   readonly clear: () => void;
   readonly subscribePageChanges: (listener: () => void) => () => void;
   readonly subscribeLayoutChanges: (
@@ -50,64 +57,126 @@ export function createLifecyclePageCoordinator(
 ): LifecyclePageCoordinator {
   const schedule = dependencies.schedule ?? setTimeout;
   const cancelSchedule = dependencies.cancelSchedule ?? clearTimeout;
-  let activePreferences: LifecyclePreferences | null = null;
+  let activeSelection: ActiveLifecycleSelection | null = null;
+  let activeStatePartition: LifecycleStatePartition | null = null;
+  let activeActionUrls: LifecycleActionUrls | null = null;
   let activeLayout = cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT);
   let activeRepository: string | null = null;
   let loadedRepository: string | null = null;
-  let lastReconciledUrl: string | null = null;
+  let generation = 0;
   let scheduledTimer: TimerHandle | null = null;
   let disposePageChanges: (() => void) | null = null;
   let disposeLayoutChanges: (() => void) | null = null;
+  const pendingLocalWrites = new Map<string, number>();
   let started = false;
 
-  const render = (): void => {
-    if (!activePreferences || !activeRepository || loadedRepository !== activeRepository) {
-      return;
-    }
-    dependencies.render({
-      preferences: activePreferences,
-      layout: activeLayout,
-      applyLayout
-    });
+  const reportError = (message: string, error: unknown): void => {
+    dependencies.reportError?.(message, error);
   };
 
-  const loadAndRender = async (repository: string): Promise<void> => {
+  const clear = (): void => {
+    try {
+      dependencies.clear();
+    } catch (error) {
+      reportError("Could not restore GitHub's pull request controls.", error);
+    }
+  };
+
+  const suspend = (): void => {
+    try {
+      dependencies.suspend();
+    } catch (error) {
+      reportError("Could not suspend the pull request lifecycle control.", error);
+    }
+  };
+
+  const resetActivePage = (): void => {
+    activeSelection = null;
+    activeStatePartition = null;
+    activeActionUrls = null;
+    activeRepository = null;
+    loadedRepository = null;
+    generation += 1;
+  };
+
+  const render = (): void => {
+    if (
+      !activeSelection ||
+      !activeStatePartition ||
+      !activeActionUrls ||
+      !activeRepository ||
+      loadedRepository !== activeRepository
+    ) {
+      return;
+    }
+    const repository = activeRepository;
+    try {
+      dependencies.render({
+        repository,
+        selection: activeSelection,
+        statePartition: activeStatePartition,
+        actionUrls: activeActionUrls,
+        layout: activeLayout,
+        applyLayout: (layout) => applyLayout(repository, layout)
+      });
+    } catch (error) {
+      reportError("Could not render the pull request lifecycle control.", error);
+      suspend();
+    }
+  };
+
+  const loadAndRender = async (repository: string, expectedGeneration: number): Promise<void> => {
     let layout: LifecycleLayout;
     try {
       layout = await dependencies.loadLayout(repository);
     } catch (error) {
-      dependencies.reportError?.("Could not load this repository's menu layout.", error);
+      if (!started || generation !== expectedGeneration || activeRepository !== repository) {
+        return;
+      }
+      reportError("Could not load this repository's menu layout.", error);
       layout = cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT);
     }
-    if (activeRepository !== repository) {
+    if (!started || generation !== expectedGeneration || activeRepository !== repository) {
       return;
     }
     activeLayout = cloneLifecycleLayout(layout);
     loadedRepository = repository;
-    lastReconciledUrl = null;
     reconcile();
   };
 
-  const applyLayout = (layout: LifecycleLayout): void => {
-    activeLayout = cloneLifecycleLayout(layout);
-    render();
-    const repository = activeRepository;
-    if (!repository) {
+  const applyLayout = (repository: string, layout: LifecycleLayout): void => {
+    if (!started || activeRepository !== repository || loadedRepository !== repository) {
       return;
     }
-    void dependencies.saveLayout(repository, activeLayout).catch((error: unknown) => {
-      dependencies.reportError?.("Could not save this repository's menu layout.", error);
-    });
+    generation += 1;
+    activeLayout = cloneLifecycleLayout(layout);
+    render();
+    pendingLocalWrites.set(repository, (pendingLocalWrites.get(repository) ?? 0) + 1);
+    void dependencies
+      .saveLayout(repository, activeLayout)
+      .catch((error: unknown) => {
+        reportError("Could not save this repository's menu layout.", error);
+      })
+      .finally(() => {
+        const remaining = (pendingLocalWrites.get(repository) ?? 1) - 1;
+        if (remaining === 0) {
+          pendingLocalWrites.delete(repository);
+        } else {
+          pendingLocalWrites.set(repository, remaining);
+        }
+      });
   };
 
   const onStoredLayout = (repository: string, layout: LifecycleLayout): void => {
     if (
       repository !== activeRepository ||
       loadedRepository !== repository ||
+      (pendingLocalWrites.get(repository) ?? 0) > 0 ||
       layoutsEqual(activeLayout, layout)
     ) {
       return;
     }
+    generation += 1;
     activeLayout = cloneLifecycleLayout(layout);
     render();
   };
@@ -123,30 +192,43 @@ export function createLifecyclePageCoordinator(
   };
 
   const reconcile = (): void => {
-    const snapshot = dependencies.snapshot();
+    let snapshot: LifecyclePageSnapshot;
+    try {
+      snapshot = dependencies.snapshot();
+    } catch (error) {
+      reportError("Could not inspect this pull request page.", error);
+      suspend();
+      resetActivePage();
+      return;
+    }
     if (!snapshot.supported || !snapshot.repository) {
-      dependencies.clear();
-      activePreferences = null;
-      activeRepository = null;
-      loadedRepository = null;
-      lastReconciledUrl = null;
+      clear();
+      resetActivePage();
       return;
     }
     if (activeRepository !== snapshot.repository) {
+      if (activeRepository !== null) {
+        suspend();
+      }
+      generation += 1;
       activeRepository = snapshot.repository;
-      loadedRepository = null;
+      loadedRepository = snapshot.repository;
       activeLayout = cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT);
-      activePreferences = snapshot.preferences;
-      void loadAndRender(snapshot.repository);
+      activeSelection = snapshot.selection;
+      activeStatePartition = snapshot.statePartition;
+      activeActionUrls = snapshot.actionUrls;
+      render();
+      void loadAndRender(snapshot.repository, generation);
       return;
     }
     if (loadedRepository !== snapshot.repository) {
       return;
     }
-    if (lastReconciledUrl !== snapshot.url) {
-      activePreferences = snapshot.preferences;
-      lastReconciledUrl = snapshot.url;
-    }
+    // GitHub can replace or hydrate the query input without changing the URL.
+    // Always adopt one complete snapshot so the label and action URLs stay atomic.
+    activeSelection = snapshot.selection;
+    activeStatePartition = snapshot.statePartition;
+    activeActionUrls = snapshot.actionUrls;
     render();
   };
 
@@ -166,6 +248,7 @@ export function createLifecyclePageCoordinator(
         return;
       }
       started = false;
+      generation += 1;
       if (scheduledTimer !== null) {
         cancelSchedule(scheduledTimer);
         scheduledTimer = null;
@@ -174,7 +257,12 @@ export function createLifecyclePageCoordinator(
       disposeLayoutChanges?.();
       disposePageChanges = null;
       disposeLayoutChanges = null;
-      dependencies.clear();
+      activeSelection = null;
+      activeStatePartition = null;
+      activeActionUrls = null;
+      activeRepository = null;
+      loadedRepository = null;
+      clear();
     }
   };
 }

@@ -1,12 +1,15 @@
 import {
+  addLifecycleDivider,
   cloneLifecycleLayout,
   DEFAULT_LIFECYCLE_LAYOUT,
+  LIFECYCLE_LAYOUT_VERSION,
   type LifecycleLayout,
   type LifecycleLayoutEntry
 } from "./lifecycle-layout";
-import { isLifecycle, LIFECYCLE_OPTIONS } from "./lifecycle-options";
+import { isLifecycle, LIFECYCLES } from "./lifecycle";
 
 const STORAGE_KEY_PREFIX = "repositoryLifecycleLayout:";
+const PRE_RELEASE_VERSIONED_STORAGE_KEY_PREFIX = `${STORAGE_KEY_PREFIX}v2:`;
 
 export interface ExtensionStorageArea {
   get(key: string): Promise<Record<string, unknown>>;
@@ -58,20 +61,40 @@ export function storageKeyForRepository(repository: string): string {
   return `${STORAGE_KEY_PREFIX}${repository}`;
 }
 
+function preReleaseStorageKeyForRepository(repository: string): string {
+  return `${PRE_RELEASE_VERSIONED_STORAGE_KEY_PREFIX}${repository}`;
+}
+
 function repositoryForStorageKey(key: string): string | null {
   if (!key.startsWith(STORAGE_KEY_PREFIX)) {
     return null;
   }
   const repository = key.slice(STORAGE_KEY_PREFIX.length);
-  return repository || null;
+  return repository && !/^v\d+:/u.test(repository) ? repository : null;
 }
 
-export function parseStoredLifecycleLayout(value: unknown): LifecycleLayout | null {
+function storedLayoutVersion(value: unknown): number | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const version = (value as { version?: unknown }).version;
+  return typeof version === "number" ? version : undefined;
+}
+
+interface ParsedLifecycleLayout {
+  readonly layout: LifecycleLayout;
+  readonly migrated: boolean;
+}
+
+function parseStoredLifecycleLayoutValue(value: unknown): ParsedLifecycleLayout | null {
   if (!value || typeof value !== "object") {
     return null;
   }
   const candidate = value as { version?: unknown; entries?: unknown };
-  if (candidate.version !== 1 || !Array.isArray(candidate.entries)) {
+  if (
+    (candidate.version !== 1 && candidate.version !== LIFECYCLE_LAYOUT_VERSION) ||
+    !Array.isArray(candidate.entries)
+  ) {
     return null;
   }
 
@@ -111,14 +134,38 @@ export function parseStoredLifecycleLayout(value: unknown): LifecycleLayout | nu
     return null;
   }
 
-  if (
-    visibleOptions === 0 ||
-    lifecycleValues.size !== LIFECYCLE_OPTIONS.length ||
-    LIFECYCLE_OPTIONS.some(({ value: lifecycle }) => !lifecycleValues.has(lifecycle))
-  ) {
+  if (visibleOptions === 0) {
     return null;
   }
-  return { version: 1, entries };
+
+  const expectedLifecycles =
+    candidate.version === 1 ? LIFECYCLES.filter((lifecycle) => lifecycle !== "all") : LIFECYCLES;
+  const hasEveryExpectedLifecycle = expectedLifecycles.every((lifecycle) =>
+    lifecycleValues.has(lifecycle)
+  );
+  if (lifecycleValues.size !== expectedLifecycles.length || !hasEveryExpectedLifecycle) {
+    return null;
+  }
+
+  const migrated = candidate.version === 1;
+  let normalizedEntries: readonly LifecycleLayoutEntry[] = entries;
+  if (migrated) {
+    const legacyLayout = { version: LIFECYCLE_LAYOUT_VERSION, entries };
+    const separatedLayout =
+      entries.at(-1)?.type === "divider" ? legacyLayout : addLifecycleDivider(legacyLayout);
+    normalizedEntries = [
+      ...separatedLayout.entries,
+      { type: "option", value: "all", visible: true }
+    ];
+  }
+  return {
+    layout: { version: LIFECYCLE_LAYOUT_VERSION, entries: normalizedEntries },
+    migrated
+  };
+}
+
+export function parseStoredLifecycleLayout(value: unknown): LifecycleLayout | null {
+  return parseStoredLifecycleLayoutValue(value)?.layout ?? null;
 }
 
 export async function loadRepositoryLifecycleLayout(
@@ -126,23 +173,47 @@ export async function loadRepositoryLifecycleLayout(
   storage: ExtensionStorageArea = extensionStorage()
 ): Promise<LifecycleLayout> {
   const key = storageKeyForRepository(repository);
-  const stored = await storage.get(key);
+  let stored = await storage.get(key);
+  let storedKey = key;
+  let fromPreReleaseKey = false;
   if (!(key in stored)) {
+    storedKey = preReleaseStorageKeyForRepository(repository);
+    stored = await storage.get(storedKey);
+    fromPreReleaseKey = storedKey in stored;
+  }
+  if (!(storedKey in stored)) {
     return cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT);
   }
-  const storedValue = stored[key];
-  const storedVersion =
-    storedValue && typeof storedValue === "object"
-      ? (storedValue as { version?: unknown }).version
-      : undefined;
-  if (typeof storedVersion === "number" && storedVersion > 1) {
+  const storedValue = stored[storedKey];
+  const storedVersion = storedLayoutVersion(storedValue);
+  if (typeof storedVersion === "number" && storedVersion > LIFECYCLE_LAYOUT_VERSION) {
     return cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT);
   }
-  const layout = parseStoredLifecycleLayout(storedValue);
-  if (layout) {
-    return layout;
+  const parsed = parseStoredLifecycleLayoutValue(storedValue);
+  if (parsed) {
+    if (parsed.migrated || fromPreReleaseKey) {
+      try {
+        await saveRepositoryLifecycleLayout(repository, parsed.layout, storage);
+        if (fromPreReleaseKey) {
+          await storage.remove(storedKey);
+        }
+      } catch (error) {
+        console.error(
+          "[GitHub PR Lifecycle Filter] Could not persist a migrated repository layout.",
+          error
+        );
+      }
+    }
+    return parsed.layout;
   }
-  await storage.remove(key);
+  try {
+    await storage.remove(storedKey);
+  } catch (error) {
+    console.error(
+      "[GitHub PR Lifecycle Filter] Could not remove a corrupted repository layout.",
+      error
+    );
+  }
   return cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT);
 }
 
@@ -155,7 +226,16 @@ export async function saveRepositoryLifecycleLayout(
   const previousWrite = repositoryWriteQueues.get(key) ?? Promise.resolve();
   const write = previousWrite
     .catch(() => undefined)
-    .then(() => storage.set({ [key]: cloneLifecycleLayout(layout) }));
+    .then(async () => {
+      const stored = await storage.get(key);
+      const storedVersion = storedLayoutVersion(stored[key]);
+      if (typeof storedVersion === "number" && storedVersion > LIFECYCLE_LAYOUT_VERSION) {
+        throw new Error(
+          `Stored lifecycle layout version ${storedVersion} is newer than supported version ${LIFECYCLE_LAYOUT_VERSION}.`
+        );
+      }
+      return storage.set({ [key]: cloneLifecycleLayout(layout) });
+    });
   repositoryWriteQueues.set(key, write);
   try {
     await write;

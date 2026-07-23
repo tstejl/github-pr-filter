@@ -1,5 +1,6 @@
 import { test } from "bun:test";
 import * as assert from "node:assert/strict";
+import { LIFECYCLES } from "../src/lifecycle";
 import {
   addLifecycleDivider,
   createDefaultLifecycleLayout,
@@ -12,18 +13,39 @@ import {
 } from "../src/lifecycle-layout";
 import { LIFECYCLE_OPTIONS } from "../src/lifecycle-options";
 
-test("default layout preserves all options and the two current sections", () => {
+test("the UI catalog exhaustively represents the lifecycle domain", () => {
+  assert.equal(LIFECYCLE_OPTIONS.length, LIFECYCLES.length);
+  assert.deepEqual(new Set(LIFECYCLE_OPTIONS.map(({ value }) => value)), new Set(LIFECYCLES));
+});
+
+test("default layout places All in its own final section", () => {
   const layout = createDefaultLifecycleLayout();
-  assert.equal(layout.entries.filter(({ type }) => type === "option").length, 7);
-  assert.equal(layout.entries.filter(({ type }) => type === "divider").length, 2);
+  assert.equal(layout.version, 2);
+  assert.equal(layout.entries.filter(({ type }) => type === "option").length, 8);
+  assert.equal(layout.entries.filter(({ type }) => type === "divider").length, 3);
   assert.deepEqual(
-    visibleLifecycleLayoutEntries(layout).filter((entry) => !("type" in entry)),
-    LIFECYCLE_OPTIONS
+    visibleLifecycleLayoutEntries(layout).map((entry) =>
+      "type" in entry ? "divider" : entry.value
+    ),
+    [
+      "needs_review",
+      "divider",
+      "open",
+      "ready",
+      "draft",
+      "divider",
+      "closed",
+      "merged",
+      "closed_unmerged",
+      "divider",
+      "all"
+    ]
   );
 });
 
 test("hidden options are omitted and orphaned separators collapse", () => {
   let layout = createDefaultLifecycleLayout();
+  layout = setLifecycleVisibility(layout, "all", false);
   layout = setLifecycleVisibility(layout, "needs_review", false);
   layout = setLifecycleVisibility(layout, "open", false);
   const visible = visibleLifecycleLayoutEntries(layout);
@@ -50,9 +72,11 @@ test("at least one option remains visible", () => {
   for (const option of LIFECYCLE_OPTIONS) {
     layout = setLifecycleVisibility(layout, option.value, false);
   }
-  assert.equal(
-    layout.entries.filter((entry) => entry.type === "option" && entry.visible).length,
-    1
+  assert.deepEqual(
+    layout.entries.flatMap((entry) =>
+      entry.type === "option" && entry.visible ? [entry.value] : []
+    ),
+    ["all"]
   );
 });
 
@@ -88,6 +112,21 @@ test("a persisted custom separator cannot collide with a newly added separator",
 
   assert.equal(new Set(ids).size, ids.length);
   assert.deepEqual(ids.slice(0, persistedIds.length), persistedIds);
+});
+
+test("option and divider editor keys occupy separate namespaces", () => {
+  assert.equal(
+    lifecycleLayoutEntryKey({ type: "option", value: "open", visible: true }),
+    "option:open"
+  );
+  assert.equal(
+    lifecycleLayoutEntryKey({ type: "divider", id: "option-open" }),
+    "divider:option-open"
+  );
+  assert.notEqual(
+    lifecycleLayoutEntryKey({ type: "option", value: "open", visible: true }),
+    lifecycleLayoutEntryKey({ type: "divider", id: "open" })
+  );
 });
 
 test("entries can be placed after the final row", () => {

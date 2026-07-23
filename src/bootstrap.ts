@@ -1,6 +1,9 @@
 import { isRepositoryPullListPath } from "./page-scope";
+import { createPageMarkerController } from "./page-markers";
 
-const SUPPORTED_CLASS = "gprf-supported-page";
+const pageMarkers = createPageMarkerController({
+  root: () => document.documentElement
+});
 
 function isSupportedUrl(value: string): boolean {
   try {
@@ -12,7 +15,13 @@ function isSupportedUrl(value: string): boolean {
 }
 
 function updatePageMarker(value = location.href): void {
-  document.documentElement?.classList.toggle(SUPPORTED_CLASS, isSupportedUrl(value));
+  pageMarkers.update(isSupportedUrl(value));
+}
+
+function beginReplacement(value = location.href): void {
+  if (isSupportedUrl(value)) {
+    pageMarkers.update(true);
+  }
 }
 
 updatePageMarker();
@@ -22,9 +31,11 @@ if (!document.documentElement) {
 
 document.addEventListener("turbo:before-visit", (event) => {
   const destination = (event as CustomEvent<{ url?: string }>).detail?.url;
-  if (destination && isSupportedUrl(destination)) {
-    updatePageMarker(destination);
+  if (destination) {
+    beginReplacement(destination);
   }
 });
+document.addEventListener("turbo:before-render", () => beginReplacement());
+document.addEventListener("turbo:before-frame-render", () => beginReplacement());
 document.addEventListener("turbo:load", () => updatePageMarker());
-window.addEventListener("popstate", () => updatePageMarker());
+window.addEventListener("popstate", () => beginReplacement());

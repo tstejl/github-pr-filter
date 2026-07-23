@@ -50,5 +50,8 @@ Keep changes focused. The extension intentionally avoids a runtime UI framework,
 analytics, and broad permissions. TypeScript 7 checks the source and Bun emits readable
 browser bundles.
 
+Changes to query interpretation or lifecycle behavior must preserve the product contract and
+rewrite invariants in [docs/query-lifecycle-model.md](docs/query-lifecycle-model.md).
+
 Firefox lint currently reports one Android-only compatibility warning. Firefox for Android
 is not yet a supported target.
