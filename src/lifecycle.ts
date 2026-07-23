@@ -1,12 +1,15 @@
-export type Lifecycle =
-  | "all"
-  | "needs_review"
-  | "open"
-  | "ready"
-  | "draft"
-  | "closed"
-  | "merged"
-  | "closed_unmerged";
+export const LIFECYCLES = Object.freeze([
+  "all",
+  "needs_review",
+  "open",
+  "ready",
+  "draft",
+  "closed",
+  "merged",
+  "closed_unmerged"
+] as const);
+
+export type Lifecycle = (typeof LIFECYCLES)[number];
 
 export type CustomLifecycleReason =
   | "partial"
@@ -19,17 +22,6 @@ export type CustomLifecycleReason =
 export type ActiveLifecycleSelection =
   | { readonly kind: "preset"; readonly lifecycle: Lifecycle }
   | { readonly kind: "custom"; readonly reason: CustomLifecycleReason };
-
-export const LIFECYCLES = Object.freeze([
-  "all",
-  "needs_review",
-  "open",
-  "ready",
-  "draft",
-  "closed",
-  "merged",
-  "closed_unmerged"
-] as const satisfies readonly Lifecycle[]);
 
 const LIFECYCLE_SET: ReadonlySet<string> = new Set(LIFECYCLES);
 

@@ -31,6 +31,7 @@ export interface LifecyclePageCoordinatorDependencies {
   readonly loadLayout: (repository: string) => Promise<LifecycleLayout>;
   readonly saveLayout: (repository: string, layout: LifecycleLayout) => Promise<void>;
   readonly render: (state: LifecyclePageRenderState) => void;
+  readonly suspend: () => void;
   readonly clear: () => void;
   readonly subscribePageChanges: (listener: () => void) => () => void;
   readonly subscribeLayoutChanges: (
@@ -69,6 +70,35 @@ export function createLifecyclePageCoordinator(
   const pendingLocalWrites = new Map<string, number>();
   let started = false;
 
+  const reportError = (message: string, error: unknown): void => {
+    dependencies.reportError?.(message, error);
+  };
+
+  const clear = (): void => {
+    try {
+      dependencies.clear();
+    } catch (error) {
+      reportError("Could not restore GitHub's pull request controls.", error);
+    }
+  };
+
+  const suspend = (): void => {
+    try {
+      dependencies.suspend();
+    } catch (error) {
+      reportError("Could not suspend the pull request lifecycle control.", error);
+    }
+  };
+
+  const resetActivePage = (): void => {
+    activeSelection = null;
+    activeStatePartition = null;
+    activeActionUrls = null;
+    activeRepository = null;
+    loadedRepository = null;
+    generation += 1;
+  };
+
   const render = (): void => {
     if (
       !activeSelection ||
@@ -80,14 +110,19 @@ export function createLifecyclePageCoordinator(
       return;
     }
     const repository = activeRepository;
-    dependencies.render({
-      repository,
-      selection: activeSelection,
-      statePartition: activeStatePartition,
-      actionUrls: activeActionUrls,
-      layout: activeLayout,
-      applyLayout: (layout) => applyLayout(repository, layout)
-    });
+    try {
+      dependencies.render({
+        repository,
+        selection: activeSelection,
+        statePartition: activeStatePartition,
+        actionUrls: activeActionUrls,
+        layout: activeLayout,
+        applyLayout: (layout) => applyLayout(repository, layout)
+      });
+    } catch (error) {
+      reportError("Could not render the pull request lifecycle control.", error);
+      suspend();
+    }
   };
 
   const loadAndRender = async (repository: string, expectedGeneration: number): Promise<void> => {
@@ -98,7 +133,7 @@ export function createLifecyclePageCoordinator(
       if (!started || generation !== expectedGeneration || activeRepository !== repository) {
         return;
       }
-      dependencies.reportError?.("Could not load this repository's menu layout.", error);
+      reportError("Could not load this repository's menu layout.", error);
       layout = cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT);
     }
     if (!started || generation !== expectedGeneration || activeRepository !== repository) {
@@ -120,7 +155,7 @@ export function createLifecyclePageCoordinator(
     void dependencies
       .saveLayout(repository, activeLayout)
       .catch((error: unknown) => {
-        dependencies.reportError?.("Could not save this repository's menu layout.", error);
+        reportError("Could not save this repository's menu layout.", error);
       })
       .finally(() => {
         const remaining = (pendingLocalWrites.get(repository) ?? 1) - 1;
@@ -157,20 +192,23 @@ export function createLifecyclePageCoordinator(
   };
 
   const reconcile = (): void => {
-    const snapshot = dependencies.snapshot();
+    let snapshot: LifecyclePageSnapshot;
+    try {
+      snapshot = dependencies.snapshot();
+    } catch (error) {
+      reportError("Could not inspect this pull request page.", error);
+      suspend();
+      resetActivePage();
+      return;
+    }
     if (!snapshot.supported || !snapshot.repository) {
-      dependencies.clear();
-      activeSelection = null;
-      activeStatePartition = null;
-      activeActionUrls = null;
-      activeRepository = null;
-      loadedRepository = null;
-      generation += 1;
+      clear();
+      resetActivePage();
       return;
     }
     if (activeRepository !== snapshot.repository) {
       if (activeRepository !== null) {
-        dependencies.clear();
+        suspend();
       }
       generation += 1;
       activeRepository = snapshot.repository;
@@ -224,7 +262,7 @@ export function createLifecyclePageCoordinator(
       activeActionUrls = null;
       activeRepository = null;
       loadedRepository = null;
-      dependencies.clear();
+      clear();
     }
   };
 }

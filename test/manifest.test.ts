@@ -64,6 +64,21 @@ test("anti-flicker CSS loads before the interactive content script", () => {
   assert.deepEqual(interactive.js, ["src/content.js"]);
 });
 
+test("bootstrap arms anti-flicker before GitHub replaces page or frame content", () => {
+  const bootstrap = fs.readFileSync(path.join(projectRoot, "src/bootstrap.ts"), "utf8");
+  assert.match(bootstrap, /turbo:before-visit/);
+  assert.match(bootstrap, /turbo:before-render/);
+  assert.match(bootstrap, /turbo:before-frame-render/);
+});
+
+test("native status controls are hidden only while replacement is pending or mounted", () => {
+  const stylesheet = fs.readFileSync(path.join(projectRoot, "src/content.css"), "utf8");
+  assert.match(stylesheet, /html\.gprf-replacement-pending/);
+  assert.match(stylesheet, /html\.gprf-replacement-mounted \.gprf-native-status-hidden/);
+  assert.doesNotMatch(stylesheet, /html\.gprf-replacement-mounted \.table-list-header-toggle/);
+  assert.doesNotMatch(stylesheet, /(?:^|\n)\.gprf-native-status-hidden\s*\{/);
+});
+
 test("page scope includes repository PR lists and excludes global pulls", () => {
   assert.equal(isRepositoryPullListPath("/octocat/hello-world/pulls"), true);
   assert.equal(isRepositoryPullListPath("/octocat/hello-world/pulls/"), true);
@@ -76,11 +91,12 @@ test("page scope includes repository PR lists and excludes global pulls", () => 
 });
 
 test("navigation keeps GitHub Turbo hooks instead of forcing a page reload", () => {
-  const content = fs.readFileSync(path.join(projectRoot, "src/content.ts"), "utf8");
-  const stylesheet = fs.readFileSync(path.join(projectRoot, "src/content.css"), "utf8");
-  assert.doesNotMatch(content, /location\.assign/);
-  assert.match(content, /data-turbo-frame/);
-  assert.match(stylesheet, /html\.gprf-supported-page/);
+  const adapter = fs.readFileSync(
+    path.join(projectRoot, "src/github-pull-list-adapter.ts"),
+    "utf8"
+  );
+  assert.doesNotMatch(adapter, /location\.assign/);
+  assert.match(adapter, /data-turbo-frame/);
 });
 
 test("lifecycle menu follows GitHub's fixed-caret motion pattern", () => {

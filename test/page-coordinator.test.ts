@@ -52,6 +52,7 @@ test("coordinator ignores stale repository loads and clears unsupported pages", 
   const second = deferred<LifecycleLayout>();
   const renders: LifecyclePageRenderState[] = [];
   let clearCount = 0;
+  let suspendCount = 0;
   const coordinator = createLifecyclePageCoordinator({
     snapshot: () => snapshot,
     loadLayout: (repository) => (repository === "octocat/first" ? first.promise : second.promise),
@@ -59,6 +60,9 @@ test("coordinator ignores stale repository loads and clears unsupported pages", 
     render: (state) => renders.push(state),
     clear: () => {
       clearCount += 1;
+    },
+    suspend: () => {
+      suspendCount += 1;
     },
     subscribePageChanges: () => () => undefined,
     subscribeLayoutChanges: () => () => undefined
@@ -74,7 +78,8 @@ test("coordinator ignores stale repository loads and clears unsupported pages", 
   };
   coordinator.reconcile();
   assert.equal(renders.length, 2);
-  assert.equal(clearCount, 1);
+  assert.equal(clearCount, 0);
+  assert.equal(suspendCount, 1);
   assert.equal(renders.at(-1)?.repository, "octocat/second");
   first.resolve(setLifecycleVisibility(DEFAULT_LIFECYCLE_LAYOUT, "draft", false));
   await nextTask();
@@ -88,7 +93,8 @@ test("coordinator ignores stale repository loads and clears unsupported pages", 
 
   snapshot = { ...snapshot, supported: false, repository: null };
   coordinator.reconcile();
-  assert.equal(clearCount, 2);
+  assert.equal(clearCount, 1);
+  assert.equal(suspendCount, 1);
 });
 
 test("a stale repository render cannot save its layout into the next repository", async () => {
@@ -101,7 +107,7 @@ test("a stale repository render cannot save its layout into the next repository"
   };
   const renders: LifecyclePageRenderState[] = [];
   const saves: Array<{ repository: string; layout: LifecycleLayout }> = [];
-  let clearCount = 0;
+  let suspendCount = 0;
   const coordinator = createLifecyclePageCoordinator({
     snapshot: () => snapshot,
     loadLayout: async () => cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT),
@@ -109,8 +115,9 @@ test("a stale repository render cannot save its layout into the next repository"
       saves.push({ repository, layout });
     },
     render: (state) => renders.push(state),
-    clear: () => {
-      clearCount += 1;
+    clear: () => undefined,
+    suspend: () => {
+      suspendCount += 1;
     },
     subscribePageChanges: () => () => undefined,
     subscribeLayoutChanges: () => () => undefined
@@ -128,7 +135,7 @@ test("a stale repository render cannot save its layout into the next repository"
   };
   coordinator.reconcile();
   await nextTask();
-  assert.equal(clearCount, 1);
+  assert.equal(suspendCount, 1);
   assert.equal(renders.at(-1)?.repository, "octocat/second");
 
   staleApply(setLifecycleVisibility(DEFAULT_LIFECYCLE_LAYOUT, "draft", false));
@@ -158,6 +165,7 @@ test("coordinator falls back to defaults when repository storage cannot be read"
     },
     saveLayout: async () => undefined,
     render: (state) => renders.push(state),
+    suspend: () => undefined,
     clear: () => undefined,
     subscribePageChanges: () => () => undefined,
     subscribeLayoutChanges: () => () => undefined,
@@ -194,6 +202,7 @@ test("coordinator persists local edits and applies matching storage changes", as
       saves.push({ repository, layout });
     },
     render: (state) => renders.push(state),
+    suspend: () => undefined,
     clear: () => undefined,
     subscribePageChanges: () => () => {
       pageDisposed = true;
@@ -243,6 +252,7 @@ test("older local storage echoes cannot roll back a newer optimistic layout", as
     saveLayout: (_repository, layout) =>
       new Promise<void>((resolve) => writes.push({ layout, resolve })),
     render: (state) => renders.push(state),
+    suspend: () => undefined,
     clear: () => undefined,
     subscribePageChanges: () => () => undefined,
     subscribeLayoutChanges: (listener) => {
@@ -285,6 +295,7 @@ test("coordinator adopts an atomic selection and action snapshot at the same URL
     loadLayout: async () => cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT),
     saveLayout: async () => undefined,
     render: (state) => renders.push(state),
+    suspend: () => undefined,
     clear: () => undefined,
     subscribePageChanges: () => () => undefined,
     subscribeLayoutChanges: () => () => undefined
@@ -320,6 +331,7 @@ test("a pending repository load cannot render after the coordinator is destroyed
     loadLayout: () => pending.promise,
     saveLayout: async () => undefined,
     render: (state) => renders.push(state),
+    suspend: () => undefined,
     clear: () => undefined,
     subscribePageChanges: () => () => undefined,
     subscribeLayoutChanges: () => () => undefined
@@ -332,4 +344,94 @@ test("a pending repository load cannot render after the coordinator is destroyed
   await nextTask();
 
   assert.equal(renders.length, 1);
+});
+
+test("snapshot failures stay suspended and recover on a later reconciliation", () => {
+  const snapshotError = new Error("GitHub changed its query controls");
+  const errors: Array<{ message: string; error: unknown }> = [];
+  const renders: LifecyclePageRenderState[] = [];
+  let suspendCount = 0;
+  let snapshotFails = true;
+  const coordinator = createLifecyclePageCoordinator({
+    snapshot: () => {
+      if (snapshotFails) {
+        throw snapshotError;
+      }
+      return {
+        supported: true,
+        repository: "octocat/hello-world",
+        selection: { kind: "preset", lifecycle: "open" },
+        statePartition: "open",
+        actionUrls: actionUrls("snapshot-recovery")
+      };
+    },
+    loadLayout: () => new Promise(() => undefined),
+    saveLayout: async () => undefined,
+    render: (state) => renders.push(state),
+    suspend: () => {
+      suspendCount += 1;
+    },
+    clear: () => undefined,
+    subscribePageChanges: () => () => undefined,
+    subscribeLayoutChanges: () => () => undefined,
+    reportError: (message, error) => errors.push({ message, error })
+  });
+
+  coordinator.start();
+  assert.equal(suspendCount, 1);
+  assert.equal(renders.length, 0);
+  assert.deepEqual(errors, [
+    { message: "Could not inspect this pull request page.", error: snapshotError }
+  ]);
+
+  snapshotFails = false;
+  coordinator.reconcile();
+  assert.equal(renders.length, 1);
+  assert.equal(renders.at(-1)?.repository, "octocat/hello-world");
+  coordinator.destroy();
+});
+
+test("render failures stay suspended without stopping a later render", () => {
+  const renderError = new Error("GitHub replaced the mount target");
+  const errors: Array<{ message: string; error: unknown }> = [];
+  const renders: LifecyclePageRenderState[] = [];
+  let suspendCount = 0;
+  let renderFails = true;
+  const coordinator = createLifecyclePageCoordinator({
+    snapshot: () => ({
+      supported: true,
+      repository: "octocat/hello-world",
+      selection: { kind: "preset", lifecycle: "open" },
+      statePartition: "open",
+      actionUrls: actionUrls("render-recovery")
+    }),
+    loadLayout: () => new Promise(() => undefined),
+    saveLayout: async () => undefined,
+    render: (state) => {
+      if (renderFails) {
+        throw renderError;
+      }
+      renders.push(state);
+    },
+    suspend: () => {
+      suspendCount += 1;
+    },
+    clear: () => undefined,
+    subscribePageChanges: () => () => undefined,
+    subscribeLayoutChanges: () => () => undefined,
+    reportError: (message, error) => errors.push({ message, error })
+  });
+
+  coordinator.start();
+  assert.equal(suspendCount, 1);
+  assert.equal(renders.length, 0);
+  assert.deepEqual(errors, [
+    { message: "Could not render the pull request lifecycle control.", error: renderError }
+  ]);
+
+  renderFails = false;
+  coordinator.reconcile();
+  assert.equal(renders.length, 1);
+  assert.equal(renders.at(-1)?.repository, "octocat/hello-world");
+  coordinator.destroy();
 });

@@ -47,10 +47,9 @@ const UNMERGED_MASK = OPEN_MASK | CLOSED_UNMERGED_MASK;
 
 export const ALL_LIFECYCLE_MASK = OPEN_MASK | CLOSED_MASK;
 
-export const PRESET_LIFECYCLE_MASKS: Readonly<
-  Record<Exclude<Lifecycle, "needs_review">, LifecycleMask>
-> = Object.freeze({
+export const PRESET_LIFECYCLE_MASKS: Readonly<Record<Lifecycle, LifecycleMask>> = Object.freeze({
   all: ALL_LIFECYCLE_MASK,
+  needs_review: PULL_REQUEST_LIFECYCLE_STATES.openReady,
   open: OPEN_MASK,
   ready: PULL_REQUEST_LIFECYCLE_STATES.openReady,
   draft: PULL_REQUEST_LIFECYCLE_STATES.openDraft,
@@ -59,11 +58,13 @@ export const PRESET_LIFECYCLE_MASKS: Readonly<
   closed_unmerged: CLOSED_UNMERGED_MASK
 });
 
+const MASK_RESOLVABLE_LIFECYCLES = LIFECYCLES.filter(
+  (lifecycle): lifecycle is Exclude<Lifecycle, "needs_review"> => lifecycle !== "needs_review"
+);
+
 export interface PullRequestQueryInput {
   /** The decoded value of GitHub's query parameter or search input. */
   readonly source: string;
-  /** Whether the current URL explicitly contains GitHub's query parameter. */
-  readonly parameterPresent: boolean;
 }
 
 export type LifecycleResolution =
@@ -446,16 +447,9 @@ function inspectReviewTerms(
 }
 
 function presetForMask(mask: LifecycleMask): Exclude<Lifecycle, "needs_review"> | null {
-  const presets: readonly Exclude<Lifecycle, "needs_review">[] = [
-    "all",
-    "open",
-    "ready",
-    "draft",
-    "closed",
-    "merged",
-    "closed_unmerged"
-  ];
-  return presets.find((preset) => PRESET_LIFECYCLE_MASKS[preset] === mask) ?? null;
+  return (
+    MASK_RESOLVABLE_LIFECYCLES.find((preset) => PRESET_LIFECYCLE_MASKS[preset] === mask) ?? null
+  );
 }
 
 function customSelection(reason: CustomLifecycleReason): ActiveLifecycleSelection {
@@ -695,7 +689,7 @@ function rewriteAnalyzedLifecycleQuery(
   }
   outputTerms.push(...canonicalLifecycleTerms(target));
   const source = serializeGitHubQuery(combineQueryExpressions("and", outputTerms));
-  const nextInput: PullRequestQueryInput = { source, parameterPresent: true };
+  const nextInput: PullRequestQueryInput = { source };
   const nextAnalysis = analyzeLifecycleQuery(nextInput);
   // A rewrite is safe only if this same product model can prove the resulting preset.
   // This catches nonstandard GitHub grammar interactions such as an ungrouped explicit

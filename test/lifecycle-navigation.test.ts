@@ -8,7 +8,7 @@ import {
 test("navigation derives every action from one immutable query context", () => {
   const plan = createLifecycleNavigationPlan({
     pageUrl: "https://github.com/octocat/hello-world/pulls?q=is%3Apr+is%3Aopen&page=3",
-    input: { source: "is:pr is:open", parameterPresent: true },
+    input: { source: "is:pr is:open" },
     queryParameter: "q"
   });
   const { actionUrls } = plan;
@@ -23,7 +23,7 @@ test("navigation keeps GitHub's active query parameter flavor and removes the un
   const actionUrls = createLifecycleActionUrls({
     pageUrl:
       "https://github.com/octocat/hello-world/pulls?query=state%3Aopen+label%3Abug&q=stale&page=2",
-    input: { source: "state:open label:bug", parameterPresent: true },
+    input: { source: "state:open label:bug" },
     queryParameter: "query"
   });
   const closed = new URL(actionUrls.closed ?? "");
@@ -36,7 +36,7 @@ test("navigation keeps GitHub's active query parameter flavor and removes the un
 test("blank GitHub defaults keep Open byte-stable while All becomes explicit", () => {
   const actionUrls = createLifecycleActionUrls({
     pageUrl: "https://github.com/octocat/hello-world/pulls",
-    input: { source: "", parameterPresent: false },
+    input: { source: "" },
     queryParameter: "q"
   });
 
@@ -47,7 +47,7 @@ test("blank GitHub defaults keep Open byte-stable while All becomes explicit", (
 test("flat Custom masks remain replaceable by every lifecycle preset", () => {
   const actionUrls = createLifecycleActionUrls({
     pageUrl: "https://github.com/octocat/hello-world/pulls?q=is%3Apr+draft%3Atrue",
-    input: { source: "is:pr draft:true", parameterPresent: true },
+    input: { source: "is:pr draft:true" },
     queryParameter: "q"
   });
 
@@ -63,7 +63,7 @@ test("review correlation disables only the transition that would own review term
   const source = "is:open draft:false (-review:approved) (-review:changes_requested) label:bug";
   const actionUrls = createLifecycleActionUrls({
     pageUrl: `https://github.com/octocat/hello-world/pulls?q=${encodeURIComponent(source)}`,
-    input: { source, parameterPresent: true },
+    input: { source },
     queryParameter: "q"
   });
 
@@ -75,7 +75,7 @@ test("attached opaque parentheses preserve the current All view but disable muta
   const source = "foo(bar)";
   const actionUrls = createLifecycleActionUrls({
     pageUrl: `https://github.com/octocat/hello-world/pulls?q=${encodeURIComponent(source)}`,
-    input: { source, parameterPresent: true },
+    input: { source },
     queryParameter: "q"
   });
 
@@ -87,7 +87,7 @@ test("attached opaque parentheses preserve the current All view but disable muta
 test("navigation disables every preset when lifecycle syntax cannot be rewritten safely", () => {
   const actionUrls = createLifecycleActionUrls({
     pageUrl: "https://github.com/octocat/hello-world/pulls?q=is%3Aopen+OR+is%3Aclosed",
-    input: { source: "is:open OR is:closed", parameterPresent: true },
+    input: { source: "is:open OR is:closed" },
     queryParameter: "q"
   });
 

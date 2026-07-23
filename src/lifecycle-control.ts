@@ -153,7 +153,7 @@ function selectedOption(
     options.find(({ value }) => value === selection.lifecycle) ??
     LIFECYCLE_OPTIONS.find(({ value }) => value === selection.lifecycle) ??
     LIFECYCLE_OPTIONS.find(({ value }) => value === "all") ??
-    LIFECYCLE_OPTIONS[0]
+    LIFECYCLE_OPTIONS[0]!
   );
 }
 
@@ -210,7 +210,6 @@ export function createLifecycleControl({
   let renderedOptions = options;
   let currentLayout = cloneLifecycleLayout(layout);
   let renderedTurboFrame = turboFrame;
-  let lastOptionsSignature: string | null = null;
   let editor: LifecycleEditor | null = null;
   let configuring = false;
 
@@ -248,7 +247,7 @@ export function createLifecycleControl({
   header.append(heading, actions);
   menu.append(header, body, footer);
 
-  const renderOptions = (force = false): void => {
+  const renderOptions = (): void => {
     const activeLifecycle =
       renderedSelection.kind === "preset" ? renderedSelection.lifecycle : null;
     const activeIsHidden =
@@ -258,22 +257,6 @@ export function createLifecycleControl({
       renderedOptions,
       activeLifecycle ?? undefined
     );
-    const signature = JSON.stringify({
-      selection: renderedSelection,
-      layout: currentLayout.entries,
-      options: renderedOptions.map((option) => [
-        option.value,
-        option.label,
-        option.description,
-        option.icon,
-        renderedHrefForLifecycle(option.value)
-      ]),
-      turboFrame: renderedTurboFrame
-    });
-    if (!force && signature === lastOptionsSignature) {
-      return;
-    }
-    lastOptionsSignature = signature;
     body.replaceChildren();
     if (renderedSelection.kind === "custom") {
       const customOption = customLifecycleOption(renderedSelection.reason);
@@ -341,7 +324,7 @@ export function createLifecycleControl({
     footer.hidden = true;
     footer.replaceChildren();
     const configure = renderNormalActions();
-    renderOptions(true);
+    renderOptions();
     if (restoreFocus) {
       configure?.focus();
     }

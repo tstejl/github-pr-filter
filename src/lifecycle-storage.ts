@@ -8,8 +8,8 @@ import {
 } from "./lifecycle-layout";
 import { isLifecycle, LIFECYCLES } from "./lifecycle";
 
-const LEGACY_STORAGE_KEY_PREFIX = "repositoryLifecycleLayout:";
-const STORAGE_KEY_PREFIX = `${LEGACY_STORAGE_KEY_PREFIX}v${LIFECYCLE_LAYOUT_VERSION}:`;
+const STORAGE_KEY_PREFIX = "repositoryLifecycleLayout:";
+const PRE_RELEASE_VERSIONED_STORAGE_KEY_PREFIX = `${STORAGE_KEY_PREFIX}v2:`;
 
 export interface ExtensionStorageArea {
   get(key: string): Promise<Record<string, unknown>>;
@@ -61,8 +61,8 @@ export function storageKeyForRepository(repository: string): string {
   return `${STORAGE_KEY_PREFIX}${repository}`;
 }
 
-function legacyStorageKeyForRepository(repository: string): string {
-  return `${LEGACY_STORAGE_KEY_PREFIX}${repository}`;
+function preReleaseStorageKeyForRepository(repository: string): string {
+  return `${PRE_RELEASE_VERSIONED_STORAGE_KEY_PREFIX}${repository}`;
 }
 
 function repositoryForStorageKey(key: string): string | null {
@@ -70,7 +70,15 @@ function repositoryForStorageKey(key: string): string | null {
     return null;
   }
   const repository = key.slice(STORAGE_KEY_PREFIX.length);
-  return repository || null;
+  return repository && !/^v\d+:/u.test(repository) ? repository : null;
+}
+
+function storedLayoutVersion(value: unknown): number | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const version = (value as { version?: unknown }).version;
+  return typeof version === "number" ? version : undefined;
 }
 
 interface ParsedLifecycleLayout {
@@ -167,29 +175,26 @@ export async function loadRepositoryLifecycleLayout(
   const key = storageKeyForRepository(repository);
   let stored = await storage.get(key);
   let storedKey = key;
-  let fromLegacyKey = false;
+  let fromPreReleaseKey = false;
   if (!(key in stored)) {
-    storedKey = legacyStorageKeyForRepository(repository);
+    storedKey = preReleaseStorageKeyForRepository(repository);
     stored = await storage.get(storedKey);
-    fromLegacyKey = storedKey in stored;
+    fromPreReleaseKey = storedKey in stored;
   }
   if (!(storedKey in stored)) {
     return cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT);
   }
   const storedValue = stored[storedKey];
-  const storedVersion =
-    storedValue && typeof storedValue === "object"
-      ? (storedValue as { version?: unknown }).version
-      : undefined;
+  const storedVersion = storedLayoutVersion(storedValue);
   if (typeof storedVersion === "number" && storedVersion > LIFECYCLE_LAYOUT_VERSION) {
     return cloneLifecycleLayout(DEFAULT_LIFECYCLE_LAYOUT);
   }
   const parsed = parseStoredLifecycleLayoutValue(storedValue);
   if (parsed) {
-    if (parsed.migrated || fromLegacyKey) {
+    if (parsed.migrated || fromPreReleaseKey) {
       try {
         await saveRepositoryLifecycleLayout(repository, parsed.layout, storage);
-        if (fromLegacyKey) {
+        if (fromPreReleaseKey) {
           await storage.remove(storedKey);
         }
       } catch (error) {
@@ -221,7 +226,16 @@ export async function saveRepositoryLifecycleLayout(
   const previousWrite = repositoryWriteQueues.get(key) ?? Promise.resolve();
   const write = previousWrite
     .catch(() => undefined)
-    .then(() => storage.set({ [key]: cloneLifecycleLayout(layout) }));
+    .then(async () => {
+      const stored = await storage.get(key);
+      const storedVersion = storedLayoutVersion(stored[key]);
+      if (typeof storedVersion === "number" && storedVersion > LIFECYCLE_LAYOUT_VERSION) {
+        throw new Error(
+          `Stored lifecycle layout version ${storedVersion} is newer than supported version ${LIFECYCLE_LAYOUT_VERSION}.`
+        );
+      }
+      return storage.set({ [key]: cloneLifecycleLayout(layout) });
+    });
   repositoryWriteQueues.set(key, write);
   try {
     await write;

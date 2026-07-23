@@ -10,12 +10,12 @@ import {
 } from "../src/lifecycle-query";
 import { LIFECYCLES, type ActiveLifecycleSelection, type Lifecycle } from "../src/lifecycle";
 
-function input(source: string, parameterPresent = true): PullRequestQueryInput {
-  return { source, parameterPresent };
+function input(source: string): PullRequestQueryInput {
+  return { source };
 }
 
-function selection(source: string, parameterPresent = true): ActiveLifecycleSelection {
-  return analyzeLifecycleQuery(input(source, parameterPresent)).selection;
+function selection(source: string): ActiveLifecycleSelection {
+  return analyzeLifecycleQuery(input(source)).selection;
 }
 
 function preset(lifecycle: Lifecycle): ActiveLifecycleSelection {
@@ -43,7 +43,7 @@ describe("lifecycle query analysis", () => {
   });
 
   test("distinguishes GitHub's empty-query Open default from explicit All", () => {
-    for (const queryInput of [input("", false), input("", true), input("   ", true)]) {
+    for (const queryInput of [input(""), input("   ")]) {
       const analysis = analyzeLifecycleQuery(queryInput);
       assert.deepEqual(analysis.selection, preset("open"));
       assert.equal(analysis.resolution, "exact");
@@ -335,19 +335,17 @@ describe("lifecycle query rewriting", () => {
     ];
 
     for (const [source, lifecycle] of sources) {
-      const queryInput = input(source, source.length > 0);
+      const queryInput = input(source);
       const result = rewriteLifecycleQuery(queryInput, lifecycle);
       assert.equal(result.kind, "unchanged", source);
       assert.equal(result.input.source, source);
-      assert.equal(result.input.parameterPresent, queryInput.parameterPresent);
     }
   });
 
   test("All is explicit and can never collapse to GitHub's Open default", () => {
-    const result = rewriteLifecycleQuery(input("", false), "all");
+    const result = rewriteLifecycleQuery(input(""), "all");
     assert.equal(result.kind, "rewritten");
     assert.equal(result.input.source, "is:pr");
-    assert.equal(result.input.parameterPresent, true);
     assert.deepEqual(result.analysis.selection, preset("all"));
 
     const fromOnlyLifecycle = rewriteLifecycleQuery(input("is:open"), "all");
@@ -592,7 +590,7 @@ describe("lifecycle query rewriting", () => {
       const length = next() % 10;
       const parts = Array.from({ length }, () => fragments[next() % fragments.length] as string);
       const source = parts.join(next() % 4 === 0 ? "" : " ");
-      const original = input(source, next() % 3 !== 0);
+      const original = input(source);
       analyzeLifecycleQuery(original);
 
       for (const target of LIFECYCLES) {

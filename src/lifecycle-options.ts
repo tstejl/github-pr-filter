@@ -19,59 +19,71 @@ export interface CustomLifecycleOption {
 
 export type LifecycleDisplayOption = LifecycleOption | CustomLifecycleOption;
 
-export const LIFECYCLE_OPTIONS = Object.freeze([
-  {
-    value: "needs_review",
+const LIFECYCLE_OPTION_ORDER = Object.freeze([
+  "needs_review",
+  "open",
+  "ready",
+  "draft",
+  "closed",
+  "merged",
+  "closed_unmerged",
+  "all"
+] as const satisfies readonly Lifecycle[]);
+
+const LIFECYCLE_OPTION_METADATA = Object.freeze({
+  needs_review: {
     label: "Needs review",
     description: "Open and awaiting review",
     icon: "codeReview"
   },
-  {
-    value: "open",
+  open: {
     label: "Open",
     description: "Open, including drafts",
     icon: "gitPullRequest",
     startsSection: true
   },
-  {
-    value: "ready",
+  ready: {
     label: "Ready",
     description: "Open, not a draft",
     icon: "checkCircle"
   },
-  {
-    value: "draft",
+  draft: {
     label: "Draft",
     description: "Open drafts",
     icon: "gitPullRequestDraft"
   },
-  {
-    value: "closed",
+  closed: {
     label: "Closed",
     description: "Closed, including merged",
     icon: "archive",
     startsSection: true
   },
-  {
-    value: "merged",
+  merged: {
     label: "Merged",
     description: "Successfully merged",
     icon: "gitMerge"
   },
-  {
-    value: "closed_unmerged",
+  closed_unmerged: {
     label: "Closed without merging",
     description: "Closed and unmerged",
     icon: "gitPullRequestClosed"
   },
-  {
-    value: "all",
+  all: {
     label: "All",
     description: "All pull requests",
     icon: "listUnordered",
     startsSection: true
   }
-] as const satisfies readonly LifecycleOption[]);
+} as const satisfies Readonly<Record<Lifecycle, Omit<LifecycleOption, "value">>>);
+
+export const LIFECYCLE_OPTIONS: readonly LifecycleOption[] = Object.freeze(
+  LIFECYCLE_OPTION_ORDER.map((value) =>
+    Object.freeze({
+      value,
+      ...LIFECYCLE_OPTION_METADATA[value]
+    })
+  )
+);
 
 export const CUSTOM_LIFECYCLE_OPTION: Readonly<CustomLifecycleOption> = Object.freeze({
   value: "custom",

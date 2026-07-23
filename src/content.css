@@ -1,8 +1,5 @@
-.gprf-native-status-hidden {
-  display: none !important;
-}
-
-html.gprf-supported-page .table-list-header-toggle.states > a.btn-link {
+html.gprf-replacement-pending .table-list-header-toggle.states > a.btn-link,
+html.gprf-replacement-mounted .gprf-native-status-hidden {
   display: none !important;
 }
 
