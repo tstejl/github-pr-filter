@@ -10,8 +10,8 @@ milestones, review status, sorting, or free text.
   default.
 - A non-empty query with no lifecycle constraint is **All**. For example, `is:pr`, `label:bug`,
   and `review:approved` do not imply Open.
-- **Ready** means open and not a draft. **Needs review** is the narrower Ready query with the
-  extension's complete negative-review signature.
+- **Ready** means open and not a draft. **Needs review** is the narrower Ready query for which
+  GitHub explicitly reports `review:required`.
 - A query is **Custom** when its lifecycle mask is valid but does not exactly equal a preset,
   contains contradictory or order-sensitive constraints, correlates lifecycle and unrelated
   filters through Boolean syntax, contains unsupported lifecycle-shaped syntax, or is malformed.
@@ -45,13 +45,18 @@ untouched.
 3. Canonical lifecycle predicates are appended for the selected target.
 4. Selecting **All** adds `is:pr` only when removing lifecycle predicates would otherwise leave
    an empty query. An existing item-type expression is never replaced or contradicted.
-5. Selecting **Ready** intentionally removes the exact negative-review pair used by **Needs
-   review**; retaining it would make the result resolve back to Needs review.
+5. Selecting **Ready** intentionally removes the owned `review:required` predicate used by
+   **Needs review**; retaining it would make the result resolve back to Needs review.
 6. Lifecycle predicates inside explicit Boolean syntax or parentheses are never rewritten.
 7. Parentheses attached directly to outer text, such as `foo(bar)`, are preserved as opaque
    input because normalizing their spacing could change an unknown search term.
 8. GitHub currently ignores `-is:open` and `-is:closed`; they are preserved as opaque input.
    Their supported complements are `-state:open` and `-state:closed`.
+
+GitHub's current filter UI emits `review:changes-requested`, while its documentation has also
+used `review:changes_requested`. The extension recognizes and preserves both spellings. It does
+not combine repeated `review:` qualifiers to infer Needs review: GitHub does not reliably treat
+them as a logical conjunction, particularly for stacked pull requests.
 
 GitHub documents lifecycle qualifiers and quoted values in its
 [issue and pull-request search syntax](https://docs.github.com/en/search-github/searching-on-github/searching-issues-and-pull-requests).

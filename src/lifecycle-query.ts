@@ -154,7 +154,10 @@ interface UnsupportedQuery {
 
 type QuerySeparation = SeparableQuery | CorrelatedQuery | UnsupportedQuery;
 
-const CANONICAL_REVIEW_VALUES = new Set(["approved", "changes_requested"]);
+const REVIEW_STATUS_ALIASES: Readonly<Record<string, string>> = Object.freeze({
+  changes_requested: "changes-requested",
+  "changes-requested": "changes-requested"
+});
 
 function unquote(value: string): string {
   if (value.length < 2) {
@@ -387,9 +390,15 @@ function statusReviewQualifier(atom: AtomExpression): ParsedQualifier | null {
   return qualifier?.key === "review" ? qualifier : null;
 }
 
-function canonicalReviewQualifier(atom: AtomExpression): ParsedQualifier | null {
+function normalizedReviewStatusValue(qualifier: ParsedQualifier): string {
+  return REVIEW_STATUS_ALIASES[qualifier.value] ?? qualifier.value;
+}
+
+function needsReviewQualifier(atom: AtomExpression): ParsedQualifier | null {
   const qualifier = statusReviewQualifier(atom);
-  return qualifier?.negated && CANONICAL_REVIEW_VALUES.has(qualifier.value) ? qualifier : null;
+  return qualifier && !qualifier.negated && normalizedReviewStatusValue(qualifier) === "required"
+    ? qualifier
+    : null;
 }
 
 function simpleAtom(expression: QueryExpression): AtomExpression | null {
@@ -399,8 +408,8 @@ function simpleAtom(expression: QueryExpression): AtomExpression | null {
 interface ReviewInspection {
   readonly allStatusAtoms: readonly AtomExpression[];
   readonly globalStatusTerms: ReadonlyMap<QueryExpression, AtomExpression>;
-  readonly canonicalGlobalTerms: ReadonlyMap<QueryExpression, AtomExpression>;
-  readonly hasExactCanonicalPair: boolean;
+  readonly ownedGlobalTerms: ReadonlyMap<QueryExpression, AtomExpression>;
+  readonly hasExactNeedsReviewStatus: boolean;
   readonly allStatusTermsAreGlobal: boolean;
 }
 
@@ -416,32 +425,28 @@ function inspectReviewTerms(
   });
 
   const globalStatusTerms = new Map<QueryExpression, AtomExpression>();
-  const canonicalGlobalTerms = new Map<QueryExpression, AtomExpression>();
+  const ownedGlobalTerms = new Map<QueryExpression, AtomExpression>();
   for (const term of globalTerms) {
     const atom = simpleAtom(term);
     if (!atom || !statusReviewQualifier(atom)) {
       continue;
     }
     globalStatusTerms.set(term, atom);
-    if (canonicalReviewQualifier(atom)) {
-      canonicalGlobalTerms.set(term, atom);
+    if (needsReviewQualifier(atom)) {
+      ownedGlobalTerms.set(term, atom);
     }
   }
 
-  const canonicalValues = new Set(
-    [...canonicalGlobalTerms.values()].map((atom) => canonicalReviewQualifier(atom)?.value)
-  );
-  const hasExactCanonicalPair =
-    allStatusAtoms.length === canonicalGlobalTerms.size &&
-    canonicalValues.has("approved") &&
-    canonicalValues.has("changes_requested") &&
-    [...allStatusAtoms].every((atom) => canonicalReviewQualifier(atom) !== null);
+  const hasExactNeedsReviewStatus =
+    allStatusAtoms.length > 0 &&
+    allStatusAtoms.length === ownedGlobalTerms.size &&
+    [...allStatusAtoms].every((atom) => needsReviewQualifier(atom) !== null);
 
   return {
     allStatusAtoms,
     globalStatusTerms,
-    canonicalGlobalTerms,
-    hasExactCanonicalPair,
+    ownedGlobalTerms,
+    hasExactNeedsReviewStatus,
     allStatusTermsAreGlobal: allStatusAtoms.length === globalStatusTerms.size
   };
 }
@@ -540,7 +545,7 @@ export function analyzeLifecycleQuery(input: PullRequestQueryInput): LifecycleQu
 
   const review = inspectReviewTerms(document, separation.terms);
   const ownsNeedsReviewReviewTerms =
-    separation.mask === PRESET_LIFECYCLE_MASKS.ready && review.hasExactCanonicalPair;
+    separation.mask === PRESET_LIFECYCLE_MASKS.ready && review.hasExactNeedsReviewStatus;
   if (ownsNeedsReviewReviewTerms) {
     return {
       input,
@@ -611,8 +616,7 @@ function canonicalLifecycleTerms(lifecycle: Lifecycle): readonly QueryExpression
       return [
         createQueryAtom("is:open"),
         createQueryAtom("draft:false"),
-        createQueryAtom("-review:approved"),
-        createQueryAtom("-review:changes_requested")
+        createQueryAtom("review:required")
       ];
     case "closed":
       return [createQueryAtom("is:closed")];
@@ -663,10 +667,10 @@ function rewriteAnalyzedLifecycleQuery(
   }
 
   // `Ready` intentionally means the broad GitHub lifecycle state "open, not a draft".
-  // Keeping the exact negative-review pair would make the rewritten query resolve back
-  // to the narrower `Needs review` preset instead of the option the user selected.
-  const removeCanonicalReviewPair =
-    analysis.ownsNeedsReviewReviewTerms || (target === "ready" && review.hasExactCanonicalPair);
+  // Keeping the owned `review:required` predicate would make the rewritten query resolve
+  // back to the narrower `Needs review` preset instead of the option the user selected.
+  const removeOwnedNeedsReviewStatus =
+    analysis.ownsNeedsReviewReviewTerms || (target === "ready" && review.hasExactNeedsReviewStatus);
   const retainedTerms = separation.terms.filter((term) => {
     if (separation.coreTerms.has(term)) {
       return false;
@@ -674,7 +678,7 @@ function rewriteAnalyzedLifecycleQuery(
     if (target === "needs_review" && review.globalStatusTerms.has(term)) {
       return false;
     }
-    if (removeCanonicalReviewPair && review.canonicalGlobalTerms.has(term)) {
+    if (removeOwnedNeedsReviewStatus && review.ownedGlobalTerms.has(term)) {
       return false;
     }
     return true;

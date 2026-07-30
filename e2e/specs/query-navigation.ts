@@ -90,8 +90,7 @@ export function registerQueryNavigationSpecs(context: E2ETestContext): void {
     await browser.click(`${OPTION_SELECTOR}[data-lifecycle="needs_review"]`);
     await browser.waitForUrl(
       (url) =>
-        new URL(url).searchParams.get("q") ===
-        "label:bug is:open draft:false -review:approved -review:changes_requested"
+        new URL(url).searchParams.get("q") === "label:bug is:open draft:false review:required"
     );
     await browser.waitForControl();
     assert.deepEqual(await browser.text(".gprf-summary-label"), ["Needs review"]);
@@ -162,10 +161,10 @@ export function registerQueryNavigationSpecs(context: E2ETestContext): void {
     assert.deepEqual(await browser.text(".gprf-summary-label"), ["Custom"]);
     assert.deepEqual(await browser.text(".gprf-summary-count"), ["5"]);
 
-    await browser.search("is:pr -review:approved -review:changes_requested");
+    await browser.search("is:pr -review:approved -review:changes-requested");
     await browser.waitForUrl(
       (url) =>
-        new URL(url).searchParams.get("q") === "is:pr -review:approved -review:changes_requested"
+        new URL(url).searchParams.get("q") === "is:pr -review:approved -review:changes-requested"
     );
     await browser.waitForControl();
     assert.deepEqual(await browser.text(".gprf-summary-label"), ["All"]);
@@ -176,7 +175,7 @@ export function registerQueryNavigationSpecs(context: E2ETestContext): void {
     await browser.waitForUrl(
       (url) =>
         new URL(url).searchParams.get("q") ===
-        "is:pr -review:approved -review:changes_requested is:open"
+        "is:pr -review:approved -review:changes-requested is:open"
     );
     await browser.waitForControl();
   }, 90_000);

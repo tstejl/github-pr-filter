@@ -127,29 +127,28 @@ describe("lifecycle query analysis", () => {
     }
   });
 
-  test("recognizes Needs review only from its complete canonical signature", () => {
+  test("recognizes Needs review only from open, non-draft review:required", () => {
     const complete = analyzeLifecycleQuery(
-      input(
-        "is:pr -review:changes_requested label:bug draft:false is:open -review:approved reviewed-by:octocat"
-      )
+      input("is:pr label:bug draft:false is:open review:required reviewed-by:octocat")
     );
     assert.deepEqual(complete.selection, preset("needs_review"));
     assert.equal(complete.ownsNeedsReviewReviewTerms, true);
 
     for (const source of [
-      "is:pr -review:approved -review:changes_requested",
-      "is:pr is:open -review:approved -review:changes_requested",
-      "is:pr is:open draft:false -review:approved",
-      "is:pr is:open draft:false review:changes_requested",
-      "is:pr is:open draft:false -review:approved -review:changes_requested review:none",
-      "is:pr is:open draft:false -review:APPROVED -review:CHANGES_REQUESTED"
+      "is:pr review:required",
+      "is:pr is:open review:required",
+      "is:pr is:open draft:false -review:required",
+      "is:pr is:open draft:false review:approved",
+      "is:pr is:open draft:false review:required review:none",
+      "is:pr is:open draft:false review:REQUIRED",
+      "is:pr is:open draft:false -review:approved -review:changes-requested"
     ]) {
       assert.notDeepEqual(selection(source), preset("needs_review"), source);
     }
   });
 
   test("never owns parenthesized review qualifiers on repository Pulls pages", () => {
-    const source = "is:open draft:false (-review:approved) (-review:changes_requested) label:bug";
+    const source = "is:open draft:false (review:required) label:bug";
     assert.deepEqual(selection(source), preset("ready"));
 
     const needsReview = rewriteLifecycleQuery(input(source), "needs_review");
@@ -158,17 +157,19 @@ describe("lifecycle query analysis", () => {
 
     const closed = rewriteLifecycleQuery(input(source), "closed");
     assert.equal(closed.kind, "rewritten");
-    assert.equal(
-      closed.input.source,
-      "(-review:approved) (-review:changes_requested) label:bug is:closed"
-    );
+    assert.equal(closed.input.source, "(review:required) label:bug is:closed");
   });
 
   test("keeps native review filters orthogonal to base lifecycle selection", () => {
-    for (const review of ["none", "required", "approved", "changes_requested"]) {
+    for (const review of ["none", "approved", "changes_requested", "changes-requested"]) {
       assert.deepEqual(selection(`is:pr is:open draft:false review:${review}`), preset("ready"));
       assert.deepEqual(selection(`is:pr is:open review:${review}`), preset("open"));
     }
+    assert.deepEqual(
+      selection("is:pr is:open draft:false review:required"),
+      preset("needs_review")
+    );
+    assert.deepEqual(selection("is:pr is:open review:required"), preset("open"));
   });
 
   test("accepts semantically identical lifecycle and Needs-review duplicates", () => {
@@ -190,7 +191,7 @@ describe("lifecycle query analysis", () => {
         )
     );
     assert.deepEqual(
-      selection("is:open draft:false -review:approved -review:approved -review:changes_requested"),
+      selection("is:open draft:false review:required review:required"),
       preset("needs_review")
     );
   });
@@ -331,7 +332,7 @@ describe("lifecycle query rewriting", () => {
       ["  is:pr   label:bug  ", "all"],
       ["label:bug state:open", "open"],
       ["is:pr review:approved draft:false is:open", "ready"],
-      ["is:pr is:open draft:false -review:approved -review:changes_requested", "needs_review"]
+      ["is:pr is:open draft:false review:required", "needs_review"]
     ];
 
     for (const [source, lifecycle] of sources) {
@@ -443,10 +444,10 @@ describe("lifecycle query rewriting", () => {
     assert.equal(result.input.source, "is:open OR is:closed");
   });
 
-  test("leaving Needs review removes only its canonical review signature", () => {
+  test("leaving Needs review removes only its owned review status", () => {
     const result = rewriteLifecycleQuery(
       input(
-        "is:pr is:open draft:false -review:approved -review:changes_requested reviewed-by:octocat review-requested:hubot label:bug"
+        "is:pr is:open draft:false review:required reviewed-by:octocat review-requested:hubot label:bug"
       ),
       "closed"
     );
@@ -473,11 +474,8 @@ describe("lifecycle query rewriting", () => {
     assert.deepEqual(open.analysis.selection, preset("open"));
   });
 
-  test("selecting Ready removes an exact negative pair that would become Needs review", () => {
-    const result = rewriteLifecycleQuery(
-      input("is:pr -review:approved -review:changes_requested label:bug"),
-      "ready"
-    );
+  test("selecting Ready removes an exact review:required status", () => {
+    const result = rewriteLifecycleQuery(input("is:pr review:required label:bug"), "ready");
     assert.equal(result.kind, "rewritten");
     assert.equal(result.input.source, "is:pr label:bug is:open draft:false");
     assert.deepEqual(result.analysis.selection, preset("ready"));
@@ -486,14 +484,14 @@ describe("lifecycle query rewriting", () => {
   test("entering Needs review replaces status filters but preserves reviewer identity filters", () => {
     const result = rewriteLifecycleQuery(
       input(
-        "is:pr is:open review:approved -review:required reviewed-by:octocat review-requested:hubot user-review-requested:@me team-review-requested:org/team label:bug"
+        "is:pr is:open review:approved -review:changes-requested reviewed-by:octocat review-requested:hubot user-review-requested:@me team-review-requested:org/team label:bug"
       ),
       "needs_review"
     );
     assert.equal(result.kind, "rewritten");
     assert.equal(
       result.input.source,
-      "is:pr reviewed-by:octocat review-requested:hubot user-review-requested:@me team-review-requested:org/team label:bug is:open draft:false -review:approved -review:changes_requested"
+      "is:pr reviewed-by:octocat review-requested:hubot user-review-requested:@me team-review-requested:org/team label:bug is:open draft:false review:required"
     );
     assert.deepEqual(result.analysis.selection, preset("needs_review"));
   });
@@ -570,6 +568,7 @@ describe("lifecycle query rewriting", () => {
       "is:unmerged",
       "-review:approved",
       "-review:changes_requested",
+      "-review:changes-requested",
       'label:"product ux"',
       "author:o'connor",
       "AND",

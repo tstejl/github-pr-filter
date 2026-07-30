@@ -60,7 +60,7 @@ test("flat Custom masks remain replaceable by every lifecycle preset", () => {
 });
 
 test("review correlation disables only the transition that would own review terms", () => {
-  const source = "is:open draft:false (-review:approved) (-review:changes_requested) label:bug";
+  const source = "is:open draft:false (review:required) label:bug";
   const actionUrls = createLifecycleActionUrls({
     pageUrl: `https://github.com/octocat/hello-world/pulls?q=${encodeURIComponent(source)}`,
     input: { source },
