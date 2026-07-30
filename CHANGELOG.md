@@ -2,6 +2,13 @@
 
 All notable changes will be documented in this file.
 
+## 0.7.1 — 2026-07-30
+
+- Tightened **Needs review** to use GitHub's explicit `review:required` state, preventing
+  approved pull requests—including stacked pull requests—from appearing in that view.
+- Added compatibility for both `review:changes-requested` and the legacy
+  `review:changes_requested` spelling while preserving reviewer-specific filters.
+
 ## 0.7.0 — 2026-07-22
 
 - Added explicit All and Custom query states so the lifecycle menu always reflects GitHub's
