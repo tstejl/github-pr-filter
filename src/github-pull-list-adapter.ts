@@ -1,6 +1,7 @@
 import {
   CONTROL_CLASS,
   createLifecycleControl,
+  requestLifecycleControlClose,
   type LifecycleControlController
 } from "./lifecycle-control";
 import { createLifecycleNavigationPlan } from "./lifecycle-navigation";
@@ -335,7 +336,7 @@ export function createGitHubPullListAdapter(
         !eventPath.includes(control) &&
         !control.classList.contains("gprf-lifecycle--configuring")
       ) {
-        control.removeAttribute("open");
+        requestLifecycleControlClose(control);
       }
     }
   };

@@ -165,6 +165,17 @@ function fixturePage(requestUrl: string): string {
       (() => {
         let probeFrames = 0;
         let preMountFrames = 0;
+        let menuAnimationStarts = 0;
+        document.addEventListener("animationstart", (event) => {
+          if (event.animationName !== "gprf-menu-open") {
+            return;
+          }
+          menuAnimationStarts += 1;
+          document.documentElement.setAttribute(
+            "data-gprf-menu-animation-starts",
+            String(menuAnimationStarts)
+          );
+        });
         const sample = () => {
           const control = document.querySelector(".gprf-lifecycle");
           const nativeLinks = [

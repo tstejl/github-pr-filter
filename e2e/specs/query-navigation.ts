@@ -34,6 +34,7 @@ export function registerQueryNavigationSpecs(context: E2ETestContext): void {
     );
 
     await browser.click(".gprf-lifecycle-summary");
+    await browser.waitForNumericAttributeGreaterThan("html", "data-gprf-menu-animation-starts", 0);
     assert.notEqual(await browser.cssValue(".gprf-summary-count", "display"), "none");
     assert.deepEqual(await browser.text(".gprf-option-label"), [
       "Needs review",
@@ -51,6 +52,17 @@ export function registerQueryNavigationSpecs(context: E2ETestContext): void {
     );
     assert.equal(menuIconPaths.length, 8);
     assert.equal(new Set(menuIconPaths).size, 8);
+
+    await browser.click(".gprf-lifecycle-summary");
+    assert.match(
+      (await browser.attribute(".gprf-lifecycle-menu", "class")) ?? "",
+      /gprf-menu-closing/u
+    );
+    await browser.wait(160);
+    assert.equal(await browser.attribute(".gprf-lifecycle", "open"), null);
+
+    await browser.click(".gprf-lifecycle-summary");
+    await browser.waitForNumericAttributeGreaterThan("html", "data-gprf-menu-animation-starts", 1);
   }, 90_000);
 
   test(`${context.browserName}: preset transitions preserve orthogonal query filters`, async () => {

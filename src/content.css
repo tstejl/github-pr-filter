@@ -106,9 +106,17 @@ html.gprf-replacement-mounted .gprf-native-status-hidden {
 }
 
 .gprf-lifecycle[open] > .gprf-lifecycle-menu {
-  animation: gprf-menu-open 120ms cubic-bezier(0.33, 1, 0.68, 1);
   display: block;
   transform-origin: top left;
+}
+
+.gprf-menu-opening {
+  animation: gprf-menu-open 120ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.gprf-menu-closing {
+  animation: gprf-menu-close 120ms cubic-bezier(0.33, 1, 0.68, 1);
+  pointer-events: none;
 }
 
 @keyframes gprf-menu-open {
@@ -120,6 +128,18 @@ html.gprf-replacement-mounted .gprf-native-status-hidden {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes gprf-menu-close {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
   }
 }
 
@@ -518,13 +538,14 @@ html.gprf-replacement-mounted .gprf-native-status-hidden {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .gprf-lifecycle-menu,
   .gprf-lifecycle-option,
   .gprf-editor-row {
     transition: none;
   }
 
-  .gprf-lifecycle[open] > .gprf-lifecycle-menu {
+  .gprf-menu-opening,
+  .gprf-menu-closing {
     animation: none;
-    transition: none;
   }
 }

@@ -17,8 +17,19 @@ import { OCTICONS } from "./octicons";
 import { createIcon, createIconButton, createTextButton } from "./ui-primitives";
 
 export const CONTROL_CLASS = "gprf-lifecycle";
+const CONTROL_CLOSE_EVENT = "gprf:lifecycle-close";
+const MENU_ANIMATION_DURATION_MS = 120;
 
 let optionHelpSequence = 0;
+
+export function requestLifecycleControlClose(control: HTMLDetailsElement): void {
+  const EventConstructor = control.ownerDocument.defaultView?.Event;
+  if (!EventConstructor) {
+    control.removeAttribute("open");
+    return;
+  }
+  control.dispatchEvent(new EventConstructor(CONTROL_CLOSE_EVENT));
+}
 
 export interface LifecycleControlConfiguration {
   readonly selection: ActiveLifecycleSelection;
@@ -137,7 +148,10 @@ function createLifecycleOption(
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return;
     }
-    link.closest("details")?.removeAttribute("open");
+    const control = link.closest<HTMLDetailsElement>("details");
+    if (control) {
+      requestLifecycleControlClose(control);
+    }
   });
   return link;
 }
@@ -212,6 +226,7 @@ export function createLifecycleControl({
   let renderedTurboFrame = turboFrame;
   let editor: LifecycleEditor | null = null;
   let configuring = false;
+  let closeTimer: number | null = null;
 
   const summary = ownerDocument.createElement("summary");
   summary.className = "gprf-lifecycle-summary";
@@ -330,6 +345,41 @@ export function createLifecycleControl({
     }
   };
 
+  const clearCloseTimer = (): void => {
+    if (closeTimer === null) {
+      return;
+    }
+    ownerDocument.defaultView?.clearTimeout(closeTimer);
+    closeTimer = null;
+  };
+
+  const finishClose = (): void => {
+    clearCloseTimer();
+    menu.classList.remove("gprf-menu-opening", "gprf-menu-closing");
+    control.open = false;
+  };
+
+  const closeMenu = (restoreFocus = false): void => {
+    if (!control.open || closeTimer !== null) {
+      return;
+    }
+    leaveConfiguration(false);
+    menu.classList.remove("gprf-menu-opening");
+    if (ownerDocument.defaultView?.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      finishClose();
+    } else {
+      menu.classList.add("gprf-menu-closing");
+      closeTimer =
+        ownerDocument.defaultView?.setTimeout(finishClose, MENU_ANIMATION_DURATION_MS) ?? null;
+      if (closeTimer === null) {
+        finishClose();
+      }
+    }
+    if (restoreFocus) {
+      summary.focus();
+    }
+  };
+
   const enterConfiguration = (): void => {
     if (configuring) {
       return;
@@ -377,15 +427,20 @@ export function createLifecycleControl({
   summary.addEventListener("click", (event) => {
     if (configuring) {
       event.preventDefault();
+      return;
+    }
+    if (control.open) {
+      event.preventDefault();
+      closeMenu();
     }
   });
+
+  control.addEventListener(CONTROL_CLOSE_EVENT, () => closeMenu());
 
   control.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && control.open) {
       event.preventDefault();
-      leaveConfiguration(false);
-      control.open = false;
-      summary.focus();
+      closeMenu(true);
       return;
     }
     if (configuring || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
@@ -413,10 +468,15 @@ export function createLifecycleControl({
 
   control.addEventListener("toggle", () => {
     if (!control.open) {
+      clearCloseTimer();
+      menu.classList.remove("gprf-menu-opening", "gprf-menu-closing");
       control.querySelector(".gprf-option-help.is-open")?.classList.remove("is-open");
       leaveConfiguration(false);
       return;
     }
+    menu.classList.remove("gprf-menu-opening", "gprf-menu-closing");
+    void menu.offsetWidth;
+    menu.classList.add("gprf-menu-opening");
     if (!exclusive) {
       return;
     }
@@ -424,7 +484,7 @@ export function createLifecycleControl({
       `.${CONTROL_CLASS}[open]`
     )) {
       if (otherControl !== control) {
-        otherControl.removeAttribute("open");
+        requestLifecycleControlClose(otherControl);
       }
     }
   });
@@ -455,6 +515,9 @@ export function createLifecycleControl({
   return {
     element: control,
     refresh,
-    destroy: () => control.remove()
+    destroy: () => {
+      clearCloseTimer();
+      control.remove();
+    }
   };
 }

@@ -99,11 +99,13 @@ test("navigation keeps GitHub Turbo hooks instead of forcing a page reload", () 
   assert.match(adapter, /data-turbo-frame/);
 });
 
-test("lifecycle menu follows GitHub's fixed-caret motion pattern", () => {
+test("lifecycle menu uses repeatable open and close transitions", () => {
   const stylesheet = fs.readFileSync(path.join(projectRoot, "src/content.css"), "utf8");
   assert.doesNotMatch(stylesheet, /gprf-lifecycle\[open\][^{]*gprf-chevron/);
-  assert.match(stylesheet, /animation: gprf-menu-open 120ms/);
+  assert.match(stylesheet, /\.gprf-menu-opening[\s\S]*animation: gprf-menu-open 120ms/);
+  assert.match(stylesheet, /\.gprf-menu-closing[\s\S]*animation: gprf-menu-close 120ms/);
   assert.match(stylesheet, /@keyframes gprf-menu-open/);
+  assert.match(stylesheet, /@keyframes gprf-menu-close/);
   assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation: none;/);
 });
 
