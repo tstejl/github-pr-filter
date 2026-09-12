@@ -334,6 +334,20 @@ type Story = StoryObj<StoryArgs>;
 
 export const Interactive = {} satisfies Story;
 
+export const Preview = {
+  args: { lifecycle: "merged", count: "700", expanded: false },
+  render: (args) => {
+    const shell = renderInteractive(args);
+    shell.querySelector(".gprf-lifecycle")?.classList.add("gprf-lifecycle--preview");
+    return shell;
+  }
+} satisfies Story;
+
+export const PreviewDark = {
+  ...Preview,
+  args: { ...Preview.args, theme: "dark" }
+} satisfies Story;
+
 export const Configuring = {
   render: (args) => {
     const shell = renderInteractive({ ...args, expanded: true });

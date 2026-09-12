@@ -1,6 +1,19 @@
 html.gprf-replacement-pending .table-list-header-toggle.states > a.btn-link,
+html.gprf-replacement-pending .gprf-native-status-hidden,
 html.gprf-replacement-mounted .gprf-native-status-hidden {
   display: none !important;
+}
+
+html.gprf-replacement-pending .gprf-native-results-hidden,
+html.gprf-replacement-mounted .gprf-native-results-hidden {
+  clip-path: inset(50%) !important;
+  height: 1px !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  position: absolute !important;
+  white-space: nowrap !important;
+  width: 1px !important;
 }
 
 .gprf-lifecycle {
@@ -36,6 +49,28 @@ html.gprf-replacement-mounted .gprf-native-status-hidden {
 
 .gprf-lifecycle-summary:hover {
   color: var(--fgColor-default, var(--color-fg-default, #1f2328));
+}
+
+.gprf-lifecycle--preview > .gprf-lifecycle-summary {
+  border-radius: var(--borderRadius-medium, 6px);
+  box-sizing: border-box;
+  color: var(--fgColor-default, var(--color-fg-default, #1f2328));
+  min-height: var(--control-medium-size, 32px);
+  padding: 4px 8px;
+}
+
+.gprf-lifecycle--preview > .gprf-lifecycle-summary:hover {
+  background: var(
+    --control-transparent-bgColor-hover,
+    var(--bgColor-neutral-muted, rgba(175, 184, 193, 0.2))
+  );
+}
+
+.gprf-lifecycle--preview > .gprf-lifecycle-summary:active {
+  background: var(
+    --control-transparent-bgColor-active,
+    var(--bgColor-neutral-muted, rgba(175, 184, 193, 0.2))
+  );
 }
 
 .gprf-lifecycle-summary:focus-visible {

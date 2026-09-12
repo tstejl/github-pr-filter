@@ -7,7 +7,9 @@ export type FixturePageMode =
   | "partial-status-hydration"
   | "responsive-groups"
   | "open-selected-all"
-  | "no-state-groups";
+  | "no-state-groups"
+  | "preview"
+  | "preview-hydration";
 
 export interface FixturePageOptions {
   mode?: FixturePageMode;

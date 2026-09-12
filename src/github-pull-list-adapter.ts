@@ -1,4 +1,19 @@
 import {
+  HIDDEN_NATIVE_STATUS_CLASS,
+  HIDDEN_NATIVE_RESULTS_CLASS,
+  PREVIEW_CONTROL_CLASS,
+  PREVIEW_TOOLBAR_SELECTOR,
+  PREVIEW_HEADING_SELECTOR,
+  PREVIEW_STATUS_CONTROL_SELECTOR,
+  previewAccessibleText,
+  previewLifecycleForText,
+  isPreviewResultHeading,
+  previewRegionForToolbar,
+  previewRegions,
+  refreshPreviewRegion,
+  type PreviewRegion
+} from "./github-preview-header";
+import {
   CONTROL_CLASS,
   createLifecycleControl,
   requestLifecycleControlClose,
@@ -13,6 +28,7 @@ import {
   createCommittedQueryContext,
   hasRecognizableNativeStatusLinks,
   resolveNativeStatusCount,
+  resolvePreviewStatusCount,
   selectSearchField,
   selectStatusGroups,
   type CommittedSearchField,
@@ -20,7 +36,6 @@ import {
 } from "./github-pull-list-contract";
 
 const STATUS_GROUP_SELECTOR = ".table-list-header-toggle.states";
-const HIDDEN_NATIVE_STATUS_CLASS = "gprf-native-status-hidden";
 const URL_CHECK_INTERVAL_MS = 500;
 
 const SEARCH_INPUT_SELECTORS = Object.freeze([
@@ -87,11 +102,33 @@ function turboFrameForGroup(group: HTMLElement): string | null {
   );
 }
 
+const restorePreviewNativeControlsOutside = (
+  controlsToKeep: ReadonlySet<HTMLElement>,
+  regions: readonly PreviewRegion[]
+): void => {
+  for (const region of regions) {
+    for (const { element } of region.controls) {
+      if (!controlsToKeep.has(element)) {
+        element.classList.remove(HIDDEN_NATIVE_STATUS_CLASS);
+      }
+    }
+  }
+};
+
+const touchesPreviewContract = (element: Element): boolean =>
+  element.matches(PREVIEW_TOOLBAR_SELECTOR) ||
+  element.closest(PREVIEW_TOOLBAR_SELECTOR) !== null ||
+  element.querySelector(PREVIEW_TOOLBAR_SELECTOR) !== null;
+
 export function createGitHubPullListAdapter(
   environment: GitHubPullListAdapterEnvironment
 ): GitHubPullListAdapter {
   const { document, location, window } = environment;
   const controls = new Map<HTMLDetailsElement, LifecycleControlController>();
+  let rememberedPreviewRegions: readonly PreviewRegion[] = [];
+  const previewHeadings = new Set<HTMLElement>();
+  const hiddenPreviewHeadings = new Set<HTMLElement>();
+  let previewHeadingFresh = true;
 
   const isVisibleSearchInput = (input: HTMLInputElement): boolean => {
     if (input.hidden || input.type === "hidden") {
@@ -198,7 +235,8 @@ export function createGitHubPullListAdapter(
     state: LifecyclePageRenderState,
     standalone = false,
     count: string | null = null,
-    turboFrame: string | null = null
+    turboFrame: string | null = null,
+    modifierClass: string | null = null
   ): LifecycleControlController => {
     const controller = createLifecycleControl({
       selection: state.selection,
@@ -211,6 +249,9 @@ export function createGitHubPullListAdapter(
       turboFrame,
       ownerDocument: document
     });
+    if (modifierClass) {
+      controller.element.classList.add(modifierClass);
+    }
     controls.set(controller.element, controller);
     return controller;
   };
@@ -236,6 +277,28 @@ export function createGitHubPullListAdapter(
     document.querySelectorAll(`.${HIDDEN_NATIVE_STATUS_CLASS}`).forEach((link) => {
       link.classList.remove(HIDDEN_NATIVE_STATUS_CLASS);
     });
+    for (const heading of hiddenPreviewHeadings) {
+      heading.classList.remove(HIDDEN_NATIVE_RESULTS_CLASS);
+    }
+    hiddenPreviewHeadings.clear();
+    previewHeadings.clear();
+    rememberedPreviewRegions = [];
+  };
+
+  const restorePreviewHeadingsOutside = (headingsToKeep: ReadonlySet<HTMLElement>): void => {
+    for (const heading of hiddenPreviewHeadings) {
+      if (!headingsToKeep.has(heading)) {
+        heading.classList.remove(HIDDEN_NATIVE_RESULTS_CLASS);
+        hiddenPreviewHeadings.delete(heading);
+      }
+    }
+  };
+
+  const clearPreviewState = (): void => {
+    restorePreviewNativeControlsOutside(new Set(), rememberedPreviewRegions);
+    restorePreviewHeadingsOutside(new Set());
+    previewHeadings.clear();
+    rememberedPreviewRegions = [];
   };
 
   const suspend = (): void => {
@@ -252,6 +315,7 @@ export function createGitHubPullListAdapter(
     pruneControls();
     const groups = statusGroups();
     if (groups.length > 0) {
+      clearPreviewState();
       const currentGroups = new Set(groups);
       removeControlsExcept((element) =>
         element.parentElement ? currentGroups.has(element.parentElement) : false
@@ -288,6 +352,84 @@ export function createGitHubPullListAdapter(
       return;
     }
 
+    const previousPreviewRegions = rememberedPreviewRegions;
+    const discoveredPreviewRegions = previewRegions(document);
+    const refreshedPreviewRegions = previousPreviewRegions
+      .map(refreshPreviewRegion)
+      .filter((region): region is PreviewRegion => region !== null);
+    if (discoveredPreviewRegions.length > 0) {
+      rememberedPreviewRegions = discoveredPreviewRegions;
+    } else if (refreshedPreviewRegions.length > 0) {
+      rememberedPreviewRegions = refreshedPreviewRegions;
+    }
+    const activePreviewRegions =
+      discoveredPreviewRegions.length > 0 ? discoveredPreviewRegions : refreshedPreviewRegions;
+    if (activePreviewRegions.length > 0) {
+      const previewSlots = new Set(activePreviewRegions.map(({ slot }) => slot));
+      const previewHeadingsToKeep = new Set(
+        activePreviewRegions.flatMap(({ heading }) => (heading ? [heading] : []))
+      );
+      const previewNativeControlsToKeep = new Set(
+        activePreviewRegions.flatMap((region) => region.controls.map(({ element }) => element))
+      );
+      restoreNativeStatusLinksOutside(new Set());
+      restorePreviewNativeControlsOutside(previewNativeControlsToKeep, [
+        ...previousPreviewRegions,
+        ...rememberedPreviewRegions
+      ]);
+      restorePreviewHeadingsOutside(previewHeadingsToKeep);
+      previewHeadings.clear();
+      for (const heading of previewHeadingsToKeep) previewHeadings.add(heading);
+      removeControlsExcept(
+        (element) =>
+          element.classList.contains(PREVIEW_CONTROL_CLASS) &&
+          element.parentElement !== null &&
+          previewSlots.has(element.parentElement)
+      );
+
+      for (const region of activePreviewRegions) {
+        const count = resolvePreviewStatusCount(
+          region.heading ? previewAccessibleText(region.heading) : null,
+          region.controls.map(({ control }) => control),
+          state.statePartition,
+          document.documentElement.lang,
+          previewHeadingFresh
+        );
+        const directControls = [
+          ...region.slot.querySelectorAll<HTMLDetailsElement>(`:scope > .${CONTROL_CLASS}`)
+        ];
+        const existingElement =
+          directControls.find((element) => controls.has(element)) ?? directControls[0] ?? null;
+        for (const duplicate of directControls) {
+          if (duplicate !== existingElement) {
+            removeControlElement(duplicate);
+          }
+        }
+
+        for (const nativeControl of region.controls) {
+          nativeControl.element.classList.add(HIDDEN_NATIVE_STATUS_CLASS);
+        }
+        if (region.heading) {
+          region.heading.classList.add(HIDDEN_NATIVE_RESULTS_CLASS);
+          hiddenPreviewHeadings.add(region.heading);
+        }
+        const existingController = existingElement ? controls.get(existingElement) : undefined;
+        if (existingController) {
+          refreshControl(existingController, state, count);
+          continue;
+        }
+        existingElement?.remove();
+        const replacement = createControl(state, false, count, null, PREVIEW_CONTROL_CLASS).element;
+        region.slot.insertBefore(
+          replacement,
+          region.anchor.parentElement === region.slot ? region.anchor : null
+        );
+      }
+      markReplacementMounted(document.documentElement);
+      return;
+    }
+
+    clearPreviewState();
     restoreNativeStatusLinksOutside(new Set());
     const searchContainer = searchInput()?.closest<HTMLElement>("form, [role='search'], search");
     if (!searchContainer) {
@@ -360,25 +502,90 @@ export function createGitHubPullListAdapter(
     element.matches(SEARCH_INPUT_SELECTOR) ||
     element.querySelector(`${STATUS_GROUP_SELECTOR},${SEARCH_INPUT_SELECTOR}`) !== null;
 
+  const mutationTargetElement = (mutation: MutationRecord): Element | null => {
+    if (mutation.target instanceof window.Element) {
+      return mutation.target;
+    }
+    return mutation.target.parentNode instanceof window.Element ? mutation.target.parentNode : null;
+  };
+
+  const isPreviewStatusElement = (element: Element): boolean => {
+    if (
+      !(element instanceof window.HTMLElement) ||
+      !element.matches(PREVIEW_STATUS_CONTROL_SELECTOR)
+    ) {
+      return false;
+    }
+    const text = previewAccessibleText(element);
+    return previewLifecycleForText(text) !== null && /\p{Number}/u.test(text);
+  };
+
+  const belongsToPreviewRegion = (element: Element): boolean => {
+    if (rememberedPreviewRegions.some(({ root }) => root.contains(element))) {
+      return true;
+    }
+    return [...document.querySelectorAll<HTMLElement>(PREVIEW_TOOLBAR_SELECTOR)].some((toolbar) =>
+      previewRegionForToolbar(toolbar)?.root.contains(element)
+    );
+  };
+
+  const touchesPreviewContent = (mutation: MutationRecord): boolean => {
+    // Selection and destination changes do not establish that counts are current.
+    if (mutation.type === "attributes" && mutation.attributeName !== "aria-label") return false;
+    const target = mutationTargetElement(mutation);
+    if (target) {
+      const heading = target.closest<HTMLElement>(PREVIEW_HEADING_SELECTOR);
+      if (
+        heading &&
+        (previewHeadings.has(heading) ||
+          (isPreviewResultHeading(heading) && belongsToPreviewRegion(heading)))
+      ) {
+        return true;
+      }
+      for (const region of rememberedPreviewRegions) {
+        if (region.controls.some(({ element }) => element === target || element.contains(target))) {
+          return true;
+        }
+      }
+    }
+    return [...mutation.addedNodes, ...mutation.removedNodes].some(
+      (node) =>
+        node instanceof window.HTMLElement &&
+        (previewHeadings.has(node) ||
+          rememberedPreviewRegions.some(({ controls: nativeControls }) =>
+            nativeControls.some(({ element }) => element === node)
+          ) ||
+          (isPreviewResultHeading(node) && belongsToPreviewRegion(node)) ||
+          (isPreviewStatusElement(node) && belongsToPreviewRegion(node)) ||
+          [...node.querySelectorAll<HTMLElement>(PREVIEW_HEADING_SELECTOR)].some(
+            (heading) => isPreviewResultHeading(heading) && belongsToPreviewRegion(heading)
+          ) ||
+          [...node.querySelectorAll<HTMLElement>(PREVIEW_STATUS_CONTROL_SELECTOR)].some(
+            (control) => isPreviewStatusElement(control) && belongsToPreviewRegion(control)
+          ))
+    );
+  };
+
   const isRelevantPageMutation = (mutation: MutationRecord): boolean => {
     if (isExtensionOnlyMutation(mutation)) {
       return false;
     }
     if (
       mutation.type === "attributes" &&
-      mutation.target instanceof window.Element &&
-      touchesGitHubPullListContract(mutation.target)
+      mutationTargetElement(mutation) !== null &&
+      touchesGitHubPullListContract(mutationTargetElement(mutation) as Element)
     ) {
       return true;
     }
-    if (
-      mutation.target instanceof window.Element &&
-      mutation.target.closest(STATUS_GROUP_SELECTOR)
-    ) {
+    const target = mutationTargetElement(mutation);
+    if (target?.closest(STATUS_GROUP_SELECTOR) || (target && touchesPreviewContract(target))) {
       return true;
     }
-    return [...mutation.addedNodes, ...mutation.removedNodes].some(
-      (node) => node instanceof window.Element && touchesGitHubPullListContract(node)
+    return (
+      touchesPreviewContent(mutation) ||
+      [...mutation.addedNodes, ...mutation.removedNodes].some(
+        (node) => node instanceof window.Element && touchesGitHubPullListContract(node)
+      )
     );
   };
 
@@ -396,13 +603,29 @@ export function createGitHubPullListAdapter(
       if (shouldObserve) {
         observer.observe(document.documentElement, {
           attributes: true,
-          attributeFilter: ["action", "name", "value"],
+          attributeFilter: [
+            "action",
+            "aria-current",
+            "aria-label",
+            "aria-labelledby",
+            "href",
+            "name",
+            "value"
+          ],
+          characterData: true,
           childList: true,
           subtree: true
         });
       }
     };
-    const notifyPageChange = (): void => {
+    const notifyPageChange = (eventOrFresh?: Event | boolean): void => {
+      const previewContentChanged = eventOrFresh === true;
+      if (location.href !== observedHref) {
+        previewHeadingFresh = false;
+      }
+      if (previewContentChanged) {
+        previewHeadingFresh = true;
+      }
       observedHref = location.href;
       if (isRepositoryPullListPath(location.pathname)) {
         markReplacementPending(document.documentElement);
@@ -411,8 +634,10 @@ export function createGitHubPullListAdapter(
       listener();
     };
     observer = new window.MutationObserver((mutations) => {
-      if (location.href !== observedHref || mutations.some(isRelevantPageMutation)) {
-        notifyPageChange();
+      const externalMutations = mutations.filter((mutation) => !isExtensionOnlyMutation(mutation));
+      const previewContentChanged = externalMutations.some(touchesPreviewContent);
+      if (location.href !== observedHref || externalMutations.some(isRelevantPageMutation)) {
+        notifyPageChange(previewContentChanged);
       }
     });
     document.addEventListener("click", closeOpenMenus);

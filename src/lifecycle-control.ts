@@ -16,7 +16,8 @@ import type { ActiveLifecycleSelection, Lifecycle } from "./lifecycle";
 import { OCTICONS } from "./octicons";
 import { createIcon, createIconButton, createTextButton } from "./ui-primitives";
 
-export const CONTROL_CLASS = "gprf-lifecycle";
+import { CONTROL_CLASS } from "./page-markers";
+export { CONTROL_CLASS };
 const CONTROL_CLOSE_EVENT = "gprf:lifecycle-close";
 const MENU_ANIMATION_DURATION_MS = 120;
 
@@ -227,6 +228,31 @@ export function createLifecycleControl({
   let editor: LifecycleEditor | null = null;
   let configuring = false;
   let closeTimer: number | null = null;
+  let observedOpen = control.hasAttribute("open");
+  let reopeningDuringClose = false;
+
+  const MutationObserverConstructor = ownerDocument.defaultView?.MutationObserver;
+  const openObserver = MutationObserverConstructor
+    ? new MutationObserverConstructor((records) => {
+        let previousOpen = observedOpen;
+        for (let index = 0; index < records.length; index += 1) {
+          const nextOpen =
+            index + 1 < records.length
+              ? records[index + 1]!.oldValue !== null
+              : control.hasAttribute("open");
+          if (closeTimer !== null && !previousOpen && nextOpen) {
+            reopeningDuringClose = true;
+          }
+          previousOpen = nextOpen;
+        }
+        observedOpen = previousOpen;
+      })
+    : null;
+  openObserver?.observe(control, {
+    attributes: true,
+    attributeFilter: ["open"],
+    attributeOldValue: true
+  });
 
   const summary = ownerDocument.createElement("summary");
   summary.className = "gprf-lifecycle-summary";
@@ -356,13 +382,43 @@ export function createLifecycleControl({
   const finishClose = (): void => {
     clearCloseTimer();
     menu.classList.remove("gprf-menu-opening", "gprf-menu-closing");
+    observedOpen = false;
     control.open = false;
+  };
+
+  const closeExclusiveControls = (): void => {
+    if (!exclusive) {
+      return;
+    }
+    for (const otherControl of ownerDocument.querySelectorAll<HTMLDetailsElement>(
+      `.${CONTROL_CLASS}[open]`
+    )) {
+      if (otherControl !== control) {
+        requestLifecycleControlClose(otherControl);
+      }
+    }
+  };
+
+  const reopenMenu = (): void => {
+    reopeningDuringClose = false;
+    clearCloseTimer();
+    if (!control.open) {
+      observedOpen = true;
+      control.open = true;
+    } else {
+      observedOpen = true;
+      menu.classList.remove("gprf-menu-opening", "gprf-menu-closing");
+      void menu.offsetWidth;
+      menu.classList.add("gprf-menu-opening");
+    }
+    closeExclusiveControls();
   };
 
   const closeMenu = (restoreFocus = false): void => {
     if (!control.open || closeTimer !== null) {
       return;
     }
+    observedOpen = true;
     leaveConfiguration(false);
     menu.classList.remove("gprf-menu-opening");
     if (ownerDocument.defaultView?.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -431,7 +487,11 @@ export function createLifecycleControl({
     }
     if (control.open) {
       event.preventDefault();
-      closeMenu();
+      if (closeTimer !== null) {
+        reopenMenu();
+      } else {
+        closeMenu();
+      }
     }
   });
 
@@ -448,7 +508,11 @@ export function createLifecycleControl({
     }
     const optionLinks = [...control.querySelectorAll<HTMLAnchorElement>(".gprf-lifecycle-option")];
     event.preventDefault();
-    control.open = true;
+    if (closeTimer !== null) {
+      reopenMenu();
+    } else {
+      control.open = true;
+    }
     const currentIndex = optionLinks.indexOf(ownerDocument.activeElement as HTMLAnchorElement);
     let nextIndex = currentIndex;
     if (event.key === "Home") {
@@ -468,25 +532,25 @@ export function createLifecycleControl({
 
   control.addEventListener("toggle", () => {
     if (!control.open) {
+      observedOpen = false;
+      reopeningDuringClose = false;
       clearCloseTimer();
       menu.classList.remove("gprf-menu-opening", "gprf-menu-closing");
       control.querySelector(".gprf-option-help.is-open")?.classList.remove("is-open");
       leaveConfiguration(false);
       return;
     }
+    const reopened = reopeningDuringClose;
+    reopeningDuringClose = false;
+    observedOpen = true;
+    if (closeTimer !== null && !reopened) {
+      return;
+    }
+    clearCloseTimer();
     menu.classList.remove("gprf-menu-opening", "gprf-menu-closing");
     void menu.offsetWidth;
     menu.classList.add("gprf-menu-opening");
-    if (!exclusive) {
-      return;
-    }
-    for (const otherControl of ownerDocument.querySelectorAll<HTMLDetailsElement>(
-      `.${CONTROL_CLASS}[open]`
-    )) {
-      if (otherControl !== control) {
-        requestLifecycleControlClose(otherControl);
-      }
-    }
+    closeExclusiveControls();
   });
 
   const refresh = ({
@@ -517,6 +581,7 @@ export function createLifecycleControl({
     refresh,
     destroy: () => {
       clearCloseTimer();
+      openObserver?.disconnect();
       control.remove();
     }
   };

@@ -4,6 +4,29 @@ import { LIFECYCLE_OPTIONS } from "../src/lifecycle-options";
 const storyUrl = (story: string): string =>
   `/iframe.html?id=extension-lifecycle-control--${story}&viewMode=story`;
 
+for (const story of ["preview", "preview-dark"]) {
+  test(`${story} uses a full button hover and visible keyboard focus`, async ({ page }) => {
+    await page.goto(storyUrl(story));
+    const summary = page.locator(".gprf-lifecycle-summary");
+    await expect(summary).toBeVisible();
+    const restingColor = await summary.evaluate((element) => getComputedStyle(element).color);
+    await expect(summary).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await summary.hover();
+    await expect(summary).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(summary).toHaveCSS("color", restingColor);
+    await page.mouse.move(0, 0);
+    await page.keyboard.press("Tab");
+    await expect(summary).toBeFocused();
+    await expect(summary).toHaveCSS("outline-style", "solid");
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".gprf-lifecycle-menu")).toBeVisible();
+    await expect(page.locator(".gprf-summary-count")).toHaveText("700");
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".gprf-lifecycle-menu")).toBeHidden();
+    await expect(summary).toBeFocused();
+  });
+}
+
 test("all lifecycle states share the production visual contract", async ({ page }) => {
   await page.goto(storyUrl("all-states-light"));
 

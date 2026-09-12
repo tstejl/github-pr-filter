@@ -78,7 +78,9 @@ function fixturePageMode(url: URL): FixturePageMode {
     mode === "partial-status-hydration" ||
     mode === "responsive-groups" ||
     mode === "open-selected-all" ||
-    mode === "no-state-groups"
+    mode === "no-state-groups" ||
+    mode === "preview" ||
+    mode === "preview-hydration"
   ) {
     return mode;
   }
@@ -144,7 +146,7 @@ function fixturePage(requestUrl: string): string {
         : `<form role="search" action="/octocat/hello-world/pulls" method="get">
           <input aria-label="Search all issues" name="q" type="search" value="${query}">
         </form>`;
-  const hydrationScript =
+  const classicHydrationScript =
     mode === "partial-status-hydration"
       ? `<script>
           setTimeout(() => {
@@ -153,6 +155,71 @@ function fixturePage(requestUrl: string): string {
               group.innerHTML = ${JSON.stringify(nativeStatusLinks)};
             }
           }, 750);
+        </script>`
+      : "";
+
+  const previewReadyCount = queryHasTerm(rawQuery, "draft:false") ? 8 : 10;
+  const previewClosedCount = queryHasTerm(rawQuery, "draft:false") ? 737 : 747;
+  const previewResultCount = queryHasTerm(rawQuery, "gprf-no-match-928471")
+    ? "0"
+    : queryHasTerm(rawQuery, "is:merged")
+      ? "700"
+      : "757";
+  const previewUsesResults =
+    queryHasTerm(rawQuery, "is:merged") || rawQuery.trim().toLowerCase() === "is:pr";
+  const previewStatusMarkup = `<div data-fixture-preview-status>
+          <button type="button" aria-pressed="${queryHasTerm(rawQuery, "is:open") ? "true" : "false"}">Open <span>${previewReadyCount}</span></button>
+          <button type="button" aria-pressed="${queryHasTerm(rawQuery, "is:closed") ? "true" : "false"}">Closed <span>${previewClosedCount}</span></button>
+        </div>`;
+  const previewResultMarkup = `<div data-fixture-preview-results>
+          <h2 data-fixture-result-heading>${previewResultCount} results</h2>
+        </div>`;
+  const previewInitialMarkup =
+    mode === "preview-hydration" && previewUsesResults
+      ? `<div data-fixture-preview-results>
+          <h2 data-fixture-result-heading>Loading results</h2>
+        </div>`
+      : previewUsesResults
+        ? previewResultMarkup
+        : previewStatusMarkup;
+  // Modeled from the supplied screenshots and live accessibility tree, not captured DOM.
+  const previewMarkup = `<main data-fixture-page="preview">
+      <form role="search" action="/octocat/hello-world/pulls?_fixture=${mode}" method="get">
+        <input aria-label="Search all issues" name="q" type="search" value="${query}">
+        <input type="hidden" name="_fixture" value="${mode}">
+      </form>
+      <section data-fixture-preview-region>
+        <h2 data-fixture-preview-title>Pull requests</h2>
+        <div data-fixture-preview-header>
+          ${previewInitialMarkup}
+          <div data-fixture-preview-tools>
+            <div role="toolbar" aria-label="Pull request filters">
+              <button type="button">Author</button>
+              <button type="button">Label</button>
+            </div>
+            <button type="button">Newest</button>
+          </div>
+        </div>
+        <ul aria-label="Pull requests">
+          <li>Fixture pull request</li>
+        </ul>
+      </section>
+      <button type="button" data-fixture-transition-results>Replace header with results</button>
+      <button type="button" data-fixture-transition-status>Replace header with status</button>
+      <button type="button" data-fixture-update-results onclick="document.querySelector('[data-fixture-result-heading]').firstChild.data = '757 results'">Update fixture results</button>
+      <section data-fixture-unrelated-results>
+        <h2>747 results</h2>
+      </section>
+    </main>`;
+  const previewHydrationScript =
+    mode === "preview-hydration" && previewUsesResults
+      ? `<script>
+          setTimeout(() => {
+            const heading = document.querySelector('[data-fixture-result-heading]');
+            if (heading) {
+              heading.textContent = ${JSON.stringify(`${previewResultCount} results`)};
+            }
+          }, 700);
         </script>`
       : "";
 
@@ -179,7 +246,7 @@ function fixturePage(requestUrl: string): string {
         const sample = () => {
           const control = document.querySelector(".gprf-lifecycle");
           const nativeLinks = [
-            ...document.querySelectorAll(".table-list-header-toggle.states > a.btn-link")
+            ...document.querySelectorAll(".table-list-header-toggle.states > a.btn-link, [data-fixture-preview-status] > button, [data-fixture-result-heading]")
           ];
           probeFrames += 1;
           document.documentElement.setAttribute(
@@ -198,6 +265,7 @@ function fixturePage(requestUrl: string): string {
             return (
               style.display !== "none" &&
               style.visibility !== "hidden" &&
+              style.clipPath !== "inset(50%)" &&
               Number.parseFloat(style.opacity || "1") > 0 &&
               link.getClientRects().length > 0
             );
@@ -212,7 +280,10 @@ function fixturePage(requestUrl: string): string {
     </script>
   </head>
   <body>
-    ${outsideMainGroup}
+    ${
+      mode === "preview" || mode === "preview-hydration"
+        ? previewMarkup
+        : `${outsideMainGroup}
     ${outsideMainSearch}
     <main>
       ${searchForms}
@@ -222,7 +293,25 @@ function fixturePage(requestUrl: string): string {
       ${stateGroups}
       <div id="repo-content">Fixture pull requests</div>
     </main>
-    ${hydrationScript}
+    ${classicHydrationScript}`
+    }
+    ${previewHydrationScript}
+    <script>
+      for (const kind of ["results", "status"]) {
+        document.querySelector('[data-fixture-transition-' + kind + ']')?.addEventListener('click', () => {
+          const url = new URL(location.href);
+          url.searchParams.set('q', kind === 'results' ? 'is:pr is:merged label:bug' : 'is:pr is:open label:bug');
+          history.replaceState({}, '', url);
+          const slot = document.querySelector('[data-fixture-preview-status], [data-fixture-preview-results]');
+          slot.outerHTML = kind === 'results'
+            ? '<div data-fixture-preview-results><h2 data-fixture-result-heading>Loading results</h2></div>'
+            : '<div data-fixture-preview-status><button>Open <span>10</span></button><button>Closed <span>747</span></button></div>';
+          if (kind === 'results') setTimeout(() => {
+            document.querySelector('[data-fixture-result-heading]').firstChild.data = '700 results';
+          }, 700);
+        });
+      }
+    </script>
   </body>
 </html>`;
 }
