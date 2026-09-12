@@ -4,7 +4,8 @@ import type { PreviewStatusControl } from "./github-pull-list-contract";
 export const HIDDEN_NATIVE_STATUS_CLASS = "gprf-native-status-hidden";
 export const HIDDEN_NATIVE_RESULTS_CLASS = "gprf-native-results-hidden";
 export const PREVIEW_CONTROL_CLASS = "gprf-lifecycle--preview";
-export const PREVIEW_TOOLBAR_SELECTOR = 'main [role="toolbar"][aria-label="Pull request filters"]';
+const PREVIEW_METADATA_SELECTOR = '[id$="-list-view-metadata"]';
+export const PREVIEW_TOOLBAR_SELECTOR = `:is(main, [role="main"], ${PREVIEW_METADATA_SELECTOR}) [role="toolbar"][aria-label="Pull request filters"]`;
 export const PREVIEW_HEADING_SELECTOR = "h1,h2,h3,h4,h5,h6,[role='heading']";
 export const PREVIEW_STATUS_CONTROL_SELECTOR = "button,a,[role='button'],[role='tab']";
 
@@ -28,7 +29,11 @@ export interface PreviewRegion {
 
 export function previewAccessibleText(element: HTMLElement): string {
   const ariaLabel = element.getAttribute("aria-label")?.trim() ?? "";
-  const text = (element.textContent ?? "").replace(/\s+/gu, " ").trim();
+  // GitHub renders both an aria-hidden CounterLabel and a screen-reader count.
+  // Reading textContent directly produces "Open25 (25)" and duplicates the count.
+  const accessible = element.cloneNode(true) as HTMLElement;
+  accessible.querySelectorAll('[aria-hidden="true"]').forEach((node) => node.remove());
+  const text = (accessible.textContent ?? "").replace(/\s+/gu, " ").trim();
   if (!ariaLabel) {
     return text;
   }
@@ -73,14 +78,15 @@ function previewStatusCandidates(
 }
 
 export function previewRegionForToolbar(toolbar: HTMLElement): PreviewRegion | null {
-  const main = toolbar.closest("main");
-  if (!main || toolbar.closest("nav,aside,[role='row'],tr")) {
+  const boundary =
+    toolbar.closest(PREVIEW_METADATA_SELECTOR) ?? toolbar.closest("main, [role=main]");
+  if (!boundary || toolbar.closest("nav,aside,[role='row'],tr")) {
     return null;
   }
 
   let root: HTMLElement | null = toolbar;
   let depth = 0;
-  while (root && root !== main && depth < 8) {
+  while (root && depth < 8) {
     if (
       root.querySelector("input, [role=search], form") ||
       root.querySelector(
@@ -103,6 +109,7 @@ export function previewRegionForToolbar(toolbar: HTMLElement): PreviewRegion | n
       !heading &&
       (controls.length !== 2 || !lifecycles.has("open") || !lifecycles.has("closed"))
     ) {
+      if (root === boundary) return null;
       root = root.parentElement;
       depth += 1;
       continue;
@@ -113,6 +120,7 @@ export function previewRegionForToolbar(toolbar: HTMLElement): PreviewRegion | n
     if (slot && anchor instanceof HTMLElement) {
       return { root, toolbar, slot, anchor, heading, controls };
     }
+    if (root === boundary) return null;
     root = root.parentElement;
     depth += 1;
   }

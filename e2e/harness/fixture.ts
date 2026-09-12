@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import * as assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { cp, mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
@@ -31,6 +32,11 @@ export interface PrepareExtensionOptions {
 
 const execFileAsync = promisify(execFile);
 const ROOT = path.resolve(import.meta.dir, "../..");
+// Exact user-supplied header capture from the signed-in GitHub preview, September 2026.
+const CAPTURED_PREVIEW_HEADER = readFileSync(
+  path.join(ROOT, "e2e/fixtures/github-preview-status-header.html.txt"),
+  "utf8"
+);
 
 function queryHasTerm(query: string, term: string): boolean {
   const normalizedTerm = term.toLowerCase();
@@ -79,6 +85,8 @@ function fixturePageMode(url: URL): FixturePageMode {
     mode === "responsive-groups" ||
     mode === "open-selected-all" ||
     mode === "no-state-groups" ||
+    mode === "preview-captured" ||
+    mode === "preview-captured-no-main" ||
     mode === "preview" ||
     mode === "preview-hydration"
   ) {
@@ -223,6 +231,12 @@ function fixturePage(requestUrl: string): string {
         </script>`
       : "";
 
+  // Only the header is captured; wrappers below exercise both host element types.
+  const capturedPreview = `<${mode === "preview-captured" ? "main" : "div"}>
+    <form role="search"><input aria-label="Search pull requests" name="q" type="search" value="${query}"></form>
+    ${CAPTURED_PREVIEW_HEADER}
+  </${mode === "preview-captured" ? "main" : "div"}>`;
+
   return `<!doctype html>
 <html lang="en" data-color-mode="auto" data-light-theme="light" data-dark-theme="dark">
   <head>
@@ -246,7 +260,7 @@ function fixturePage(requestUrl: string): string {
         const sample = () => {
           const control = document.querySelector(".gprf-lifecycle");
           const nativeLinks = [
-            ...document.querySelectorAll(".table-list-header-toggle.states > a.btn-link, [data-fixture-preview-status] > button, [data-fixture-result-heading]")
+            ...document.querySelectorAll(".table-list-header-toggle.states > a.btn-link, [data-fixture-preview-status] > button, [data-fixture-result-heading], [id$='-list-view-metadata'] > a")
           ];
           probeFrames += 1;
           document.documentElement.setAttribute(
@@ -281,9 +295,11 @@ function fixturePage(requestUrl: string): string {
   </head>
   <body>
     ${
-      mode === "preview" || mode === "preview-hydration"
-        ? previewMarkup
-        : `${outsideMainGroup}
+      mode === "preview-captured" || mode === "preview-captured-no-main"
+        ? capturedPreview
+        : mode === "preview" || mode === "preview-hydration"
+          ? previewMarkup
+          : `${outsideMainGroup}
     ${outsideMainSearch}
     <main>
       ${searchForms}

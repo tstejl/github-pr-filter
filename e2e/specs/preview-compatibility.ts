@@ -58,6 +58,56 @@ async function assertPreviewPlacement(
 }
 
 export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void {
+  for (const mode of ["preview-captured", "preview-captured-no-main"] as const) {
+    test(`${context.browserName}: captured preview header mounts with ${mode}`, async () => {
+      const browser = context.browser();
+      await browser.open(context.fixture().urlFor({ mode, query: "is:pr state:open" }));
+      await browser.waitForControl();
+      assert.deepEqual(
+        await browser.text('[id$="-list-view-metadata"] > .gprf-lifecycle .gprf-summary-label'),
+        ["Open"]
+      );
+      assert.deepEqual(await browser.text(".gprf-summary-count"), ["25"]);
+      assert.deepEqual(
+        await browser
+          .attributes('[id$="-list-view-metadata"] > a', "class")
+          .then((values) => values.map((value) => value?.includes("gprf-native-status-hidden"))),
+        [true, true]
+      );
+      await browser.waitForElementCount(".gprf-lifecycle", 1);
+      await browser.waitForElementCount(".gprf-lifecycle--standalone", 0);
+      assert.deepEqual(
+        await browser
+          .attributes('[aria-label="Pull request filters"] button', "class")
+          .then((values) => values.map((value) => value?.includes("gprf-native-status-hidden"))),
+        Array(7).fill(false)
+      );
+      await browser.click(".gprf-lifecycle-summary");
+      await browser.click('.gprf-lifecycle-option[data-lifecycle="closed"]');
+      await browser.waitForText(".gprf-summary-label", "Closed", true);
+      assert.deepEqual(await browser.text(".gprf-summary-count"), ["2,126"]);
+    }, 90_000);
+  }
+
+  test(`${context.browserName}: captured preview stays hidden during delayed startup`, async () => {
+    await withExtensionSession(
+      context.browserName,
+      { interactiveDelayMs: 2500 },
+      async (browser) => {
+        await browser.open(
+          context.fixture().urlFor({ mode: "preview-captured-no-main", query: "is:pr state:open" })
+        );
+        await browser.waitForControl();
+        assert.ok(Number(await browser.attribute("html", "data-gprf-pre-mount-frames")) > 0);
+        assert.equal(await browser.attribute("html", "data-gprf-native-ever-visible"), null);
+        assert.deepEqual(
+          await browser.text('[id$="-list-view-metadata"] > .gprf-lifecycle .gprf-summary-count'),
+          ["25"]
+        );
+      }
+    );
+  }, 90_000);
+
   for (const expected of PREVIEW_CASES) {
     test(`${context.browserName}: preview replaces ${expected.query} in place`, async () => {
       await context
