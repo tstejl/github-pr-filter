@@ -96,9 +96,13 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
         starts + 1
       );
       await browser.waitForElementCount('[id$="-list-view-metadata"] > .gprf-lifecycle[open]', 1);
+      await browser.waitForElementCount(".gprf-lifecycle-menu:popover-open", 1);
+      assert.equal(await browser.attribute("html", "data-gprf-summary-expansion-variants"), "1");
       await browser.click('.gprf-lifecycle-option[data-lifecycle="closed"]');
       await browser.waitForText(".gprf-summary-label", "Closed", true);
-      assert.deepEqual(await browser.text(".gprf-summary-count"), ["2,126"]);
+      assert.deepEqual(await browser.text(".gprf-summary-count"), [
+        mode === "preview-captured-checkbox" ? "2,131" : "2,126"
+      ]);
     }, 90_000);
   }
 

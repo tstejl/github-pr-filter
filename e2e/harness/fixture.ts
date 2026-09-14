@@ -38,6 +38,11 @@ const CAPTURED_PREVIEW_HEADER = readFileSync(
   "utf8"
 );
 
+const CAPTURED_BULK_HEADER = readFileSync(
+  path.join(ROOT, "e2e/fixtures/github-preview-bulk-header.html.txt"),
+  "utf8"
+);
+
 function queryHasTerm(query: string, term: string): boolean {
   const normalizedTerm = term.toLowerCase();
   return query
@@ -235,7 +240,7 @@ function fixturePage(requestUrl: string): string {
   // Only the header is captured; wrappers below exercise both host element types.
   const capturedPreview = `<${mode === "preview-captured" ? "main" : "div"}>
     <form role="search"><input aria-label="Search pull requests" name="q" type="search" value="${query}"></form>
-    ${mode === "preview-captured-checkbox" ? CAPTURED_PREVIEW_HEADER.replace('class="Metadata-module__container__epfvu">', 'class="Metadata-module__container__epfvu"><input type="checkbox" aria-label="Select all pull requests">') : CAPTURED_PREVIEW_HEADER}
+    ${mode === "preview-captured-checkbox" ? CAPTURED_BULK_HEADER : CAPTURED_PREVIEW_HEADER}
   </${mode === "preview-captured" ? "main" : "div"}>`;
 
   return `<!doctype html>
@@ -248,6 +253,21 @@ function fixturePage(requestUrl: string): string {
         let probeFrames = 0;
         let preMountFrames = 0;
         let menuAnimationStarts = 0;
+        document.addEventListener("click", (event) => {
+          const summary = event.target.closest?.('.gprf-lifecycle-summary');
+          if (!summary || summary.parentElement.open) return;
+          const control = summary.parentElement;
+          const variants = new Set();
+          const until = performance.now() + 300;
+          const sampleExpansion = () => {
+            const rect = summary.getBoundingClientRect();
+            variants.add(JSON.stringify([control.isConnected, control.parentElement?.id,
+              summary.textContent, getComputedStyle(summary).visibility, rect.x, rect.y, rect.width]));
+            document.documentElement.setAttribute('data-gprf-summary-expansion-variants', String(variants.size));
+            if (performance.now() < until) requestAnimationFrame(sampleExpansion);
+          };
+          sampleExpansion();
+        }, true);
         document.addEventListener("animationstart", (event) => {
           if (event.animationName !== "gprf-menu-open") {
             return;
