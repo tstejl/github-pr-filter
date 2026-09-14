@@ -203,10 +203,10 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
     await browser.waitForControl();
     await browser.replaceUrlQuery("is:pr");
     await browser.waitForText(".gprf-summary-label", "All", true);
-    await browser.waitForElementCount(".gprf-summary-count[hidden]", 1);
+    await browser.waitForElementCount(".gprf-summary-count--pending", 1);
     await browser.appendUnrelatedDomMutation();
     await browser.wait(150);
-    await browser.waitForElementCount(".gprf-summary-count[hidden]", 1);
+    await browser.waitForElementCount(".gprf-summary-count--pending", 1);
     await browser.click("[data-fixture-update-results]");
     await browser.waitForText(".gprf-summary-count", "757", true);
     await browser.waitForElementCount(PREVIEW_CONTROL, 1);

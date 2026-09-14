@@ -71,11 +71,13 @@ function refreshControl(
   controller: LifecycleControlController,
   state: LifecyclePageRenderState,
   count: string | null = null,
-  turboFrame?: string | null
+  turboFrame?: string | null,
+  countPending = false
 ): void {
   controller.refresh({
     selection: state.selection,
     count,
+    countPending,
     hrefForLifecycle: (lifecycle) => state.actionUrls[lifecycle],
     layout: state.layout,
     ...(turboFrame !== undefined ? { turboFrame } : {})
@@ -415,7 +417,7 @@ export function createGitHubPullListAdapter(
         }
         const existingController = existingElement ? controls.get(existingElement) : undefined;
         if (existingController) {
-          refreshControl(existingController, state, count);
+          refreshControl(existingController, state, count, undefined, count === null);
           continue;
         }
         existingElement?.remove();

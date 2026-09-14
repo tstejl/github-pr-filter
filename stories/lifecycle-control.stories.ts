@@ -419,3 +419,30 @@ export const NarrowExpanded = {
     return shell;
   }
 } satisfies Story;
+
+export const PreviewCountRefresh = {
+  render: (args) => {
+    const shell = createShell(args.theme);
+    const controller = createLifecycleControl({
+      selection: { kind: "preset", lifecycle: "needs_review" },
+      count: "2",
+      hrefForLifecycle: lifecycleHref
+    });
+    controller.element.classList.add("gprf-lifecycle--preview");
+    shell.append(controller.element);
+    for (const pending of [true, false]) {
+      const button = document.createElement("button");
+      button.textContent = pending ? "Start refresh" : "Complete refresh";
+      button.addEventListener("click", () =>
+        controller.refresh({
+          selection: { kind: "preset", lifecycle: "needs_review" },
+          hrefForLifecycle: lifecycleHref,
+          count: pending ? null : "2",
+          countPending: pending
+        })
+      );
+      shell.append(button);
+    }
+    return shell;
+  }
+} satisfies Story;

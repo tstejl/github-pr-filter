@@ -1,3 +1,4 @@
+import { createMenuOverlay } from "./menu-overlay";
 import { createLifecycleEditor, type LifecycleEditor } from "./lifecycle-editor";
 import {
   cloneLifecycleLayout,
@@ -47,6 +48,7 @@ export interface LifecycleControlConfiguration {
 }
 
 export interface LifecycleControlRefresh {
+  readonly countPending?: boolean;
   readonly selection: ActiveLifecycleSelection;
   readonly hrefForLifecycle: (lifecycle: Lifecycle) => string | null;
   readonly count?: string | null;
@@ -175,7 +177,8 @@ function selectedOption(
 function updateSummary(
   summary: HTMLElement,
   selectedLifecycle: LifecycleDisplayOption,
-  count: string | null
+  count: string | null,
+  countPending = false
 ): void {
   summary.dataset.lifecycle = selectedLifecycle.value;
   const isCustom = selectedLifecycle.value === "custom";
@@ -196,6 +199,15 @@ function updateSummary(
   }
   if (summaryLabel.textContent !== visibleLabel) {
     summaryLabel.textContent = visibleLabel;
+  }
+  // Keep the occupied count space while GitHub refreshes it. Removing the span
+  // makes the adjacent label jump left and right during each hydration pass.
+  const waiting = countPending && !!summaryCount.textContent;
+  summaryCount.classList.toggle("gprf-summary-count--pending", waiting);
+  summaryCount.setAttribute("aria-hidden", String(waiting));
+  if (waiting) {
+    summaryCount.hidden = false;
+    return;
   }
   const nextCount = count ?? "";
   if (summaryCount.textContent !== nextCount) {
@@ -287,6 +299,7 @@ export function createLifecycleControl({
   footer.hidden = true;
   header.append(heading, actions);
   menu.append(header, body, footer);
+  const overlay = createMenuOverlay(control, summary, menu);
 
   const renderOptions = (): void => {
     const activeLifecycle =
@@ -381,6 +394,7 @@ export function createLifecycleControl({
 
   const finishClose = (): void => {
     clearCloseTimer();
+    overlay.hide();
     menu.classList.remove("gprf-menu-opening", "gprf-menu-closing");
     observedOpen = false;
     control.open = false;
@@ -532,6 +546,7 @@ export function createLifecycleControl({
 
   control.addEventListener("toggle", () => {
     if (!control.open) {
+      overlay.hide();
       observedOpen = false;
       reopeningDuringClose = false;
       clearCloseTimer();
@@ -540,6 +555,7 @@ export function createLifecycleControl({
       leaveConfiguration(false);
       return;
     }
+    overlay.show();
     const reopened = reopeningDuringClose;
     reopeningDuringClose = false;
     observedOpen = true;
@@ -557,6 +573,7 @@ export function createLifecycleControl({
     selection: nextSelection,
     hrefForLifecycle: nextHrefForLifecycle,
     count: nextCount = null,
+    countPending = false,
     options: nextOptions = LIFECYCLE_OPTIONS,
     layout: nextLayout,
     turboFrame: nextTurboFrame
@@ -570,7 +587,12 @@ export function createLifecycleControl({
     if (nextTurboFrame !== undefined) {
       renderedTurboFrame = nextTurboFrame;
     }
-    updateSummary(summary, selectedOption(renderedOptions, renderedSelection), nextCount);
+    updateSummary(
+      summary,
+      selectedOption(renderedOptions, renderedSelection),
+      nextCount,
+      countPending
+    );
     if (!configuring) {
       renderOptions();
     }
@@ -582,6 +604,7 @@ export function createLifecycleControl({
     destroy: () => {
       clearCloseTimer();
       openObserver?.disconnect();
+      overlay.hide();
       control.remove();
     }
   };

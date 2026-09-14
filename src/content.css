@@ -584,3 +584,18 @@ html.gprf-replacement-mounted .gprf-native-results-hidden {
     animation: none;
   }
 }
+
+/* Popovers escape ancestor overflow and stacking contexts without moving the DOM. */
+.gprf-lifecycle--preview > .gprf-lifecycle-menu[popover] {
+  position: fixed;
+  margin: 0;
+  right: auto;
+  bottom: auto;
+  max-width: calc(100vw - 16px);
+  min-width: min(248px, calc(100vw - 16px));
+  overflow-y: auto;
+}
+
+.gprf-summary-count--pending {
+  visibility: hidden;
+}
