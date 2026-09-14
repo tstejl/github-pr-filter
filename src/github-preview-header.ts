@@ -88,7 +88,7 @@ export function previewRegionForToolbar(toolbar: HTMLElement): PreviewRegion | n
   let depth = 0;
   while (root && depth < 8) {
     if (
-      root.querySelector("input, [role=search], form") ||
+      root.querySelector('input:not([type="checkbox"]), [role=search], form') ||
       root.querySelector(
         "table,[role='row'],ul[aria-label='Pull requests'],[role='list'],a[href*='/pull/']"
       ) ||

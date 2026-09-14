@@ -85,6 +85,7 @@ function fixturePageMode(url: URL): FixturePageMode {
     mode === "responsive-groups" ||
     mode === "open-selected-all" ||
     mode === "no-state-groups" ||
+    mode === "preview-captured-checkbox" ||
     mode === "preview-captured" ||
     mode === "preview-captured-no-main" ||
     mode === "preview" ||
@@ -234,7 +235,7 @@ function fixturePage(requestUrl: string): string {
   // Only the header is captured; wrappers below exercise both host element types.
   const capturedPreview = `<${mode === "preview-captured" ? "main" : "div"}>
     <form role="search"><input aria-label="Search pull requests" name="q" type="search" value="${query}"></form>
-    ${CAPTURED_PREVIEW_HEADER}
+    ${mode === "preview-captured-checkbox" ? CAPTURED_PREVIEW_HEADER.replace('class="Metadata-module__container__epfvu">', 'class="Metadata-module__container__epfvu"><input type="checkbox" aria-label="Select all pull requests">') : CAPTURED_PREVIEW_HEADER}
   </${mode === "preview-captured" ? "main" : "div"}>`;
 
   return `<!doctype html>
@@ -295,7 +296,9 @@ function fixturePage(requestUrl: string): string {
   </head>
   <body>
     ${
-      mode === "preview-captured" || mode === "preview-captured-no-main"
+      mode === "preview-captured-checkbox" ||
+      mode === "preview-captured" ||
+      mode === "preview-captured-no-main"
         ? capturedPreview
         : mode === "preview" || mode === "preview-hydration"
           ? previewMarkup

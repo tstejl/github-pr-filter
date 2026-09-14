@@ -8,6 +8,7 @@ export type FixturePageMode =
   | "responsive-groups"
   | "open-selected-all"
   | "no-state-groups"
+  | "preview-captured-checkbox"
   | "preview-captured"
   | "preview-captured-no-main"
   | "preview"

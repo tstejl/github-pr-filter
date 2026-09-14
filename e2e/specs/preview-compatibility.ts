@@ -58,7 +58,11 @@ async function assertPreviewPlacement(
 }
 
 export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void {
-  for (const mode of ["preview-captured", "preview-captured-no-main"] as const) {
+  for (const mode of [
+    "preview-captured",
+    "preview-captured-no-main",
+    "preview-captured-checkbox"
+  ] as const) {
     test(`${context.browserName}: captured preview header mounts with ${mode}`, async () => {
       const browser = context.browser();
       await browser.open(context.fixture().urlFor({ mode, query: "is:pr state:open" }));
@@ -82,7 +86,16 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
           .then((values) => values.map((value) => value?.includes("gprf-native-status-hidden"))),
         Array(7).fill(false)
       );
+      const starts = Number(
+        (await browser.attribute("html", "data-gprf-menu-animation-starts")) ?? "0"
+      );
       await browser.click(".gprf-lifecycle-summary");
+      await browser.wait(350);
+      assert.equal(
+        Number(await browser.attribute("html", "data-gprf-menu-animation-starts")),
+        starts + 1
+      );
+      await browser.waitForElementCount('[id$="-list-view-metadata"] > .gprf-lifecycle[open]', 1);
       await browser.click('.gprf-lifecycle-option[data-lifecycle="closed"]');
       await browser.waitForText(".gprf-summary-label", "Closed", true);
       assert.deepEqual(await browser.text(".gprf-summary-count"), ["2,126"]);
