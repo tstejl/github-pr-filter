@@ -5,7 +5,7 @@ export const HIDDEN_NATIVE_STATUS_CLASS = "gprf-native-status-hidden";
 export const HIDDEN_NATIVE_RESULTS_CLASS = "gprf-native-results-hidden";
 export const PREVIEW_CONTROL_CLASS = "gprf-lifecycle--preview";
 const PREVIEW_METADATA_SELECTOR = '[id$="-list-view-metadata"]';
-export const PREVIEW_TOOLBAR_SELECTOR = `:is(main, [role="main"], ${PREVIEW_METADATA_SELECTOR}) [role="toolbar"][aria-label="Pull request filters"]`;
+export const PREVIEW_TOOLBAR_SELECTOR = `:is(main, [role="main"], ${PREVIEW_METADATA_SELECTOR}) [role="toolbar"][aria-label="Pull request filters"], ${PREVIEW_METADATA_SELECTOR} [role="toolbar"][aria-label="Actions"]`;
 export const PREVIEW_HEADING_SELECTOR = "h1,h2,h3,h4,h5,h6,[role='heading']";
 export const PREVIEW_STATUS_CONTROL_SELECTOR = "button,a,[role='button'],[role='tab']";
 
@@ -60,10 +60,15 @@ export function isPreviewResultHeading(element: HTMLElement): boolean {
 
 function previewStatusCandidates(
   root: HTMLElement,
-  excludedRoot?: HTMLElement
+  excludedRoot?: HTMLElement,
+  toolbar?: HTMLElement
 ): readonly PreviewStatusCandidate[] {
   const candidates: PreviewStatusCandidate[] = [];
-  for (const element of root.querySelectorAll<HTMLElement>(PREVIEW_STATUS_CONTROL_SELECTOR)) {
+  const selector =
+    toolbar?.getAttribute("aria-label") === "Actions"
+      ? "[data-open-closed-tab]"
+      : PREVIEW_STATUS_CONTROL_SELECTOR;
+  for (const element of root.querySelectorAll<HTMLElement>(selector)) {
     if (excludedRoot?.contains(element) || element.closest(`.${CONTROL_CLASS}`)) {
       continue;
     }
@@ -103,7 +108,7 @@ export function previewRegionForToolbar(toolbar: HTMLElement): PreviewRegion | n
           (isPreviewResultHeading(element) ||
             /^loading results[.…]*$/iu.test(previewAccessibleText(element)))
       ) ?? null;
-    const controls = previewStatusCandidates(root, toolbar);
+    const controls = previewStatusCandidates(root, toolbar, toolbar);
     const lifecycles = new Set(controls.map(({ control }) => control.lifecycle));
     if (
       !heading &&
@@ -115,8 +120,17 @@ export function previewRegionForToolbar(toolbar: HTMLElement): PreviewRegion | n
       continue;
     }
     const anchorCandidate = controls[0];
-    const slot = anchorCandidate?.element.parentElement ?? heading?.parentElement ?? toolbar;
-    const anchor = anchorCandidate?.element ?? heading ?? toolbar.firstElementChild;
+    const issueStatusList =
+      toolbar.getAttribute("aria-label") === "Actions"
+        ? anchorCandidate?.element.closest<HTMLElement>("ul.list-style-none")
+        : null;
+    const slot =
+      issueStatusList?.parentElement ??
+      anchorCandidate?.element.parentElement ??
+      heading?.parentElement ??
+      toolbar;
+    const anchor =
+      issueStatusList ?? anchorCandidate?.element ?? heading ?? toolbar.firstElementChild;
     if (slot && anchor instanceof HTMLElement) {
       return { root, toolbar, slot, anchor, heading, controls };
     }
@@ -145,14 +159,23 @@ export function refreshPreviewRegion(region: PreviewRegion): PreviewRegion | nul
   if (!region.root.isConnected || !region.toolbar.isConnected || !region.slot.isConnected) {
     return null;
   }
-  const controls = previewStatusCandidates(region.root, region.toolbar);
+  const controls = previewStatusCandidates(region.root, region.toolbar, region.toolbar);
   const heading =
     [...region.root.querySelectorAll<HTMLElement>(PREVIEW_HEADING_SELECTOR)].find(
       isPreviewResultHeading
     ) ?? (region.heading?.isConnected ? region.heading : null);
   const anchorCandidate = controls[0];
-  const slot = anchorCandidate?.element.parentElement ?? heading?.parentElement ?? region.slot;
-  const anchor = anchorCandidate?.element ?? heading ?? region.anchor;
+  const issueStatusList =
+    region.toolbar.getAttribute("aria-label") === "Actions"
+      ? (anchorCandidate?.element.closest<HTMLElement>("ul.list-style-none") ??
+        (region.anchor.matches("ul.list-style-none") ? region.anchor : null))
+      : null;
+  const slot =
+    issueStatusList?.parentElement ??
+    anchorCandidate?.element.parentElement ??
+    heading?.parentElement ??
+    region.slot;
+  const anchor = issueStatusList ?? anchorCandidate?.element ?? heading ?? region.anchor;
   if (!slot || !(anchor instanceof HTMLElement) || anchor.parentElement !== slot) {
     return null;
   }

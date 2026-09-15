@@ -1,5 +1,7 @@
 export type BrowserName = "chromium" | "firefox";
 
+export type FixturePageKind = "pulls" | "issues";
+
 export type FixturePageMode =
   | "decoy-state-group"
   | "default"
@@ -15,6 +17,7 @@ export type FixturePageMode =
   | "preview-hydration";
 
 export interface FixturePageOptions {
+  kind?: FixturePageKind;
   mode?: FixturePageMode;
   query?: string | null;
 }

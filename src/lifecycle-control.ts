@@ -42,6 +42,7 @@ export interface LifecycleControlConfiguration {
   readonly ownerDocument?: Document;
   readonly exclusive?: boolean;
   readonly customizable?: boolean;
+  readonly subject?: "pull request" | "issue";
   readonly layout?: LifecycleLayout;
   readonly onApplyLayout?: (layout: LifecycleLayout) => void;
   readonly turboFrame?: string | null;
@@ -178,19 +179,21 @@ function updateSummary(
   summary: HTMLElement,
   selectedLifecycle: LifecycleDisplayOption,
   count: string | null,
-  countPending = false
+  countPending = false,
+  subject: "pull request" | "issue" = "pull request"
 ): void {
   summary.dataset.lifecycle = selectedLifecycle.value;
   const isCustom = selectedLifecycle.value === "custom";
   const visibleLabel = isCustom ? "Custom" : selectedLifecycle.label;
-  const countPrefix = count ? `${count} pull requests. ` : "";
+  const pluralSubject = subject === "issue" ? "issues" : "pull requests";
+  const countPrefix = count ? `${count} ${pluralSubject}. ` : "";
   summary.setAttribute(
     "aria-label",
     isCustom
-      ? `${countPrefix}Pull request state: Custom. ${selectedLifecycle.description}.`
+      ? `${countPrefix}${subject === "issue" ? "Issue" : "Pull request"} state: Custom. ${selectedLifecycle.description}.`
       : count
-        ? `${count} pull requests: ${visibleLabel}`
-        : `Pull request state: ${visibleLabel}`
+        ? `${count} ${pluralSubject}: ${visibleLabel}`
+        : `${subject === "issue" ? "Issue" : "Pull request"} state: ${visibleLabel}`
   );
   const summaryLabel = summary.querySelector<HTMLElement>(".gprf-summary-label");
   const summaryCount = summary.querySelector<HTMLElement>(".gprf-summary-count");
@@ -225,6 +228,7 @@ export function createLifecycleControl({
   ownerDocument = document,
   exclusive = true,
   customizable = false,
+  subject = "pull request",
   layout = DEFAULT_LIFECYCLE_LAYOUT,
   onApplyLayout,
   turboFrame = null
@@ -279,17 +283,17 @@ export function createLifecycleControl({
   chevron.className = "gprf-chevron";
   chevron.setAttribute("aria-hidden", "true");
   summary.append(summaryCopy, chevron);
-  updateSummary(summary, activeOption, count);
+  updateSummary(summary, activeOption, count, false, subject);
 
   const menu = ownerDocument.createElement("div");
   menu.className = "gprf-lifecycle-menu";
   menu.setAttribute("role", "menu");
-  menu.setAttribute("aria-label", "Filter by pull request state");
+  menu.setAttribute("aria-label", `Filter by ${subject} state`);
   const header = ownerDocument.createElement("div");
   header.className = "gprf-menu-header";
   const heading = ownerDocument.createElement("div");
   heading.className = "gprf-menu-heading";
-  heading.textContent = "Pull request state";
+  heading.textContent = `${subject === "issue" ? "Issue" : "Pull request"} state`;
   const actions = ownerDocument.createElement("div");
   actions.className = "gprf-menu-actions";
   const body = ownerDocument.createElement("div");
@@ -374,7 +378,7 @@ export function createLifecycleControl({
     editor = null;
     control.classList.remove("gprf-lifecycle--configuring");
     menu.setAttribute("role", "menu");
-    heading.textContent = "Pull request state";
+    heading.textContent = `${subject === "issue" ? "Issue" : "Pull request"} state`;
     footer.hidden = true;
     footer.replaceChildren();
     const configure = renderNormalActions();
@@ -574,7 +578,7 @@ export function createLifecycleControl({
     hrefForLifecycle: nextHrefForLifecycle,
     count: nextCount = null,
     countPending = false,
-    options: nextOptions = LIFECYCLE_OPTIONS,
+    options: nextOptions = renderedOptions,
     layout: nextLayout,
     turboFrame: nextTurboFrame
   }: LifecycleControlRefresh): void => {
@@ -591,7 +595,8 @@ export function createLifecycleControl({
       summary,
       selectedOption(renderedOptions, renderedSelection),
       nextCount,
-      countPending
+      countPending,
+      subject
     );
     if (!configuring) {
       renderOptions();

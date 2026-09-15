@@ -2,7 +2,12 @@ import { test } from "bun:test";
 import * as assert from "node:assert/strict";
 import * as fs from "node:fs";
 import path from "node:path";
-import { isRepositoryPullListPath, repositoryKeyFromPullListPath } from "../src/page-scope";
+import {
+  isRepositoryIssueListPath,
+  isRepositoryPullListPath,
+  repositoryKeyFromIssueListPath,
+  repositoryKeyFromPullListPath
+} from "../src/page-scope";
 
 const projectRoot = path.resolve(import.meta.dir, "..");
 
@@ -88,6 +93,18 @@ test("page scope includes repository PR lists and excludes global pulls", () => 
   assert.equal(isRepositoryPullListPath("/octocat/hello-world/pulls/1"), false);
   assert.equal(repositoryKeyFromPullListPath("/OctoCat/Hello-World/pulls"), "octocat/hello-world");
   assert.equal(repositoryKeyFromPullListPath("/pulls"), null);
+});
+
+test("page scope includes repository issue lists and excludes issue details", () => {
+  assert.equal(isRepositoryIssueListPath("/octocat/hello-world/issues"), true);
+  assert.equal(isRepositoryIssueListPath("/octocat/hello-world/issues/"), true);
+  assert.equal(isRepositoryIssueListPath("/issues"), false);
+  assert.equal(isRepositoryIssueListPath("/octocat/hello-world/issues/1"), false);
+  assert.equal(
+    repositoryKeyFromIssueListPath("/OctoCat/Hello-World/issues"),
+    "octocat/hello-world"
+  );
+  assert.equal(repositoryKeyFromIssueListPath("/issues"), null);
 });
 
 test("navigation keeps GitHub Turbo hooks instead of forcing a page reload", () => {

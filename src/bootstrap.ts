@@ -3,7 +3,7 @@ import {
   HIDDEN_NATIVE_STATUS_CLASS,
   HIDDEN_NATIVE_RESULTS_CLASS
 } from "./github-preview-header";
-import { isRepositoryPullListPath } from "./page-scope";
+import { isRepositoryIssueListPath, isRepositoryPullListPath } from "./page-scope";
 import { createPageMarkerController } from "./page-markers";
 
 const pageMarkers = createPageMarkerController({
@@ -13,7 +13,10 @@ const pageMarkers = createPageMarkerController({
 function isSupportedUrl(value: string): boolean {
   try {
     const url = new URL(value, location.href);
-    return url.origin === location.origin && isRepositoryPullListPath(url.pathname);
+    return (
+      url.origin === location.origin &&
+      (isRepositoryPullListPath(url.pathname) || isRepositoryIssueListPath(url.pathname))
+    );
   } catch {
     return false;
   }

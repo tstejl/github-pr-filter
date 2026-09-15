@@ -20,10 +20,18 @@ import {
   type LifecycleControlController
 } from "./lifecycle-control";
 import { createLifecycleNavigationPlan } from "./lifecycle-navigation";
+import { createIssueNavigationPlan } from "./issue-navigation";
+import { ISSUE_LIFECYCLE_OPTIONS } from "./issue-options";
+import { LIFECYCLE_OPTIONS } from "./lifecycle-options";
+import { DEFAULT_LIFECYCLE_LAYOUT } from "./lifecycle-layout";
 import type { LifecycleStatePartition } from "./lifecycle-query";
 import type { LifecyclePageRenderState, LifecyclePageSnapshot } from "./page-coordinator";
 import { clearPageMarkers, markReplacementMounted, markReplacementPending } from "./page-markers";
-import { isRepositoryPullListPath, repositoryKeyFromPullListPath } from "./page-scope";
+import {
+  isRepositoryIssueListPath,
+  isRepositoryPullListPath,
+  repositoryKeyFromListPath
+} from "./page-scope";
 import {
   createCommittedQueryContext,
   hasRecognizableNativeStatusLinks,
@@ -42,11 +50,13 @@ const SEARCH_INPUT_SELECTORS = Object.freeze([
   'main input[aria-label*="Search pull requests" i]',
   'main input[placeholder*="Search pull requests" i]',
   'main input[aria-label="Search all issues"]',
+  "main #repository-input",
   'main input[name="q"][type="search"]',
   'main input[name="query"][type="search"]',
   'input[aria-label*="Search pull requests" i]',
   'input[placeholder*="Search pull requests" i]',
   'input[aria-label="Search all issues"]',
+  "#repository-input",
   'input[name="q"][type="search"]',
   'input[name="query"][type="search"]',
   'input[name="q"]'
@@ -61,6 +71,8 @@ export interface GitHubPullListAdapter {
   subscribePageChanges(listener: () => void): () => void;
 }
 
+type GitHubListKind = "pulls" | "issues";
+
 interface GitHubPullListAdapterEnvironment {
   readonly document: Document;
   readonly location: Location;
@@ -72,14 +84,15 @@ function refreshControl(
   state: LifecyclePageRenderState,
   count: string | null = null,
   turboFrame?: string | null,
-  countPending = false
+  countPending = false,
+  issuePage = false
 ): void {
   controller.refresh({
     selection: state.selection,
     count,
     countPending,
     hrefForLifecycle: (lifecycle) => state.actionUrls[lifecycle],
-    layout: state.layout,
+    layout: issuePage ? DEFAULT_LIFECYCLE_LAYOUT : state.layout,
     ...(turboFrame !== undefined ? { turboFrame } : {})
   });
 }
@@ -122,6 +135,16 @@ const touchesPreviewContract = (element: Element): boolean =>
   element.closest(PREVIEW_TOOLBAR_SELECTOR) !== null ||
   element.querySelector(PREVIEW_TOOLBAR_SELECTOR) !== null;
 
+const listKindForPath = (pathname: string): GitHubListKind | null => {
+  if (isRepositoryIssueListPath(pathname)) {
+    return "issues";
+  }
+  if (isRepositoryPullListPath(pathname)) {
+    return "pulls";
+  }
+  return null;
+};
+
 export function createGitHubPullListAdapter(
   environment: GitHubPullListAdapterEnvironment
 ): GitHubPullListAdapter {
@@ -131,6 +154,11 @@ export function createGitHubPullListAdapter(
   const previewHeadings = new Set<HTMLElement>();
   const hiddenPreviewHeadings = new Set<HTMLElement>();
   let previewHeadingFresh = true;
+
+  const listKind = (): GitHubListKind =>
+    isRepositoryIssueListPath(location.pathname) ? "issues" : "pulls";
+  const isSupportedList = (): boolean =>
+    isRepositoryPullListPath(location.pathname) || isRepositoryIssueListPath(location.pathname);
 
   const isVisibleSearchInput = (input: HTMLInputElement): boolean => {
     if (input.hidden || input.type === "hidden") {
@@ -143,7 +171,7 @@ export function createGitHubPullListAdapter(
   };
 
   const belongsToCurrentPullList = (input: HTMLInputElement): boolean => {
-    if (input.name !== "q" && input.name !== "query") {
+    if (input.name !== "q" && input.name !== "query" && input.id !== "repository-input") {
       return false;
     }
     const form = input.closest("form");
@@ -152,10 +180,14 @@ export function createGitHubPullListAdapter(
     }
     try {
       const action = new URL(form.getAttribute("action") || location.href, location.href);
-      const currentRepository = repositoryKeyFromPullListPath(location.pathname);
+      const currentRepository = repositoryKeyFromListPath(location.pathname);
+      const currentKind = listKindForPath(location.pathname);
+      const actionKind = listKindForPath(action.pathname);
       return (
         currentRepository !== null &&
-        repositoryKeyFromPullListPath(action.pathname) === currentRepository
+        currentKind !== null &&
+        actionKind === currentKind &&
+        repositoryKeyFromListPath(action.pathname) === currentRepository
       );
     } catch {
       return false;
@@ -240,13 +272,16 @@ export function createGitHubPullListAdapter(
     turboFrame: string | null = null,
     modifierClass: string | null = null
   ): LifecycleControlController => {
+    const issuePage = listKind() === "issues";
     const controller = createLifecycleControl({
       selection: state.selection,
       standalone,
       count,
       hrefForLifecycle: (lifecycle) => state.actionUrls[lifecycle],
-      customizable: true,
-      layout: state.layout,
+      options: issuePage ? ISSUE_LIFECYCLE_OPTIONS : LIFECYCLE_OPTIONS,
+      customizable: !issuePage,
+      subject: issuePage ? "issue" : "pull request",
+      layout: issuePage ? DEFAULT_LIFECYCLE_LAYOUT : state.layout,
       onApplyLayout: state.applyLayout,
       turboFrame,
       ownerDocument: document
@@ -343,7 +378,14 @@ export function createGitHubPullListAdapter(
           nativeLink.classList.add(HIDDEN_NATIVE_STATUS_CLASS);
         }
         if (existingController) {
-          refreshControl(existingController, state, count, turboFrame);
+          refreshControl(
+            existingController,
+            state,
+            count,
+            turboFrame,
+            false,
+            listKind() === "issues"
+          );
           continue;
         }
         existingElement?.remove();
@@ -417,7 +459,14 @@ export function createGitHubPullListAdapter(
         }
         const existingController = existingElement ? controls.get(existingElement) : undefined;
         if (existingController) {
-          refreshControl(existingController, state, count, undefined, count === null);
+          refreshControl(
+            existingController,
+            state,
+            count,
+            undefined,
+            count === null,
+            listKind() === "issues"
+          );
           continue;
         }
         existingElement?.remove();
@@ -450,7 +499,7 @@ export function createGitHubPullListAdapter(
       : null;
     const existingController = existingElement ? controls.get(existingElement) : undefined;
     if (existingController) {
-      refreshControl(existingController, state);
+      refreshControl(existingController, state, null, undefined, false, listKind() === "issues");
       markReplacementMounted(document.documentElement);
       return;
     }
@@ -461,10 +510,15 @@ export function createGitHubPullListAdapter(
 
   const snapshot = (): LifecyclePageSnapshot => {
     const queryContext = createCommittedQueryContext(location.href, committedSearchField());
-    const navigation = createLifecycleNavigationPlan(queryContext);
+    const navigation =
+      listKind() === "issues"
+        ? createIssueNavigationPlan(queryContext)
+        : createLifecycleNavigationPlan(queryContext);
+    const repository = repositoryKeyFromListPath(location.pathname);
     return {
-      supported: isRepositoryPullListPath(location.pathname),
-      repository: repositoryKeyFromPullListPath(location.pathname),
+      supported: isSupportedList(),
+      repository:
+        repository === null ? null : listKind() === "issues" ? `${repository}#issues` : repository,
       selection: navigation.analysis.selection,
       statePartition: navigation.analysis.statePartition,
       actionUrls: navigation.actionUrls
@@ -596,7 +650,7 @@ export function createGitHubPullListAdapter(
     let observingPullList = false;
     let observer: MutationObserver | null = null;
     const syncObserverScope = (): void => {
-      const shouldObserve = isRepositoryPullListPath(location.pathname);
+      const shouldObserve = isSupportedList();
       if (shouldObserve === observingPullList || observer === null) {
         return;
       }
@@ -629,7 +683,7 @@ export function createGitHubPullListAdapter(
         previewHeadingFresh = true;
       }
       observedHref = location.href;
-      if (isRepositoryPullListPath(location.pathname)) {
+      if (isSupportedList()) {
         markReplacementPending(document.documentElement);
       }
       syncObserverScope();

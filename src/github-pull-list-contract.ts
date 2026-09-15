@@ -2,7 +2,11 @@ import { parseResultHeadingCount } from "./github-preview-header";
 export { parseResultHeadingCount };
 import type { PullListQueryContext } from "./lifecycle-navigation";
 import { analyzeLifecycleQuery, type LifecycleStatePartition } from "./lifecycle-query";
-import { repositoryKeyFromPullListPath } from "./page-scope";
+import {
+  isRepositoryIssueListPath,
+  isRepositoryPullListPath,
+  repositoryKeyFromListPath
+} from "./page-scope";
 
 export interface CommittedSearchField {
   readonly name: string;
@@ -204,11 +208,16 @@ export function hasRecognizableNativeStatusLinks(
   let pageRepository: string | null;
   try {
     parsedPageUrl = new URL(pageUrl);
-    pageRepository = repositoryKeyFromPullListPath(parsedPageUrl.pathname);
+    pageRepository = repositoryKeyFromListPath(parsedPageUrl.pathname);
   } catch {
     return false;
   }
   if (pageRepository === null) {
+    return false;
+  }
+  const pageIsIssues = isRepositoryIssueListPath(parsedPageUrl.pathname);
+  const pageIsPulls = isRepositoryPullListPath(parsedPageUrl.pathname);
+  if (!pageIsIssues && !pageIsPulls) {
     return false;
   }
 
@@ -224,7 +233,10 @@ export function hasRecognizableNativeStatusLinks(
     }
     if (
       linkUrl.origin !== parsedPageUrl.origin ||
-      repositoryKeyFromPullListPath(linkUrl.pathname) !== pageRepository
+      (pageIsIssues
+        ? !isRepositoryIssueListPath(linkUrl.pathname)
+        : !isRepositoryPullListPath(linkUrl.pathname)) ||
+      repositoryKeyFromListPath(linkUrl.pathname) !== pageRepository
     ) {
       return false;
     }

@@ -81,6 +81,50 @@ function nativeHeaderFixture(query: string): NativeHeaderFixture {
   );
 }
 
+function issuePageMarkup(rawQuery: string): string {
+  const query = escapeHtml(rawQuery);
+  const isClosed = queryHasTerm(rawQuery, "state:closed") || queryHasTerm(rawQuery, "is:closed");
+  const isAll =
+    !isClosed && !queryHasTerm(rawQuery, "state:open") && !queryHasTerm(rawQuery, "is:open");
+  const openHref = `/octocat/hello-world/issues?q=${encodeURIComponent("is:issue state:open")}`;
+  const closedHref = `/octocat/hello-world/issues?q=${encodeURIComponent("is:issue state:closed")}`;
+  const openSelected = !isClosed && !isAll;
+  const closedSelected = isClosed;
+  return `<form role="search" action="/octocat/hello-world/issues" method="get">
+      <input id="repository-input" aria-label="Search all issues" name="q" type="search" value="${query}">
+    </form>
+    <div id="_fixture-list-view-metadata" data-fixture-issue-metadata>
+      <div data-fixture-issue-status-wrap>
+        <ul class="list-style-none">
+          <li><a data-open-closed-tab="open" class="${openSelected ? "selected" : ""}" href="${openHref}"><span>Open</span><span aria-hidden="true">18,472</span><span class="visually-hidden">&nbsp;(18,472)</span></a></li>
+          <li><a data-open-closed-tab="closed" class="${closedSelected ? "selected" : ""}" href="${closedHref}"><span>Closed</span><span aria-hidden="true">7,231</span><span class="visually-hidden">&nbsp;(7,231)</span></a></li>
+        </ul>
+      </div>
+      <div data-fixture-issue-actions>
+        <div role="toolbar" aria-label="Actions">
+          <button type="button">Sort</button>
+          <button type="button">Labels</button>
+        </div>
+      </div>
+    </div>
+    <div data-fixture-issue-list>Fixture issues</div>
+    <script>
+      document.addEventListener("turbo:load", () => {
+        if (/\\/pulls\\/?$/u.test(location.pathname)) {
+          document.body.innerHTML = '<main><form role="search" action="/octocat/hello-world/pulls" method="get"><input aria-label="Search all issues" name="q" type="search" value="is:pr is:open"></form><div class="table-list-header-toggle states"><a class="btn-link selected" href="/octocat/hello-world/pulls?q=is%3Apr%20is%3Aopen">3 Open</a><a class="btn-link" href="/octocat/hello-world/pulls?q=is%3Apr%20is%3Aclosed">2 Closed</a></div><div id="repo-content">Fixture pull requests</div></main>';
+          return;
+        }
+        if (/\\/issues\\/?$/u.test(location.pathname)) {
+          const query = new URL(location.href).searchParams.get("q") || "is:issue state:open";
+          const closed = query.includes("state:closed") || query.includes("is:closed");
+          const all = !closed && !query.includes("state:open") && !query.includes("is:open");
+          document.body.innerHTML = '<form role="search" action="/octocat/hello-world/issues" method="get"><input id="repository-input" aria-label="Search all issues" name="q" type="search" value="' + query + '"></form><div id="_fixture-list-view-metadata"><div data-fixture-issue-status-wrap><ul class="list-style-none"><li><a data-open-closed-tab="open" href="/octocat/hello-world/issues?q=is%3Aissue%20state%3Aopen">Open <span aria-hidden="true">18,472</span><span>&nbsp;(18,472)</span></a></li><li><a data-open-closed-tab="closed" href="/octocat/hello-world/issues?q=is%3Aissue%20state%3Aclosed">Closed <span aria-hidden="true">7,231</span><span>&nbsp;(7,231)</span></a></li></ul></div><div role="toolbar" aria-label="Actions"><button type="button">Sort</button></div></div><div data-fixture-issue-list>Fixture issues</div>';
+          if (all) document.querySelector('[data-open-closed-tab="open"]')?.classList.remove("selected");
+        }
+      });
+    </script>`;
+}
+
 function fixturePageMode(url: URL): FixturePageMode {
   const mode = url.searchParams.get("_fixture");
   if (
@@ -112,7 +156,9 @@ function escapeHtml(value: string): string {
 function fixturePage(requestUrl: string): string {
   const url = new URL(requestUrl, "http://127.0.0.1");
   const mode = fixturePageMode(url);
-  const rawQuery = url.searchParams.get("q") || "is:pr is:open";
+  const issuesPage = /\/issues\/?$/u.test(url.pathname);
+  const rawQuery =
+    url.searchParams.get("q") || (issuesPage ? "is:issue state:open" : "is:pr is:open");
   const query = escapeHtml(rawQuery);
   const nativeHeader =
     mode === "open-selected-all"
@@ -242,6 +288,25 @@ function fixturePage(requestUrl: string): string {
     <form role="search"><input aria-label="Search pull requests" name="q" type="search" value="${query}"></form>
     ${mode === "preview-captured-checkbox" ? CAPTURED_BULK_HEADER : CAPTURED_PREVIEW_HEADER}
   </${mode === "preview-captured" ? "main" : "div"}>`;
+  const bodyMarkup = issuesPage
+    ? issuePageMarkup(rawQuery)
+    : mode === "preview-captured-checkbox" ||
+        mode === "preview-captured" ||
+        mode === "preview-captured-no-main"
+      ? capturedPreview
+      : mode === "preview" || mode === "preview-hydration"
+        ? previewMarkup
+        : `${outsideMainGroup}
+    ${outsideMainSearch}
+    <main>
+      ${searchForms}
+      <a class="js-clear-search" href="/octocat/hello-world/pulls">
+        Clear current search query, filters, and sorts
+      </a>
+      ${stateGroups}
+      <div id="repo-content">Fixture pull requests</div>
+    </main>
+    ${classicHydrationScript}`;
 
   return `<!doctype html>
 <html lang="en" data-color-mode="auto" data-light-theme="light" data-dark-theme="dark">
@@ -315,25 +380,7 @@ function fixturePage(requestUrl: string): string {
     </script>
   </head>
   <body>
-    ${
-      mode === "preview-captured-checkbox" ||
-      mode === "preview-captured" ||
-      mode === "preview-captured-no-main"
-        ? capturedPreview
-        : mode === "preview" || mode === "preview-hydration"
-          ? previewMarkup
-          : `${outsideMainGroup}
-    ${outsideMainSearch}
-    <main>
-      ${searchForms}
-      <a class="js-clear-search" href="/octocat/hello-world/pulls">
-        Clear current search query, filters, and sorts
-      </a>
-      ${stateGroups}
-      <div id="repo-content">Fixture pull requests</div>
-    </main>
-    ${classicHydrationScript}`
-    }
+    ${bodyMarkup}
     ${previewHydrationScript}
     <script>
       for (const kind of ["results", "status"]) {
@@ -370,8 +417,14 @@ export async function startFixtureServer(): Promise<FixtureServer> {
   const baseUrl = `http://127.0.0.1:${port}/octocat/hello-world/pulls`;
   const urlFor = (options: FixturePageOptions = {}): string => {
     const url = new URL(baseUrl);
+    if (options.kind === "issues") {
+      url.pathname = "/octocat/hello-world/issues";
+    }
     if (options.query !== null) {
-      url.searchParams.set("q", options.query ?? "is:pr is:open");
+      url.searchParams.set(
+        "q",
+        options.query ?? (options.kind === "issues" ? "is:issue state:open" : "is:pr is:open")
+      );
     }
     if (options.mode && options.mode !== "default") {
       url.searchParams.set("_fixture", options.mode);
