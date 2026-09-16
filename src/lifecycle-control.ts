@@ -244,6 +244,7 @@ export function createLifecycleControl({
   let editor: LifecycleEditor | null = null;
   let configuring = false;
   let closeTimer: number | null = null;
+  let pendingMenuFocus: HTMLElement | null = null;
   let observedOpen = control.hasAttribute("open");
   let reopeningDuringClose = false;
 
@@ -397,6 +398,7 @@ export function createLifecycleControl({
   };
 
   const finishClose = (): void => {
+    pendingMenuFocus = null;
     clearCloseTimer();
     overlay.hide();
     menu.classList.remove("gprf-menu-opening", "gprf-menu-closing");
@@ -433,6 +435,7 @@ export function createLifecycleControl({
   };
 
   const closeMenu = (restoreFocus = false): void => {
+    pendingMenuFocus = null;
     if (!control.open || closeTimer !== null) {
       return;
     }
@@ -545,11 +548,18 @@ export function createLifecycleControl({
           ? optionLinks.length - 1
           : (currentIndex - 1 + optionLinks.length) % optionLinks.length;
     }
-    optionLinks[nextIndex]?.focus();
+    const nextOption = optionLinks[nextIndex];
+    if (control.classList.contains("gprf-lifecycle--preview") && !menu.matches(":popover-open")) {
+      // Preview options become focusable only after the queued toggle shows the popover.
+      pendingMenuFocus = nextOption ?? null;
+    } else {
+      nextOption?.focus();
+    }
   });
 
   control.addEventListener("toggle", () => {
     if (!control.open) {
+      pendingMenuFocus = null;
       overlay.hide();
       observedOpen = false;
       reopeningDuringClose = false;
@@ -571,6 +581,8 @@ export function createLifecycleControl({
     void menu.offsetWidth;
     menu.classList.add("gprf-menu-opening");
     closeExclusiveControls();
+    pendingMenuFocus?.focus();
+    pendingMenuFocus = null;
   });
 
   const refresh = ({

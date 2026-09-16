@@ -586,6 +586,11 @@ html.gprf-replacement-mounted .gprf-native-results-hidden {
 }
 
 /* Popovers escape ancestor overflow and stacking contexts without moving the DOM. */
+.gprf-lifecycle--preview > .gprf-lifecycle-menu:not(:popover-open) {
+  /* Native details opens before its queued toggle handler promotes the menu. */
+  display: none;
+}
+
 .gprf-lifecycle--preview > .gprf-lifecycle-menu[popover] {
   position: fixed;
   margin: 0;

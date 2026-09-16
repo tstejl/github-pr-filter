@@ -79,3 +79,27 @@ test("pending counts do not move or rewrite the Needs review label", async ({ pa
   expect((await label.boundingBox())!.x).toBe(initial!.x);
   await expect(label).toHaveText("Needs review");
 });
+
+test("preview stays hidden until its queued toggle promotes the menu", async ({ page }) => {
+  await page.goto(preview);
+  const menu = page.locator(".gprf-lifecycle-menu");
+  const verifyOpening = async () => {
+    const beforePromotion = await page.locator(".gprf-lifecycle").evaluate((element) => {
+      const control = element as HTMLDetailsElement;
+      const popup = control.querySelector<HTMLElement>(".gprf-lifecycle-menu")!;
+      // The native open mutation precedes the queued toggle event. Observe the
+      // state before that handler can move the popup out of the list container.
+      control.open = true;
+      return { display: getComputedStyle(popup).display, topLayer: popup.matches(":popover-open") };
+    });
+    expect(beforePromotion).toEqual({ display: "none", topLayer: false });
+    await expect(menu).toBeVisible();
+    await expect
+      .poll(() => menu.evaluate((element) => element.matches(":popover-open")))
+      .toBe(true);
+    await page.locator("summary").click();
+    await expect(menu).toBeHidden();
+  };
+  await verifyOpening();
+  await verifyOpening();
+});
