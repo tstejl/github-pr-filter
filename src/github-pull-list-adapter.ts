@@ -157,8 +157,9 @@ export function createGitHubPullListAdapter(
 
   const listKind = (): GitHubListKind =>
     isRepositoryIssueListPath(location.pathname) ? "issues" : "pulls";
-  const isSupportedList = (): boolean =>
-    isRepositoryPullListPath(location.pathname) || isRepositoryIssueListPath(location.pathname);
+  // Issue query/navigation support remains available for a future release, but the
+  // current release mounts lifecycle controls only on pull request lists.
+  const isSupportedList = (): boolean => isRepositoryPullListPath(location.pathname);
 
   const isVisibleSearchInput = (input: HTMLInputElement): boolean => {
     if (input.hidden || input.type === "hidden") {
