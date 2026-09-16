@@ -549,8 +549,8 @@ export function createLifecycleControl({
           : (currentIndex - 1 + optionLinks.length) % optionLinks.length;
     }
     const nextOption = optionLinks[nextIndex];
-    if (control.classList.contains("gprf-lifecycle--preview") && !menu.matches(":popover-open")) {
-      // Preview options become focusable only after the queued toggle shows the popover.
+    if (ownerDocument.defaultView?.getComputedStyle(menu).display === "none") {
+      // Options become focusable only after the queued toggle reveals the menu.
       pendingMenuFocus = nextOption ?? null;
     } else {
       nextOption?.focus();

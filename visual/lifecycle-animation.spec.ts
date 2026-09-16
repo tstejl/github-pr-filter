@@ -3,6 +3,29 @@ import { expect, test } from "@playwright/test";
 const storyUrl = (story: string): string =>
   `/iframe.html?id=extension-lifecycle-control--${story}&viewMode=story`;
 
+test("classic menu stays hidden before opening animation on every expansion", async ({ page }) => {
+  await page.goto(`${storyUrl("interactive")}&args=expanded:false`);
+  const control = page.locator(".gprf-lifecycle");
+  const menu = page.locator(".gprf-lifecycle-menu");
+  await expect(control).not.toHaveAttribute("open", "");
+  const verifyOpening = async () => {
+    const initialDisplay = await control.evaluate((element) => {
+      (element as HTMLDetailsElement).open = true;
+      const popup = element.querySelector<HTMLElement>(".gprf-lifecycle-menu")!;
+      return getComputedStyle(popup).display;
+    });
+    expect(initialDisplay).toBe("none");
+    await expect(menu).toBeVisible();
+    await expect(menu).toHaveClass(/gprf-menu-opening/u);
+    await page.locator("summary").click();
+    await expect(menu).toBeHidden();
+  };
+  await verifyOpening();
+  await verifyOpening();
+  await page.locator("summary").press("ArrowDown");
+  await expect(page.locator(".gprf-lifecycle-option").first()).toBeFocused();
+});
+
 test("summary reopen cancels a pending close", async ({ page }) => {
   await page.goto(storyUrl("preview"));
 

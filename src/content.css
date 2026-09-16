@@ -145,6 +145,12 @@ html.gprf-replacement-mounted .gprf-native-results-hidden {
   transform-origin: top left;
 }
 
+/* Native details opens before its queued toggle starts the animation. */
+.gprf-lifecycle:not(.gprf-lifecycle--preview)
+  > .gprf-lifecycle-menu:not(.gprf-menu-opening):not(.gprf-menu-closing) {
+  display: none;
+}
+
 .gprf-menu-opening {
   animation: gprf-menu-open 120ms cubic-bezier(0.33, 1, 0.68, 1);
 }
