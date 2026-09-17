@@ -4,6 +4,33 @@ import { LIFECYCLE_OPTIONS } from "../src/lifecycle-options";
 const storyUrl = (story: string): string =>
   `/iframe.html?id=extension-lifecycle-control--${story}&viewMode=story`;
 
+for (const story of ["new-ui-selected", "new-ui-selected-dark", "custom-query"]) {
+  test(`${story} exposes the new UI with a selected menu row`, async ({ page }) => {
+    await page.goto(storyUrl(story));
+    await expect(page.locator(".gprf-lifecycle")).toHaveClass(/gprf-lifecycle--preview/u);
+    await expect(page.locator(".gprf-lifecycle-menu:popover-open")).toBeVisible();
+    const selected = page.locator('.gprf-lifecycle-option[aria-checked="true"]');
+    await expect(selected).toHaveCount(1);
+    await expect(selected).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    const summary = page.locator(".gprf-lifecycle-summary");
+    await summary.hover();
+    await expect(summary).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(page.locator(".gprf-lifecycle-menu")).toHaveCSS("opacity", "1");
+    await page.screenshot({ path: `test-results/${story}.png` });
+  });
+}
+
+test("Custom query can still show the classic UI", async ({ page }) => {
+  await page.goto(`${storyUrl("custom-query")}&args=ui:classic`);
+  await expect(page.locator(".gprf-lifecycle")).not.toHaveClass(/gprf-lifecycle--preview/u);
+  await expect(page.locator(".gprf-lifecycle-menu")).toBeVisible();
+  await page.locator(".gprf-lifecycle-summary").hover();
+  await expect(page.locator(".gprf-lifecycle-summary")).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)"
+  );
+});
+
 for (const story of ["preview", "preview-dark"]) {
   test(`${story} uses a full button hover and visible keyboard focus`, async ({ page }) => {
     await page.goto(storyUrl(story));

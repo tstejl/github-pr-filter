@@ -4,7 +4,7 @@ const storyUrl = (story: string): string =>
   `/iframe.html?id=extension-lifecycle-control--${story}&viewMode=story`;
 
 test("classic menu stays hidden before opening animation on every expansion", async ({ page }) => {
-  await page.goto(`${storyUrl("interactive")}&args=expanded:false`);
+  await page.goto(`${storyUrl("interactive")}&args=expanded:false;ui:classic`);
   const control = page.locator(".gprf-lifecycle");
   const menu = page.locator(".gprf-lifecycle-menu");
   await expect(control).not.toHaveAttribute("open", "");

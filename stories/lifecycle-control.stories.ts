@@ -12,7 +12,10 @@ import { createIcon } from "../src/ui-primitives";
 type Theme = "light" | "dark" | "high-contrast";
 type CustomHelpPlacement = "expanded-only" | "both";
 
+type UiLayout = "classic" | "new";
+
 interface StoryArgs {
+  ui: UiLayout;
   lifecycle: Lifecycle;
   count: string;
   expanded: boolean;
@@ -105,13 +108,14 @@ function renderInteractive(args: StoryArgs): HTMLElement {
     hrefForLifecycle: lifecycleHref,
     customizable: true
   });
+  control.classList.toggle("gprf-lifecycle--preview", args.ui === "new");
   control.open = args.expanded;
   frame.append(control);
   shell.append(frame);
   return shell;
 }
 
-function renderCustomQuery(theme: Theme, unsafe: boolean): HTMLElement {
+function renderCustomQuery(theme: Theme, unsafe: boolean, ui: UiLayout): HTMLElement {
   const shell = createShell(theme);
   const frame = document.createElement("div");
   frame.className = "gprf-storybook-interactive";
@@ -122,6 +126,7 @@ function renderCustomQuery(theme: Theme, unsafe: boolean): HTMLElement {
     customizable: true,
     exclusive: false
   });
+  control.classList.toggle("gprf-lifecycle--preview", ui === "new");
   control.open = true;
   frame.append(control);
   shell.append(frame);
@@ -317,12 +322,14 @@ function renderActiveTreatmentGallery(theme: Theme): HTMLElement {
 const meta: Meta<StoryArgs> = {
   title: "Extension/Lifecycle control",
   args: {
+    ui: "classic",
     lifecycle: "open",
     count: "408",
     expanded: true,
     theme: "light"
   },
   argTypes: {
+    ui: { control: "inline-radio", options: ["classic", "new"] },
     lifecycle: { control: "select", options: LIFECYCLE_OPTIONS.map(({ value }) => value) },
     theme: { control: "select", options: ["light", "dark", "high-contrast"] }
   },
@@ -332,15 +339,13 @@ const meta: Meta<StoryArgs> = {
 export default meta;
 type Story = StoryObj<StoryArgs>;
 
-export const Interactive = {} satisfies Story;
+export const Interactive = { args: { ui: "new" } } satisfies Story;
+
+export const Classic = { args: { ui: "classic", expanded: false } } satisfies Story;
 
 export const Preview = {
-  args: { lifecycle: "merged", count: "700", expanded: false },
-  render: (args) => {
-    const shell = renderInteractive(args);
-    shell.querySelector(".gprf-lifecycle")?.classList.add("gprf-lifecycle--preview");
-    return shell;
-  }
+  args: { ui: "new", lifecycle: "merged", count: "700", expanded: false },
+  render: renderInteractive
 } satisfies Story;
 
 export const PreviewDark = {
@@ -348,17 +353,26 @@ export const PreviewDark = {
   args: { ...Preview.args, theme: "dark" }
 } satisfies Story;
 
+export const NewUiSelected = {
+  args: { ui: "new", lifecycle: "needs_review", count: "12", expanded: true }
+} satisfies Story;
+
+export const NewUiSelectedDark = {
+  args: { ...NewUiSelected.args, theme: "dark" }
+} satisfies Story;
+
 export const Configuring = {
+  args: { ui: "new" },
   render: (args) => {
     const shell = renderInteractive({ ...args, expanded: true });
     shell.querySelector<HTMLButtonElement>(".gprf-configure-action")?.click();
     return shell;
   },
-  parameters: { controls: { include: ["lifecycle", "theme"] } }
+  parameters: { controls: { include: ["ui", "lifecycle", "theme"] } }
 } satisfies Story;
 
 export const ConfiguringDark = {
-  args: { lifecycle: "needs_review", theme: "dark", expanded: true },
+  args: { ui: "new", lifecycle: "needs_review", theme: "dark", expanded: true },
   render: (args) => Configuring.render(args),
   parameters: { controls: { disable: true } }
 } satisfies Story;
@@ -369,13 +383,15 @@ export const HiddenActiveState = {
 } satisfies Story;
 
 export const CustomQuery = {
-  render: (args) => renderCustomQuery(args.theme, false),
-  parameters: { controls: { include: ["theme"] } }
+  args: { ui: "new" },
+  render: (args) => renderCustomQuery(args.theme, false, args.ui),
+  parameters: { controls: { include: ["ui", "theme"] } }
 } satisfies Story;
 
 export const UnsafeBooleanQuery = {
-  render: (args) => renderCustomQuery(args.theme, true),
-  parameters: { controls: { include: ["theme"] } }
+  args: { ui: "new" },
+  render: (args) => renderCustomQuery(args.theme, true, args.ui),
+  parameters: { controls: { include: ["ui", "theme"] } }
 } satisfies Story;
 
 export const CustomHelpPlacement = {
