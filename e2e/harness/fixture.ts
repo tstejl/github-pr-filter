@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import * as assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { cp, mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
@@ -32,16 +31,19 @@ export interface PrepareExtensionOptions {
 
 const execFileAsync = promisify(execFile);
 const ROOT = path.resolve(import.meta.dir, "../..");
-// Exact user-supplied header capture from the signed-in GitHub preview, September 2026.
-const CAPTURED_PREVIEW_HEADER = readFileSync(
-  path.join(ROOT, "e2e/fixtures/github-preview-status-header.html.txt"),
-  "utf8"
-);
-
-const CAPTURED_BULK_HEADER = readFileSync(
-  path.join(ROOT, "e2e/fixtures/github-preview-bulk-header.html.txt"),
-  "utf8"
-);
+// Synthetic contract only: metadata boundary, duplicate visual/accessibility counts,
+// optional bulk selection, and a toolbar that must remain untouched.
+// Do not paste signed-in page captures or generated GitHub classes into fixtures.
+function metadataHeader(bulkSelection: boolean): string {
+  return `<div id="fixture-list-view-metadata">
+    ${bulkSelection ? '<input type="checkbox" aria-label="Select all pull requests">' : ""}
+    <a href="#" aria-current="true">Open<span aria-hidden="true">12</span><span> (12)</span></a>
+    <a href="#">Closed<span aria-hidden="true">1,234</span><span> (1,234)</span></a>
+    <div><div role="toolbar" aria-label="Pull request filters">
+      <button type="button">Author</button>
+    </div></div>
+  </div>`;
+}
 
 function queryHasTerm(query: string, term: string): boolean {
   const normalizedTerm = term.toLowerCase();
@@ -134,9 +136,9 @@ function fixturePageMode(url: URL): FixturePageMode {
     mode === "responsive-groups" ||
     mode === "open-selected-all" ||
     mode === "no-state-groups" ||
-    mode === "preview-captured-checkbox" ||
-    mode === "preview-captured" ||
-    mode === "preview-captured-no-main" ||
+    mode === "preview-metadata-checkbox" ||
+    mode === "preview-metadata" ||
+    mode === "preview-metadata-no-main" ||
     mode === "preview" ||
     mode === "preview-hydration"
   ) {
@@ -283,17 +285,17 @@ function fixturePage(requestUrl: string): string {
         </script>`
       : "";
 
-  // Only the header is captured; wrappers below exercise both host element types.
-  const capturedPreview = `<${mode === "preview-captured" ? "main" : "div"}>
+  // Exercise metadata boundaries with and without a main landmark.
+  const metadataPreview = `<${mode === "preview-metadata" ? "main" : "div"}>
     <form role="search"><input aria-label="Search pull requests" name="q" type="search" value="${query}"></form>
-    ${mode === "preview-captured-checkbox" ? CAPTURED_BULK_HEADER : CAPTURED_PREVIEW_HEADER}
-  </${mode === "preview-captured" ? "main" : "div"}>`;
+    ${metadataHeader(mode === "preview-metadata-checkbox")}
+  </${mode === "preview-metadata" ? "main" : "div"}>`;
   const bodyMarkup = issuesPage
     ? issuePageMarkup(rawQuery)
-    : mode === "preview-captured-checkbox" ||
-        mode === "preview-captured" ||
-        mode === "preview-captured-no-main"
-      ? capturedPreview
+    : mode === "preview-metadata-checkbox" ||
+        mode === "preview-metadata" ||
+        mode === "preview-metadata-no-main"
+      ? metadataPreview
       : mode === "preview" || mode === "preview-hydration"
         ? previewMarkup
         : `${outsideMainGroup}

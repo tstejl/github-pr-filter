@@ -10,9 +10,9 @@ export type FixturePageMode =
   | "responsive-groups"
   | "open-selected-all"
   | "no-state-groups"
-  | "preview-captured-checkbox"
-  | "preview-captured"
-  | "preview-captured-no-main"
+  | "preview-metadata-checkbox"
+  | "preview-metadata"
+  | "preview-metadata-no-main"
   | "preview"
   | "preview-hydration";
 

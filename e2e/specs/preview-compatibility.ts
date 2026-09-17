@@ -59,11 +59,11 @@ async function assertPreviewPlacement(
 
 export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void {
   for (const mode of [
-    "preview-captured",
-    "preview-captured-no-main",
-    "preview-captured-checkbox"
+    "preview-metadata",
+    "preview-metadata-no-main",
+    "preview-metadata-checkbox"
   ] as const) {
-    test(`${context.browserName}: captured preview header mounts with ${mode}`, async () => {
+    test(`${context.browserName}: synthetic metadata header mounts with ${mode}`, async () => {
       const browser = context.browser();
       await browser.open(context.fixture().urlFor({ mode, query: "is:pr state:open" }));
       await browser.waitForControl();
@@ -71,7 +71,7 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
         await browser.text('[id$="-list-view-metadata"] > .gprf-lifecycle .gprf-summary-label'),
         ["Open"]
       );
-      assert.deepEqual(await browser.text(".gprf-summary-count"), ["25"]);
+      assert.deepEqual(await browser.text(".gprf-summary-count"), ["12"]);
       assert.deepEqual(
         await browser
           .attributes('[id$="-list-view-metadata"] > a', "class")
@@ -80,11 +80,10 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
       );
       await browser.waitForElementCount(".gprf-lifecycle", 1);
       await browser.waitForElementCount(".gprf-lifecycle--standalone", 0);
-      assert.deepEqual(
-        await browser
-          .attributes('[aria-label="Pull request filters"] button', "class")
-          .then((values) => values.map((value) => value?.includes("gprf-native-status-hidden"))),
-        Array(7).fill(false)
+      await browser.waitForElementCount('[aria-label="Pull request filters"] button', 1);
+      await browser.waitForElementCount(
+        '[aria-label="Pull request filters"] button.gprf-native-status-hidden',
+        0
       );
       const starts = Number(
         (await browser.attribute("html", "data-gprf-menu-animation-starts")) ?? "0"
@@ -100,26 +99,24 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
       assert.equal(await browser.attribute("html", "data-gprf-summary-expansion-variants"), "1");
       await browser.click('.gprf-lifecycle-option[data-lifecycle="closed"]');
       await browser.waitForText(".gprf-summary-label", "Closed", true);
-      assert.deepEqual(await browser.text(".gprf-summary-count"), [
-        mode === "preview-captured-checkbox" ? "2,131" : "2,126"
-      ]);
+      assert.deepEqual(await browser.text(".gprf-summary-count"), ["1,234"]);
     }, 90_000);
   }
 
-  test(`${context.browserName}: captured preview stays hidden during delayed startup`, async () => {
+  test(`${context.browserName}: synthetic metadata stays hidden during delayed startup`, async () => {
     await withExtensionSession(
       context.browserName,
       { interactiveDelayMs: 2500 },
       async (browser) => {
         await browser.open(
-          context.fixture().urlFor({ mode: "preview-captured-no-main", query: "is:pr state:open" })
+          context.fixture().urlFor({ mode: "preview-metadata-no-main", query: "is:pr state:open" })
         );
         await browser.waitForControl();
         assert.ok(Number(await browser.attribute("html", "data-gprf-pre-mount-frames")) > 0);
         assert.equal(await browser.attribute("html", "data-gprf-native-ever-visible"), null);
         assert.deepEqual(
           await browser.text('[id$="-list-view-metadata"] > .gprf-lifecycle .gprf-summary-count'),
-          ["25"]
+          ["12"]
         );
       }
     );
