@@ -1,3 +1,11 @@
+## Changes in 0.8.0
+
+- Support both classic and new repository pull-request pages.
+- Replace native state tabs and result-count headers in place.
+- Keep expanded menus above the list and match the new button hover styling.
+- Fix opening flicker and stabilize labels, counts, and keyboard focus.
+- Leave Issues pages unchanged; experimental Issues support is disabled.
+
 ## Installation
 
 GitHub release assets are unsigned ZIP builds for manual installation, development, and
