@@ -1,6 +1,12 @@
+import { parseResultHeadingCount } from "./github-preview-header";
+export { parseResultHeadingCount };
 import type { PullListQueryContext } from "./lifecycle-navigation";
 import { analyzeLifecycleQuery, type LifecycleStatePartition } from "./lifecycle-query";
-import { repositoryKeyFromPullListPath } from "./page-scope";
+import {
+  isRepositoryIssueListPath,
+  isRepositoryPullListPath,
+  repositoryKeyFromListPath
+} from "./page-scope";
 
 export interface CommittedSearchField {
   readonly name: string;
@@ -26,6 +32,16 @@ export interface NativeStatusLink {
   readonly href: string;
   readonly text: string;
   readonly selected: boolean;
+}
+
+/**
+ * A status control in GitHub's newer pull-list preview. The preview can expose
+ * the count as button text instead of a query-bearing link, so callers resolve
+ * its lifecycle before passing the candidate here.
+ */
+export interface PreviewStatusControl {
+  readonly lifecycle: CountableStatePartition;
+  readonly text: string;
 }
 
 interface ParsedNativeCount {
@@ -111,6 +127,54 @@ function parseNativeCount(text: string): ParsedNativeCount | null {
   return { label, value: digits ? Number.parseInt(digits, 10) : null };
 }
 
+/**
+ * Resolve a preview count while the result heading and status controls are
+ * being replaced asynchronously. A current result heading is authoritative,
+ * including `0 results`. Headers with Open/Closed controls use the matching
+ * partition count. During navigation, omit counts until native content updates.
+ */
+export function resolvePreviewStatusCount(
+  resultHeadingText: string | null,
+  controls: readonly PreviewStatusControl[],
+  statePartition: LifecycleStatePartition,
+  locale?: string,
+  resultHeadingFresh = true
+): string | null {
+  if (!resultHeadingFresh) {
+    return null;
+  }
+  const headingCount =
+    resultHeadingText === null ? null : parseResultHeadingCount(resultHeadingText);
+  if (headingCount !== null) {
+    return headingCount;
+  }
+  if (statePartition === "none") {
+    return null;
+  }
+
+  const counts = new Map<CountableStatePartition, ParsedNativeCount>();
+  for (const control of controls) {
+    const count = parseNativeCount(control.text);
+    if (!count) {
+      continue;
+    }
+    const current = counts.get(control.lifecycle);
+    if (!current) {
+      counts.set(control.lifecycle, count);
+    }
+  }
+
+  if (statePartition === "both") {
+    const open = counts.get("open")?.value;
+    const closed = counts.get("closed")?.value;
+    if (open === undefined || open === null || closed === undefined || closed === null) {
+      return null;
+    }
+    return new Intl.NumberFormat(locale || undefined).format(open + closed);
+  }
+  return counts.get(statePartition)?.label ?? null;
+}
+
 function partitionForNativeLink(link: NativeStatusLink, pageUrl: string): LifecycleStatePartition {
   const query = queryForNativeLink(link, pageUrl);
   return query === null ? "none" : analyzeLifecycleQuery({ source: query }).statePartition;
@@ -144,11 +208,16 @@ export function hasRecognizableNativeStatusLinks(
   let pageRepository: string | null;
   try {
     parsedPageUrl = new URL(pageUrl);
-    pageRepository = repositoryKeyFromPullListPath(parsedPageUrl.pathname);
+    pageRepository = repositoryKeyFromListPath(parsedPageUrl.pathname);
   } catch {
     return false;
   }
   if (pageRepository === null) {
+    return false;
+  }
+  const pageIsIssues = isRepositoryIssueListPath(parsedPageUrl.pathname);
+  const pageIsPulls = isRepositoryPullListPath(parsedPageUrl.pathname);
+  if (!pageIsIssues && !pageIsPulls) {
     return false;
   }
 
@@ -164,7 +233,10 @@ export function hasRecognizableNativeStatusLinks(
     }
     if (
       linkUrl.origin !== parsedPageUrl.origin ||
-      repositoryKeyFromPullListPath(linkUrl.pathname) !== pageRepository
+      (pageIsIssues
+        ? !isRepositoryIssueListPath(linkUrl.pathname)
+        : !isRepositoryPullListPath(linkUrl.pathname)) ||
+      repositoryKeyFromListPath(linkUrl.pathname) !== pageRepository
     ) {
       return false;
     }

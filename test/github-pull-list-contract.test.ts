@@ -3,10 +3,13 @@ import * as assert from "node:assert/strict";
 import {
   createCommittedQueryContext,
   hasRecognizableNativeStatusLinks,
+  parseResultHeadingCount,
   resolveNativeStatusCount,
+  resolvePreviewStatusCount,
   selectSearchField,
   selectStatusGroups,
-  type NativeStatusLink
+  type NativeStatusLink,
+  type PreviewStatusControl
 } from "../src/github-pull-list-contract";
 
 const pageUrl = "https://github.com/octocat/hello-world/pulls";
@@ -257,4 +260,38 @@ test("native status capability requires an interpretable partition and count", (
     ),
     false
   );
+});
+
+test("preview result headings preserve a displayed count, including zero", () => {
+  assert.equal(parseResultHeadingCount("700 results"), "700");
+  assert.equal(parseResultHeadingCount("1,234 results"), "1,234");
+  assert.equal(parseResultHeadingCount("0 results"), "0");
+  assert.equal(parseResultHeadingCount("Pull requests"), null);
+  assert.equal(parseResultHeadingCount("747 Closed"), null);
+});
+
+const previewControls: readonly PreviewStatusControl[] = [
+  { lifecycle: "open", text: "Open 10" },
+  { lifecycle: "closed", text: "Closed 747" }
+];
+
+test("preview result heading wins over aggregate status counts", () => {
+  assert.equal(resolvePreviewStatusCount("700 results", previewControls, "closed"), "700");
+  assert.equal(resolvePreviewStatusCount("757 results", previewControls, "both"), "757");
+  assert.equal(resolvePreviewStatusCount("0 results", [], "both"), "0");
+});
+
+test("preview status counts are a fallback while the result heading is late", () => {
+  assert.equal(resolvePreviewStatusCount(null, previewControls, "open"), "10");
+  assert.equal(resolvePreviewStatusCount(null, previewControls, "closed"), "747");
+  assert.equal(resolvePreviewStatusCount(null, previewControls, "both", "en-US"), "757");
+  assert.equal(resolvePreviewStatusCount(null, [], "both"), null);
+});
+
+test("preview counts stay unavailable until a heading mutation confirms freshness", () => {
+  assert.equal(
+    resolvePreviewStatusCount("747 results", previewControls, "closed", "en-US", false),
+    null
+  );
+  assert.equal(resolvePreviewStatusCount(null, previewControls, "closed", "en-US", false), null);
 });

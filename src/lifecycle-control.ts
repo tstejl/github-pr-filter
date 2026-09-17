@@ -1,3 +1,4 @@
+import { createMenuOverlay } from "./menu-overlay";
 import { createLifecycleEditor, type LifecycleEditor } from "./lifecycle-editor";
 import {
   cloneLifecycleLayout,
@@ -16,9 +17,21 @@ import type { ActiveLifecycleSelection, Lifecycle } from "./lifecycle";
 import { OCTICONS } from "./octicons";
 import { createIcon, createIconButton, createTextButton } from "./ui-primitives";
 
-export const CONTROL_CLASS = "gprf-lifecycle";
+import { CONTROL_CLASS } from "./page-markers";
+export { CONTROL_CLASS };
+const CONTROL_CLOSE_EVENT = "gprf:lifecycle-close";
+const MENU_ANIMATION_DURATION_MS = 120;
 
 let optionHelpSequence = 0;
+
+export function requestLifecycleControlClose(control: HTMLDetailsElement): void {
+  const EventConstructor = control.ownerDocument.defaultView?.Event;
+  if (!EventConstructor) {
+    control.removeAttribute("open");
+    return;
+  }
+  control.dispatchEvent(new EventConstructor(CONTROL_CLOSE_EVENT));
+}
 
 export interface LifecycleControlConfiguration {
   readonly selection: ActiveLifecycleSelection;
@@ -29,12 +42,14 @@ export interface LifecycleControlConfiguration {
   readonly ownerDocument?: Document;
   readonly exclusive?: boolean;
   readonly customizable?: boolean;
+  readonly subject?: "pull request" | "issue";
   readonly layout?: LifecycleLayout;
   readonly onApplyLayout?: (layout: LifecycleLayout) => void;
   readonly turboFrame?: string | null;
 }
 
 export interface LifecycleControlRefresh {
+  readonly countPending?: boolean;
   readonly selection: ActiveLifecycleSelection;
   readonly hrefForLifecycle: (lifecycle: Lifecycle) => string | null;
   readonly count?: string | null;
@@ -137,7 +152,10 @@ function createLifecycleOption(
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return;
     }
-    link.closest("details")?.removeAttribute("open");
+    const control = link.closest<HTMLDetailsElement>("details");
+    if (control) {
+      requestLifecycleControlClose(control);
+    }
   });
   return link;
 }
@@ -160,19 +178,22 @@ function selectedOption(
 function updateSummary(
   summary: HTMLElement,
   selectedLifecycle: LifecycleDisplayOption,
-  count: string | null
+  count: string | null,
+  countPending = false,
+  subject: "pull request" | "issue" = "pull request"
 ): void {
   summary.dataset.lifecycle = selectedLifecycle.value;
   const isCustom = selectedLifecycle.value === "custom";
   const visibleLabel = isCustom ? "Custom" : selectedLifecycle.label;
-  const countPrefix = count ? `${count} pull requests. ` : "";
+  const pluralSubject = subject === "issue" ? "issues" : "pull requests";
+  const countPrefix = count ? `${count} ${pluralSubject}. ` : "";
   summary.setAttribute(
     "aria-label",
     isCustom
-      ? `${countPrefix}Pull request state: Custom. ${selectedLifecycle.description}.`
+      ? `${countPrefix}${subject === "issue" ? "Issue" : "Pull request"} state: Custom. ${selectedLifecycle.description}.`
       : count
-        ? `${count} pull requests: ${visibleLabel}`
-        : `Pull request state: ${visibleLabel}`
+        ? `${count} ${pluralSubject}: ${visibleLabel}`
+        : `${subject === "issue" ? "Issue" : "Pull request"} state: ${visibleLabel}`
   );
   const summaryLabel = summary.querySelector<HTMLElement>(".gprf-summary-label");
   const summaryCount = summary.querySelector<HTMLElement>(".gprf-summary-count");
@@ -181,6 +202,15 @@ function updateSummary(
   }
   if (summaryLabel.textContent !== visibleLabel) {
     summaryLabel.textContent = visibleLabel;
+  }
+  // Keep the occupied count space while GitHub refreshes it. Removing the span
+  // makes the adjacent label jump left and right during each hydration pass.
+  const waiting = countPending && !!summaryCount.textContent;
+  summaryCount.classList.toggle("gprf-summary-count--pending", waiting);
+  summaryCount.setAttribute("aria-hidden", String(waiting));
+  if (waiting) {
+    summaryCount.hidden = false;
+    return;
   }
   const nextCount = count ?? "";
   if (summaryCount.textContent !== nextCount) {
@@ -198,6 +228,7 @@ export function createLifecycleControl({
   ownerDocument = document,
   exclusive = true,
   customizable = false,
+  subject = "pull request",
   layout = DEFAULT_LIFECYCLE_LAYOUT,
   onApplyLayout,
   turboFrame = null
@@ -212,6 +243,33 @@ export function createLifecycleControl({
   let renderedTurboFrame = turboFrame;
   let editor: LifecycleEditor | null = null;
   let configuring = false;
+  let closeTimer: number | null = null;
+  let pendingMenuFocus: HTMLElement | null = null;
+  let observedOpen = control.hasAttribute("open");
+  let reopeningDuringClose = false;
+
+  const MutationObserverConstructor = ownerDocument.defaultView?.MutationObserver;
+  const openObserver = MutationObserverConstructor
+    ? new MutationObserverConstructor((records) => {
+        let previousOpen = observedOpen;
+        for (let index = 0; index < records.length; index += 1) {
+          const nextOpen =
+            index + 1 < records.length
+              ? records[index + 1]!.oldValue !== null
+              : control.hasAttribute("open");
+          if (closeTimer !== null && !previousOpen && nextOpen) {
+            reopeningDuringClose = true;
+          }
+          previousOpen = nextOpen;
+        }
+        observedOpen = previousOpen;
+      })
+    : null;
+  openObserver?.observe(control, {
+    attributes: true,
+    attributeFilter: ["open"],
+    attributeOldValue: true
+  });
 
   const summary = ownerDocument.createElement("summary");
   summary.className = "gprf-lifecycle-summary";
@@ -226,17 +284,17 @@ export function createLifecycleControl({
   chevron.className = "gprf-chevron";
   chevron.setAttribute("aria-hidden", "true");
   summary.append(summaryCopy, chevron);
-  updateSummary(summary, activeOption, count);
+  updateSummary(summary, activeOption, count, false, subject);
 
   const menu = ownerDocument.createElement("div");
   menu.className = "gprf-lifecycle-menu";
   menu.setAttribute("role", "menu");
-  menu.setAttribute("aria-label", "Filter by pull request state");
+  menu.setAttribute("aria-label", `Filter by ${subject} state`);
   const header = ownerDocument.createElement("div");
   header.className = "gprf-menu-header";
   const heading = ownerDocument.createElement("div");
   heading.className = "gprf-menu-heading";
-  heading.textContent = "Pull request state";
+  heading.textContent = `${subject === "issue" ? "Issue" : "Pull request"} state`;
   const actions = ownerDocument.createElement("div");
   actions.className = "gprf-menu-actions";
   const body = ownerDocument.createElement("div");
@@ -246,6 +304,7 @@ export function createLifecycleControl({
   footer.hidden = true;
   header.append(heading, actions);
   menu.append(header, body, footer);
+  const overlay = createMenuOverlay(control, summary, menu);
 
   const renderOptions = (): void => {
     const activeLifecycle =
@@ -320,13 +379,81 @@ export function createLifecycleControl({
     editor = null;
     control.classList.remove("gprf-lifecycle--configuring");
     menu.setAttribute("role", "menu");
-    heading.textContent = "Pull request state";
+    heading.textContent = `${subject === "issue" ? "Issue" : "Pull request"} state`;
     footer.hidden = true;
     footer.replaceChildren();
     const configure = renderNormalActions();
     renderOptions();
     if (restoreFocus) {
       configure?.focus();
+    }
+  };
+
+  const clearCloseTimer = (): void => {
+    if (closeTimer === null) {
+      return;
+    }
+    ownerDocument.defaultView?.clearTimeout(closeTimer);
+    closeTimer = null;
+  };
+
+  const finishClose = (): void => {
+    pendingMenuFocus = null;
+    clearCloseTimer();
+    overlay.hide();
+    menu.classList.remove("gprf-menu-opening", "gprf-menu-closing");
+    observedOpen = false;
+    control.open = false;
+  };
+
+  const closeExclusiveControls = (): void => {
+    if (!exclusive) {
+      return;
+    }
+    for (const otherControl of ownerDocument.querySelectorAll<HTMLDetailsElement>(
+      `.${CONTROL_CLASS}[open]`
+    )) {
+      if (otherControl !== control) {
+        requestLifecycleControlClose(otherControl);
+      }
+    }
+  };
+
+  const reopenMenu = (): void => {
+    reopeningDuringClose = false;
+    clearCloseTimer();
+    if (!control.open) {
+      observedOpen = true;
+      control.open = true;
+    } else {
+      observedOpen = true;
+      menu.classList.remove("gprf-menu-opening", "gprf-menu-closing");
+      void menu.offsetWidth;
+      menu.classList.add("gprf-menu-opening");
+    }
+    closeExclusiveControls();
+  };
+
+  const closeMenu = (restoreFocus = false): void => {
+    pendingMenuFocus = null;
+    if (!control.open || closeTimer !== null) {
+      return;
+    }
+    observedOpen = true;
+    leaveConfiguration(false);
+    menu.classList.remove("gprf-menu-opening");
+    if (ownerDocument.defaultView?.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      finishClose();
+    } else {
+      menu.classList.add("gprf-menu-closing");
+      closeTimer =
+        ownerDocument.defaultView?.setTimeout(finishClose, MENU_ANIMATION_DURATION_MS) ?? null;
+      if (closeTimer === null) {
+        finishClose();
+      }
+    }
+    if (restoreFocus) {
+      summary.focus();
     }
   };
 
@@ -377,15 +504,24 @@ export function createLifecycleControl({
   summary.addEventListener("click", (event) => {
     if (configuring) {
       event.preventDefault();
+      return;
+    }
+    if (control.open) {
+      event.preventDefault();
+      if (closeTimer !== null) {
+        reopenMenu();
+      } else {
+        closeMenu();
+      }
     }
   });
+
+  control.addEventListener(CONTROL_CLOSE_EVENT, () => closeMenu());
 
   control.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && control.open) {
       event.preventDefault();
-      leaveConfiguration(false);
-      control.open = false;
-      summary.focus();
+      closeMenu(true);
       return;
     }
     if (configuring || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
@@ -393,7 +529,11 @@ export function createLifecycleControl({
     }
     const optionLinks = [...control.querySelectorAll<HTMLAnchorElement>(".gprf-lifecycle-option")];
     event.preventDefault();
-    control.open = true;
+    if (closeTimer !== null) {
+      reopenMenu();
+    } else {
+      control.open = true;
+    }
     const currentIndex = optionLinks.indexOf(ownerDocument.activeElement as HTMLAnchorElement);
     let nextIndex = currentIndex;
     if (event.key === "Home") {
@@ -408,32 +548,49 @@ export function createLifecycleControl({
           ? optionLinks.length - 1
           : (currentIndex - 1 + optionLinks.length) % optionLinks.length;
     }
-    optionLinks[nextIndex]?.focus();
+    const nextOption = optionLinks[nextIndex];
+    if (ownerDocument.defaultView?.getComputedStyle(menu).display === "none") {
+      // Options become focusable only after the queued toggle reveals the menu.
+      pendingMenuFocus = nextOption ?? null;
+    } else {
+      nextOption?.focus();
+    }
   });
 
   control.addEventListener("toggle", () => {
     if (!control.open) {
+      pendingMenuFocus = null;
+      overlay.hide();
+      observedOpen = false;
+      reopeningDuringClose = false;
+      clearCloseTimer();
+      menu.classList.remove("gprf-menu-opening", "gprf-menu-closing");
       control.querySelector(".gprf-option-help.is-open")?.classList.remove("is-open");
       leaveConfiguration(false);
       return;
     }
-    if (!exclusive) {
+    overlay.show();
+    const reopened = reopeningDuringClose;
+    reopeningDuringClose = false;
+    observedOpen = true;
+    if (closeTimer !== null && !reopened) {
       return;
     }
-    for (const otherControl of ownerDocument.querySelectorAll<HTMLDetailsElement>(
-      `.${CONTROL_CLASS}[open]`
-    )) {
-      if (otherControl !== control) {
-        otherControl.removeAttribute("open");
-      }
-    }
+    clearCloseTimer();
+    menu.classList.remove("gprf-menu-opening", "gprf-menu-closing");
+    void menu.offsetWidth;
+    menu.classList.add("gprf-menu-opening");
+    closeExclusiveControls();
+    pendingMenuFocus?.focus();
+    pendingMenuFocus = null;
   });
 
   const refresh = ({
     selection: nextSelection,
     hrefForLifecycle: nextHrefForLifecycle,
     count: nextCount = null,
-    options: nextOptions = LIFECYCLE_OPTIONS,
+    countPending = false,
+    options: nextOptions = renderedOptions,
     layout: nextLayout,
     turboFrame: nextTurboFrame
   }: LifecycleControlRefresh): void => {
@@ -446,7 +603,13 @@ export function createLifecycleControl({
     if (nextTurboFrame !== undefined) {
       renderedTurboFrame = nextTurboFrame;
     }
-    updateSummary(summary, selectedOption(renderedOptions, renderedSelection), nextCount);
+    updateSummary(
+      summary,
+      selectedOption(renderedOptions, renderedSelection),
+      nextCount,
+      countPending,
+      subject
+    );
     if (!configuring) {
       renderOptions();
     }
@@ -455,6 +618,11 @@ export function createLifecycleControl({
   return {
     element: control,
     refresh,
-    destroy: () => control.remove()
+    destroy: () => {
+      clearCloseTimer();
+      openObserver?.disconnect();
+      overlay.hide();
+      control.remove();
+    }
   };
 }

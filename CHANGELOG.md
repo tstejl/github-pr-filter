@@ -2,6 +2,15 @@
 
 All notable changes will be documented in this file.
 
+## 0.8.0 — 2026-09-17
+
+- Added support for GitHub's new repository pull-request list while retaining classic-page support.
+- Replaced Open/Closed tabs and result-count headers in place, including merged, all, and empty search results.
+- Matched the new page's button hover styling and kept expanded menus above clipped list containers.
+- Fixed repeated opening flicker on both page layouts and preserved keyboard focus during menu transitions.
+- Stabilized labels and counts during search updates, delayed page loading, and navigation without a full reload.
+- Kept Issues pages unchanged. Experimental Issues support remains disabled in this release.
+
 ## 0.7.1 — 2026-07-30
 
 - Tightened **Needs review** to use GitHub's explicit `review:required` state, preventing

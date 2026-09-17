@@ -2,7 +2,12 @@ import { test } from "bun:test";
 import * as assert from "node:assert/strict";
 import * as fs from "node:fs";
 import path from "node:path";
-import { isRepositoryPullListPath, repositoryKeyFromPullListPath } from "../src/page-scope";
+import {
+  isRepositoryIssueListPath,
+  isRepositoryPullListPath,
+  repositoryKeyFromIssueListPath,
+  repositoryKeyFromPullListPath
+} from "../src/page-scope";
 
 const projectRoot = path.resolve(import.meta.dir, "..");
 
@@ -90,6 +95,18 @@ test("page scope includes repository PR lists and excludes global pulls", () => 
   assert.equal(repositoryKeyFromPullListPath("/pulls"), null);
 });
 
+test("page scope includes repository issue lists and excludes issue details", () => {
+  assert.equal(isRepositoryIssueListPath("/octocat/hello-world/issues"), true);
+  assert.equal(isRepositoryIssueListPath("/octocat/hello-world/issues/"), true);
+  assert.equal(isRepositoryIssueListPath("/issues"), false);
+  assert.equal(isRepositoryIssueListPath("/octocat/hello-world/issues/1"), false);
+  assert.equal(
+    repositoryKeyFromIssueListPath("/OctoCat/Hello-World/issues"),
+    "octocat/hello-world"
+  );
+  assert.equal(repositoryKeyFromIssueListPath("/issues"), null);
+});
+
 test("navigation keeps GitHub Turbo hooks instead of forcing a page reload", () => {
   const adapter = fs.readFileSync(
     path.join(projectRoot, "src/github-pull-list-adapter.ts"),
@@ -99,11 +116,13 @@ test("navigation keeps GitHub Turbo hooks instead of forcing a page reload", () 
   assert.match(adapter, /data-turbo-frame/);
 });
 
-test("lifecycle menu follows GitHub's fixed-caret motion pattern", () => {
+test("lifecycle menu uses repeatable open and close transitions", () => {
   const stylesheet = fs.readFileSync(path.join(projectRoot, "src/content.css"), "utf8");
   assert.doesNotMatch(stylesheet, /gprf-lifecycle\[open\][^{]*gprf-chevron/);
-  assert.match(stylesheet, /animation: gprf-menu-open 120ms/);
+  assert.match(stylesheet, /\.gprf-menu-opening[\s\S]*animation: gprf-menu-open 120ms/);
+  assert.match(stylesheet, /\.gprf-menu-closing[\s\S]*animation: gprf-menu-close 120ms/);
   assert.match(stylesheet, /@keyframes gprf-menu-open/);
+  assert.match(stylesheet, /@keyframes gprf-menu-close/);
   assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation: none;/);
 });
 

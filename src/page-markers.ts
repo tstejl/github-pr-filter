@@ -1,3 +1,4 @@
+export const CONTROL_CLASS = "gprf-lifecycle";
 export const REPLACEMENT_PENDING_CLASS = "gprf-replacement-pending";
 export const REPLACEMENT_MOUNTED_CLASS = "gprf-replacement-mounted";
 

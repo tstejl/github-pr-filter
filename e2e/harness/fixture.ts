@@ -31,6 +31,19 @@ export interface PrepareExtensionOptions {
 
 const execFileAsync = promisify(execFile);
 const ROOT = path.resolve(import.meta.dir, "../..");
+// Synthetic contract only: metadata boundary, duplicate visual/accessibility counts,
+// optional bulk selection, and a toolbar that must remain untouched.
+// Do not paste signed-in page captures or generated GitHub classes into fixtures.
+function metadataHeader(bulkSelection: boolean): string {
+  return `<div id="fixture-list-view-metadata">
+    ${bulkSelection ? '<input type="checkbox" aria-label="Select all pull requests">' : ""}
+    <a href="#" aria-current="true">Open<span aria-hidden="true">12</span><span> (12)</span></a>
+    <a href="#">Closed<span aria-hidden="true">1,234</span><span> (1,234)</span></a>
+    <div><div role="toolbar" aria-label="Pull request filters">
+      <button type="button">Author</button>
+    </div></div>
+  </div>`;
+}
 
 function queryHasTerm(query: string, term: string): boolean {
   const normalizedTerm = term.toLowerCase();
@@ -70,6 +83,50 @@ function nativeHeaderFixture(query: string): NativeHeaderFixture {
   );
 }
 
+function issuePageMarkup(rawQuery: string): string {
+  const query = escapeHtml(rawQuery);
+  const isClosed = queryHasTerm(rawQuery, "state:closed") || queryHasTerm(rawQuery, "is:closed");
+  const isAll =
+    !isClosed && !queryHasTerm(rawQuery, "state:open") && !queryHasTerm(rawQuery, "is:open");
+  const openHref = `/octocat/hello-world/issues?q=${encodeURIComponent("is:issue state:open")}`;
+  const closedHref = `/octocat/hello-world/issues?q=${encodeURIComponent("is:issue state:closed")}`;
+  const openSelected = !isClosed && !isAll;
+  const closedSelected = isClosed;
+  return `<form role="search" action="/octocat/hello-world/issues" method="get">
+      <input id="repository-input" aria-label="Search all issues" name="q" type="search" value="${query}">
+    </form>
+    <div id="_fixture-list-view-metadata" data-fixture-issue-metadata>
+      <div data-fixture-issue-status-wrap>
+        <ul class="list-style-none">
+          <li><a data-open-closed-tab="open" class="${openSelected ? "selected" : ""}" href="${openHref}"><span>Open</span><span aria-hidden="true">18,472</span><span class="visually-hidden">&nbsp;(18,472)</span></a></li>
+          <li><a data-open-closed-tab="closed" class="${closedSelected ? "selected" : ""}" href="${closedHref}"><span>Closed</span><span aria-hidden="true">7,231</span><span class="visually-hidden">&nbsp;(7,231)</span></a></li>
+        </ul>
+      </div>
+      <div data-fixture-issue-actions>
+        <div role="toolbar" aria-label="Actions">
+          <button type="button">Sort</button>
+          <button type="button">Labels</button>
+        </div>
+      </div>
+    </div>
+    <div data-fixture-issue-list>Fixture issues</div>
+    <script>
+      document.addEventListener("turbo:load", () => {
+        if (/\\/pulls\\/?$/u.test(location.pathname)) {
+          document.body.innerHTML = '<main><form role="search" action="/octocat/hello-world/pulls" method="get"><input aria-label="Search all issues" name="q" type="search" value="is:pr is:open"></form><div class="table-list-header-toggle states"><a class="btn-link selected" href="/octocat/hello-world/pulls?q=is%3Apr%20is%3Aopen">3 Open</a><a class="btn-link" href="/octocat/hello-world/pulls?q=is%3Apr%20is%3Aclosed">2 Closed</a></div><div id="repo-content">Fixture pull requests</div></main>';
+          return;
+        }
+        if (/\\/issues\\/?$/u.test(location.pathname)) {
+          const query = new URL(location.href).searchParams.get("q") || "is:issue state:open";
+          const closed = query.includes("state:closed") || query.includes("is:closed");
+          const all = !closed && !query.includes("state:open") && !query.includes("is:open");
+          document.body.innerHTML = '<form role="search" action="/octocat/hello-world/issues" method="get"><input id="repository-input" aria-label="Search all issues" name="q" type="search" value="' + query + '"></form><div id="_fixture-list-view-metadata"><div data-fixture-issue-status-wrap><ul class="list-style-none"><li><a data-open-closed-tab="open" href="/octocat/hello-world/issues?q=is%3Aissue%20state%3Aopen">Open <span aria-hidden="true">18,472</span><span>&nbsp;(18,472)</span></a></li><li><a data-open-closed-tab="closed" href="/octocat/hello-world/issues?q=is%3Aissue%20state%3Aclosed">Closed <span aria-hidden="true">7,231</span><span>&nbsp;(7,231)</span></a></li></ul></div><div role="toolbar" aria-label="Actions"><button type="button">Sort</button></div></div><div data-fixture-issue-list>Fixture issues</div>';
+          if (all) document.querySelector('[data-open-closed-tab="open"]')?.classList.remove("selected");
+        }
+      });
+    </script>`;
+}
+
 function fixturePageMode(url: URL): FixturePageMode {
   const mode = url.searchParams.get("_fixture");
   if (
@@ -78,7 +135,12 @@ function fixturePageMode(url: URL): FixturePageMode {
     mode === "partial-status-hydration" ||
     mode === "responsive-groups" ||
     mode === "open-selected-all" ||
-    mode === "no-state-groups"
+    mode === "no-state-groups" ||
+    mode === "preview-metadata-checkbox" ||
+    mode === "preview-metadata" ||
+    mode === "preview-metadata-no-main" ||
+    mode === "preview" ||
+    mode === "preview-hydration"
   ) {
     return mode;
   }
@@ -96,7 +158,9 @@ function escapeHtml(value: string): string {
 function fixturePage(requestUrl: string): string {
   const url = new URL(requestUrl, "http://127.0.0.1");
   const mode = fixturePageMode(url);
-  const rawQuery = url.searchParams.get("q") || "is:pr is:open";
+  const issuesPage = /\/issues\/?$/u.test(url.pathname);
+  const rawQuery =
+    url.searchParams.get("q") || (issuesPage ? "is:issue state:open" : "is:pr is:open");
   const query = escapeHtml(rawQuery);
   const nativeHeader =
     mode === "open-selected-all"
@@ -144,7 +208,7 @@ function fixturePage(requestUrl: string): string {
         : `<form role="search" action="/octocat/hello-world/pulls" method="get">
           <input aria-label="Search all issues" name="q" type="search" value="${query}">
         </form>`;
-  const hydrationScript =
+  const classicHydrationScript =
     mode === "partial-status-hydration"
       ? `<script>
           setTimeout(() => {
@@ -156,6 +220,96 @@ function fixturePage(requestUrl: string): string {
         </script>`
       : "";
 
+  const previewReadyCount = queryHasTerm(rawQuery, "draft:false") ? 8 : 10;
+  const previewClosedCount = queryHasTerm(rawQuery, "draft:false") ? 737 : 747;
+  const previewResultCount = queryHasTerm(rawQuery, "gprf-no-match-928471")
+    ? "0"
+    : queryHasTerm(rawQuery, "is:merged")
+      ? "700"
+      : "757";
+  const previewUsesResults =
+    queryHasTerm(rawQuery, "is:merged") || rawQuery.trim().toLowerCase() === "is:pr";
+  const previewStatusMarkup = `<div data-fixture-preview-status>
+          <button type="button" aria-pressed="${queryHasTerm(rawQuery, "is:open") ? "true" : "false"}">Open <span>${previewReadyCount}</span></button>
+          <button type="button" aria-pressed="${queryHasTerm(rawQuery, "is:closed") ? "true" : "false"}">Closed <span>${previewClosedCount}</span></button>
+        </div>`;
+  const previewResultMarkup = `<div data-fixture-preview-results>
+          <h2 data-fixture-result-heading>${previewResultCount} results</h2>
+        </div>`;
+  const previewInitialMarkup =
+    mode === "preview-hydration" && previewUsesResults
+      ? `<div data-fixture-preview-results>
+          <h2 data-fixture-result-heading>Loading results</h2>
+        </div>`
+      : previewUsesResults
+        ? previewResultMarkup
+        : previewStatusMarkup;
+  // Modeled from the supplied screenshots and live accessibility tree, not captured DOM.
+  const previewMarkup = `<main data-fixture-page="preview">
+      <form role="search" action="/octocat/hello-world/pulls?_fixture=${mode}" method="get">
+        <input aria-label="Search all issues" name="q" type="search" value="${query}">
+        <input type="hidden" name="_fixture" value="${mode}">
+      </form>
+      <section data-fixture-preview-region>
+        <h2 data-fixture-preview-title>Pull requests</h2>
+        <div data-fixture-preview-header>
+          ${previewInitialMarkup}
+          <div data-fixture-preview-tools>
+            <div role="toolbar" aria-label="Pull request filters">
+              <button type="button">Author</button>
+              <button type="button">Label</button>
+            </div>
+            <button type="button">Newest</button>
+          </div>
+        </div>
+        <ul aria-label="Pull requests">
+          <li>Fixture pull request</li>
+        </ul>
+      </section>
+      <button type="button" data-fixture-transition-results>Replace header with results</button>
+      <button type="button" data-fixture-transition-status>Replace header with status</button>
+      <button type="button" data-fixture-update-results onclick="document.querySelector('[data-fixture-result-heading]').firstChild.data = '757 results'">Update fixture results</button>
+      <section data-fixture-unrelated-results>
+        <h2>747 results</h2>
+      </section>
+    </main>`;
+  const previewHydrationScript =
+    mode === "preview-hydration" && previewUsesResults
+      ? `<script>
+          setTimeout(() => {
+            const heading = document.querySelector('[data-fixture-result-heading]');
+            if (heading) {
+              heading.textContent = ${JSON.stringify(`${previewResultCount} results`)};
+            }
+          }, 700);
+        </script>`
+      : "";
+
+  // Exercise metadata boundaries with and without a main landmark.
+  const metadataPreview = `<${mode === "preview-metadata" ? "main" : "div"}>
+    <form role="search"><input aria-label="Search pull requests" name="q" type="search" value="${query}"></form>
+    ${metadataHeader(mode === "preview-metadata-checkbox")}
+  </${mode === "preview-metadata" ? "main" : "div"}>`;
+  const bodyMarkup = issuesPage
+    ? issuePageMarkup(rawQuery)
+    : mode === "preview-metadata-checkbox" ||
+        mode === "preview-metadata" ||
+        mode === "preview-metadata-no-main"
+      ? metadataPreview
+      : mode === "preview" || mode === "preview-hydration"
+        ? previewMarkup
+        : `${outsideMainGroup}
+    ${outsideMainSearch}
+    <main>
+      ${searchForms}
+      <a class="js-clear-search" href="/octocat/hello-world/pulls">
+        Clear current search query, filters, and sorts
+      </a>
+      ${stateGroups}
+      <div id="repo-content">Fixture pull requests</div>
+    </main>
+    ${classicHydrationScript}`;
+
   return `<!doctype html>
 <html lang="en" data-color-mode="auto" data-light-theme="light" data-dark-theme="dark">
   <head>
@@ -165,10 +319,36 @@ function fixturePage(requestUrl: string): string {
       (() => {
         let probeFrames = 0;
         let preMountFrames = 0;
+        let menuAnimationStarts = 0;
+        document.addEventListener("click", (event) => {
+          const summary = event.target.closest?.('.gprf-lifecycle-summary');
+          if (!summary || summary.parentElement.open) return;
+          const control = summary.parentElement;
+          const variants = new Set();
+          const until = performance.now() + 300;
+          const sampleExpansion = () => {
+            const rect = summary.getBoundingClientRect();
+            variants.add(JSON.stringify([control.isConnected, control.parentElement?.id,
+              summary.textContent, getComputedStyle(summary).visibility, rect.x, rect.y, rect.width]));
+            document.documentElement.setAttribute('data-gprf-summary-expansion-variants', String(variants.size));
+            if (performance.now() < until) requestAnimationFrame(sampleExpansion);
+          };
+          sampleExpansion();
+        }, true);
+        document.addEventListener("animationstart", (event) => {
+          if (event.animationName !== "gprf-menu-open") {
+            return;
+          }
+          menuAnimationStarts += 1;
+          document.documentElement.setAttribute(
+            "data-gprf-menu-animation-starts",
+            String(menuAnimationStarts)
+          );
+        });
         const sample = () => {
           const control = document.querySelector(".gprf-lifecycle");
           const nativeLinks = [
-            ...document.querySelectorAll(".table-list-header-toggle.states > a.btn-link")
+            ...document.querySelectorAll(".table-list-header-toggle.states > a.btn-link, [data-fixture-preview-status] > button, [data-fixture-result-heading], [id$='-list-view-metadata'] > a")
           ];
           probeFrames += 1;
           document.documentElement.setAttribute(
@@ -187,6 +367,7 @@ function fixturePage(requestUrl: string): string {
             return (
               style.display !== "none" &&
               style.visibility !== "hidden" &&
+              style.clipPath !== "inset(50%)" &&
               Number.parseFloat(style.opacity || "1") > 0 &&
               link.getClientRects().length > 0
             );
@@ -201,17 +382,24 @@ function fixturePage(requestUrl: string): string {
     </script>
   </head>
   <body>
-    ${outsideMainGroup}
-    ${outsideMainSearch}
-    <main>
-      ${searchForms}
-      <a class="js-clear-search" href="/octocat/hello-world/pulls">
-        Clear current search query, filters, and sorts
-      </a>
-      ${stateGroups}
-      <div id="repo-content">Fixture pull requests</div>
-    </main>
-    ${hydrationScript}
+    ${bodyMarkup}
+    ${previewHydrationScript}
+    <script>
+      for (const kind of ["results", "status"]) {
+        document.querySelector('[data-fixture-transition-' + kind + ']')?.addEventListener('click', () => {
+          const url = new URL(location.href);
+          url.searchParams.set('q', kind === 'results' ? 'is:pr is:merged label:bug' : 'is:pr is:open label:bug');
+          history.replaceState({}, '', url);
+          const slot = document.querySelector('[data-fixture-preview-status], [data-fixture-preview-results]');
+          slot.outerHTML = kind === 'results'
+            ? '<div data-fixture-preview-results><h2 data-fixture-result-heading>Loading results</h2></div>'
+            : '<div data-fixture-preview-status><button>Open <span>10</span></button><button>Closed <span>747</span></button></div>';
+          if (kind === 'results') setTimeout(() => {
+            document.querySelector('[data-fixture-result-heading]').firstChild.data = '700 results';
+          }, 700);
+        });
+      }
+    </script>
   </body>
 </html>`;
 }
@@ -231,8 +419,14 @@ export async function startFixtureServer(): Promise<FixtureServer> {
   const baseUrl = `http://127.0.0.1:${port}/octocat/hello-world/pulls`;
   const urlFor = (options: FixturePageOptions = {}): string => {
     const url = new URL(baseUrl);
+    if (options.kind === "issues") {
+      url.pathname = "/octocat/hello-world/issues";
+    }
     if (options.query !== null) {
-      url.searchParams.set("q", options.query ?? "is:pr is:open");
+      url.searchParams.set(
+        "q",
+        options.query ?? (options.kind === "issues" ? "is:issue state:open" : "is:pr is:open")
+      );
     }
     if (options.mode && options.mode !== "default") {
       url.searchParams.set("_fixture", options.mode);

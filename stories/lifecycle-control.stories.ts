@@ -334,6 +334,20 @@ type Story = StoryObj<StoryArgs>;
 
 export const Interactive = {} satisfies Story;
 
+export const Preview = {
+  args: { lifecycle: "merged", count: "700", expanded: false },
+  render: (args) => {
+    const shell = renderInteractive(args);
+    shell.querySelector(".gprf-lifecycle")?.classList.add("gprf-lifecycle--preview");
+    return shell;
+  }
+} satisfies Story;
+
+export const PreviewDark = {
+  ...Preview,
+  args: { ...Preview.args, theme: "dark" }
+} satisfies Story;
+
 export const Configuring = {
   render: (args) => {
     const shell = renderInteractive({ ...args, expanded: true });
@@ -402,6 +416,33 @@ export const NarrowExpanded = {
     control.open = true;
     frame.append(control);
     shell.append(frame);
+    return shell;
+  }
+} satisfies Story;
+
+export const PreviewCountRefresh = {
+  render: (args) => {
+    const shell = createShell(args.theme);
+    const controller = createLifecycleControl({
+      selection: { kind: "preset", lifecycle: "needs_review" },
+      count: "2",
+      hrefForLifecycle: lifecycleHref
+    });
+    controller.element.classList.add("gprf-lifecycle--preview");
+    shell.append(controller.element);
+    for (const pending of [true, false]) {
+      const button = document.createElement("button");
+      button.textContent = pending ? "Start refresh" : "Complete refresh";
+      button.addEventListener("click", () =>
+        controller.refresh({
+          selection: { kind: "preset", lifecycle: "needs_review" },
+          hrefForLifecycle: lifecycleHref,
+          count: pending ? null : "2",
+          countPending: pending
+        })
+      );
+      shell.append(button);
+    }
     return shell;
   }
 } satisfies Story;

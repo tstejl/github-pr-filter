@@ -1,6 +1,19 @@
 html.gprf-replacement-pending .table-list-header-toggle.states > a.btn-link,
+html.gprf-replacement-pending .gprf-native-status-hidden,
 html.gprf-replacement-mounted .gprf-native-status-hidden {
   display: none !important;
+}
+
+html.gprf-replacement-pending .gprf-native-results-hidden,
+html.gprf-replacement-mounted .gprf-native-results-hidden {
+  clip-path: inset(50%) !important;
+  height: 1px !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  position: absolute !important;
+  white-space: nowrap !important;
+  width: 1px !important;
 }
 
 .gprf-lifecycle {
@@ -36,6 +49,28 @@ html.gprf-replacement-mounted .gprf-native-status-hidden {
 
 .gprf-lifecycle-summary:hover {
   color: var(--fgColor-default, var(--color-fg-default, #1f2328));
+}
+
+.gprf-lifecycle--preview > .gprf-lifecycle-summary {
+  border-radius: var(--borderRadius-medium, 6px);
+  box-sizing: border-box;
+  color: var(--fgColor-default, var(--color-fg-default, #1f2328));
+  min-height: var(--control-medium-size, 32px);
+  padding: 4px 8px;
+}
+
+.gprf-lifecycle--preview > .gprf-lifecycle-summary:hover {
+  background: var(
+    --control-transparent-bgColor-hover,
+    var(--bgColor-neutral-muted, rgba(175, 184, 193, 0.2))
+  );
+}
+
+.gprf-lifecycle--preview > .gprf-lifecycle-summary:active {
+  background: var(
+    --control-transparent-bgColor-active,
+    var(--bgColor-neutral-muted, rgba(175, 184, 193, 0.2))
+  );
 }
 
 .gprf-lifecycle-summary:focus-visible {
@@ -106,9 +141,23 @@ html.gprf-replacement-mounted .gprf-native-status-hidden {
 }
 
 .gprf-lifecycle[open] > .gprf-lifecycle-menu {
-  animation: gprf-menu-open 120ms cubic-bezier(0.33, 1, 0.68, 1);
   display: block;
   transform-origin: top left;
+}
+
+/* Native details opens before its queued toggle starts the animation. */
+.gprf-lifecycle:not(.gprf-lifecycle--preview)
+  > .gprf-lifecycle-menu:not(.gprf-menu-opening):not(.gprf-menu-closing) {
+  display: none;
+}
+
+.gprf-menu-opening {
+  animation: gprf-menu-open 120ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.gprf-menu-closing {
+  animation: gprf-menu-close 120ms cubic-bezier(0.33, 1, 0.68, 1);
+  pointer-events: none;
 }
 
 @keyframes gprf-menu-open {
@@ -120,6 +169,18 @@ html.gprf-replacement-mounted .gprf-native-status-hidden {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes gprf-menu-close {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
   }
 }
 
@@ -518,13 +579,34 @@ html.gprf-replacement-mounted .gprf-native-status-hidden {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .gprf-lifecycle-menu,
   .gprf-lifecycle-option,
   .gprf-editor-row {
     transition: none;
   }
 
-  .gprf-lifecycle[open] > .gprf-lifecycle-menu {
+  .gprf-menu-opening,
+  .gprf-menu-closing {
     animation: none;
-    transition: none;
   }
+}
+
+/* Popovers escape ancestor overflow and stacking contexts without moving the DOM. */
+.gprf-lifecycle--preview > .gprf-lifecycle-menu:not(:popover-open) {
+  /* Native details opens before its queued toggle handler promotes the menu. */
+  display: none;
+}
+
+.gprf-lifecycle--preview > .gprf-lifecycle-menu[popover] {
+  position: fixed;
+  margin: 0;
+  right: auto;
+  bottom: auto;
+  max-width: calc(100vw - 16px);
+  min-width: min(248px, calc(100vw - 16px));
+  overflow-y: auto;
+}
+
+.gprf-summary-count--pending {
+  visibility: hidden;
 }
