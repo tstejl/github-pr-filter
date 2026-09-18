@@ -15,7 +15,8 @@ export async function measuredStep<T>(
     return result;
   } catch (error: unknown) {
     console.error(
-      `[e2e:${browserName}] ${label} failed after ${Math.round(performance.now() - startedAt)}ms`
+      `[e2e:${browserName}] ${label} failed after ${Math.round(performance.now() - startedAt)}ms`,
+      error
     );
     throw error;
   }
