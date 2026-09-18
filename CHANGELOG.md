@@ -4,6 +4,7 @@ All notable changes will be documented in this file.
 
 ## 0.8.1 — 2026-09-18
 
+- Fixed a closing-menu flash when navigation delays the timer that hides the dropdown.
 - Fixed counts that stayed hidden after switching between PR searches with the same result count, including zero results.
 - Restored counts when the associated list finishes loading, while keeping stale counts hidden during refreshes.
 

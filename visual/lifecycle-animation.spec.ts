@@ -3,6 +3,29 @@ import { expect, test } from "@playwright/test";
 const storyUrl = (story: string): string =>
   `/iframe.html?id=extension-lifecycle-control--${story}&viewMode=story`;
 
+for (const ui of ["classic", "new"]) {
+  test(`${ui} selection stays invisible after its close animation finishes`, async ({ page }) => {
+    await page.goto(`${storyUrl("interactive")}&args=ui:${ui}`);
+    const menu = page.locator(".gprf-lifecycle-menu");
+    await expect(menu).toBeVisible();
+    await expect(menu).toHaveCSS("opacity", "1");
+    const afterAnimation = await menu.evaluate((element) => {
+      const option = element.querySelector<HTMLAnchorElement>('[data-lifecycle="ready"]')!;
+      // Keep this page in place while exercising the production selection handler.
+      option.addEventListener("click", (event) => event.preventDefault(), { once: true });
+      option.click();
+      // Finish CSS before the timer can run, as happens when navigation delays JS.
+      element.getAnimations().forEach((animation) => animation.finish());
+      return {
+        closing: element.classList.contains("gprf-menu-closing"),
+        opacity: getComputedStyle(element).opacity
+      };
+    });
+    expect(afterAnimation).toEqual({ closing: true, opacity: "0" });
+    await expect(menu).toBeHidden();
+  });
+}
+
 test("classic menu stays hidden before opening animation on every expansion", async ({ page }) => {
   await page.goto(`${storyUrl("interactive")}&args=expanded:false;ui:classic`);
   const control = page.locator(".gprf-lifecycle");

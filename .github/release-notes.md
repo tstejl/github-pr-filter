@@ -1,5 +1,6 @@
 ## Changes in 0.8.1
 
+- Fix a closing-menu flash during filter navigation on classic and new PR pages.
 - Fix hidden counts after switching between PR searches with the same result count, including `0 Ready`.
 - Restore counts when the associated list finishes loading without revealing stale counts during refreshes.
 
