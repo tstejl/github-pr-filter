@@ -30,7 +30,7 @@ export interface PrepareExtensionOptions {
 }
 
 const execFileAsync = promisify(execFile);
-const ROOT = path.resolve(import.meta.dir, "../..");
+const ROOT = process.cwd();
 // Synthetic contract only: metadata boundary, duplicate visual/accessibility counts,
 // optional bulk selection, and a toolbar that must remain untouched.
 // Do not paste signed-in page captures or generated GitHub classes into fixtures.

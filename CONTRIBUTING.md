@@ -33,6 +33,11 @@ automatic fixes.
 report. If an intentional test or source change updates coverage, run
 `bun run coverage:update` and commit the refreshed badge.
 
+E2E tests run with Playwright on Node.js 24, with one worker and no retries. Bun still
+builds the extension and runs unit tests. Do not run the browser suite with `bun test`: its
+Chromium debugging pipes can disconnect during repeated browser sessions. To check for
+intermittent failures, use `bun run test:e2e:chromium --repeat-each=3`.
+
 The Firefox E2E command expects Firefox and geckodriver to be available. GitHub-hosted Linux
 runners include both. Playwright installs its pinned Chromium build with
 `bunx playwright install chromium`.

@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, beforeEach } from "bun:test";
+import { test } from "@playwright/test";
 import * as assert from "node:assert/strict";
 import { rm } from "node:fs/promises";
 import type {
@@ -26,33 +26,33 @@ export function installE2EHarness(): E2ETestContext {
   let activeBrowser: BrowserSession | undefined;
   let preparedExtension: PreparedExtension | undefined;
 
-  beforeAll(
-    async () => {
-      const prepared = await measuredStep(browserName, "prepare extension", () =>
-        prepareExtension(browserName)
-      );
-      preparedExtension = prepared;
-      activeBrowser = await measuredStep(browserName, "start browser session", () =>
-        startPreparedBrowserSession(browserName, prepared)
-      );
-    },
-    browserName === "firefox" ? 60_000 : 30_000
-  );
+  test.beforeAll(async () => {
+    test.setTimeout(browserName === "firefox" ? 60_000 : 30_000);
+    const prepared = await measuredStep(browserName, "prepare extension", () =>
+      prepareExtension(browserName)
+    );
+    preparedExtension = prepared;
+    activeBrowser = await measuredStep(browserName, "start browser session", () =>
+      startPreparedBrowserSession(browserName, prepared)
+    );
+  });
 
-  beforeEach(async () => {
+  test.beforeEach(async () => {
     activeFixture = await startFixtureServer();
-  }, 10_000);
+  });
 
-  afterEach(async () => {
+  test.afterEach(async () => {
+    test.setTimeout(30_000);
     try {
       await activeBrowser?.reset();
     } finally {
       await activeFixture?.close();
       activeFixture = undefined;
     }
-  }, 30_000);
+  });
 
-  afterAll(async () => {
+  test.afterAll(async () => {
+    test.setTimeout(30_000);
     try {
       await activeBrowser?.close();
     } finally {
@@ -62,7 +62,7 @@ export function installE2EHarness(): E2ETestContext {
       }
       preparedExtension = undefined;
     }
-  }, 30_000);
+  });
 
   return {
     browserName,

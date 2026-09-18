@@ -1,4 +1,4 @@
-import { test } from "bun:test";
+import { test } from "@playwright/test";
 import * as assert from "node:assert/strict";
 import type { E2ETestContext } from "../harness/contracts";
 
@@ -44,7 +44,7 @@ export function registerTurboDomSpecs(context: E2ETestContext): void {
     await browser.waitForElementCount(".gprf-lifecycle--standalone", 0);
     await browser.waitForElementCount(".gprf-lifecycle", 1);
     await browser.waitForElementCount(".gprf-native-status-hidden", 2);
-  }, 90_000);
+  });
 
   test(`${context.browserName}: repository Turbo navigation discards the previous repository editor`, async () => {
     const fixture = context.fixture();
@@ -77,7 +77,7 @@ export function registerTurboDomSpecs(context: E2ETestContext): void {
       ),
       "Hide Draft"
     );
-  }, 90_000);
+  });
 
   test(`${context.browserName}: missing mount targets stay hidden and recover`, async () => {
     const fixture = context.fixture();
@@ -115,7 +115,7 @@ export function registerTurboDomSpecs(context: E2ETestContext): void {
     const recoveredClasses = (await browser.attribute("html", "class")) || "";
     assert.ok(recoveredClasses.includes("gprf-replacement-mounted"));
     assert.equal(recoveredClasses.includes("gprf-replacement-pending"), false);
-  }, 90_000);
+  });
 
   test(`${context.browserName}: global pull request pages remain untouched`, async () => {
     const fixture = context.fixture();
@@ -139,5 +139,5 @@ export function registerTurboDomSpecs(context: E2ETestContext): void {
     const nativeClasses =
       (await browser.attribute(".table-list-header-toggle.states > a:first-child", "class")) ?? "";
     assert.equal(nativeClasses.split(/\s+/).includes("gprf-native-status-hidden"), false);
-  }, 90_000);
+  });
 }

@@ -1,4 +1,4 @@
-import { test } from "bun:test";
+import { test } from "@playwright/test";
 import * as assert from "node:assert/strict";
 import type { E2ETestContext } from "../harness/contracts";
 
@@ -25,7 +25,7 @@ export function registerAdapterContractSpecs(context: E2ETestContext): void {
     assert.equal(await browser.url(), committedUrl);
     assert.deepEqual(await browser.text(".gprf-summary-label"), selectedLabel);
     assert.deepEqual(await browser.attributes(OPTION_SELECTOR, "href"), actionUrls);
-  }, 90_000);
+  });
 
   test(`${context.browserName}: URL replacement reconciles without a GitHub event`, async () => {
     const fixture = context.fixture();
@@ -40,7 +40,7 @@ export function registerAdapterContractSpecs(context: E2ETestContext): void {
     const openHref = await browser.attribute(`${OPTION_SELECTOR}[data-lifecycle="open"]`, "href");
     assert.ok(openHref);
     assert.ok(new URL(openHref).searchParams.get("q")?.includes("label:bug"));
-  }, 90_000);
+  });
 
   test(`${context.browserName}: server-committed search attributes reconcile without navigation`, async () => {
     const fixture = context.fixture();
@@ -55,7 +55,7 @@ export function registerAdapterContractSpecs(context: E2ETestContext): void {
     const openHref = await browser.attribute(`${OPTION_SELECTOR}[data-lifecycle="open"]`, "href");
     assert.ok(openHref);
     assert.ok(new URL(openHref).searchParams.get("q")?.includes("label:bug"));
-  }, 90_000);
+  });
 
   test(`${context.browserName}: responsive in-main groups mount while stray groups remain native`, async () => {
     const fixture = context.fixture();
@@ -90,7 +90,7 @@ export function registerAdapterContractSpecs(context: E2ETestContext): void {
       ),
       "none"
     );
-  }, 90_000);
+  });
 
   test(`${context.browserName}: All aggregates native counts despite GitHub selecting Open`, async () => {
     const fixture = context.fixture();
@@ -108,7 +108,7 @@ export function registerAdapterContractSpecs(context: E2ETestContext): void {
     );
     assert.deepEqual(await browser.text(".gprf-summary-label"), ["All"]);
     assert.deepEqual(await browser.text(".gprf-summary-count"), ["5"]);
-  }, 90_000);
+  });
 
   test(`${context.browserName}: missing native state groups use one standalone search control`, async () => {
     const fixture = context.fixture();
@@ -123,7 +123,7 @@ export function registerAdapterContractSpecs(context: E2ETestContext): void {
       1
     );
     await browser.waitForElementCount(".gprf-native-status-hidden", 0);
-  }, 90_000);
+  });
 
   test(`${context.browserName}: matching but unrecognized state markup fails open`, async () => {
     const fixture = context.fixture();
@@ -142,7 +142,7 @@ export function registerAdapterContractSpecs(context: E2ETestContext): void {
       await browser.cssValue('[data-fixture-group="decoy"] > .btn-link:last-child', "display"),
       "none"
     );
-  }, 90_000);
+  });
 
   test(`${context.browserName}: duplicate search fields use the visible committed pull-list field`, async () => {
     const fixture = context.fixture();
@@ -171,5 +171,5 @@ export function registerAdapterContractSpecs(context: E2ETestContext): void {
       'form[data-fixture-search="committed"] + .gprf-lifecycle--standalone',
       0
     );
-  }, 90_000);
+  });
 }
