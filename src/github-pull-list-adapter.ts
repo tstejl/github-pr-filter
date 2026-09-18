@@ -587,6 +587,26 @@ export function createGitHubPullListAdapter(
   };
 
   const touchesPreviewContent = (mutation: MutationRecord): boolean => {
+    if (
+      mutation.type === "attributes" &&
+      mutation.attributeName === "aria-busy" &&
+      mutation.oldValue === "true" &&
+      mutation.target instanceof window.HTMLElement &&
+      mutation.target.matches('[data-listview-component="items-list"][aria-busy="false"]')
+    ) {
+      // React can retain identical count text, especially 0, between searches.
+      // Accept completion only from the list associated with this metadata header.
+      const labelledBy = mutation.target.getAttribute("aria-labelledby")?.split(/\s+/u) ?? [];
+      return labelledBy.some((id) => {
+        if (!id.endsWith("-list-view-container-title")) return false;
+        const metadata = document.getElementById(
+          id.replace(/-list-view-container-title$/u, "-list-view-metadata")
+        );
+        return (
+          metadata !== null && previewRegions(document).some(({ root }) => metadata.contains(root))
+        );
+      });
+    }
     // Selection and destination changes do not establish that counts are current.
     if (mutation.type === "attributes" && mutation.attributeName !== "aria-label") return false;
     const target = mutationTargetElement(mutation);
@@ -660,8 +680,10 @@ export function createGitHubPullListAdapter(
       if (shouldObserve) {
         observer.observe(document.documentElement, {
           attributes: true,
+          attributeOldValue: true,
           attributeFilter: [
             "action",
+            "aria-busy",
             "aria-current",
             "aria-label",
             "aria-labelledby",

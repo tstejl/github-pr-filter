@@ -251,8 +251,8 @@ function fixturePage(requestUrl: string): string {
         <input type="hidden" name="_fixture" value="${mode}">
       </form>
       <section data-fixture-preview-region>
-        <h2 data-fixture-preview-title>Pull requests</h2>
-        <div data-fixture-preview-header>
+        <h2 data-fixture-preview-title id="fixture-list-view-container-title">Pull requests</h2>
+        <div data-fixture-preview-header id="fixture-list-view-metadata">
           ${previewInitialMarkup}
           <div data-fixture-preview-tools>
             <div role="toolbar" aria-label="Pull request filters">
@@ -262,13 +262,16 @@ function fixturePage(requestUrl: string): string {
             <button type="button">Newest</button>
           </div>
         </div>
-        <ul aria-label="Pull requests">
+        <ul aria-label="Pull requests" aria-labelledby="fixture-list-view-container-title" data-listview-component="items-list" aria-busy="false">
           <li>Fixture pull request</li>
         </ul>
       </section>
+      <button type="button" data-fixture-reuse-count>Complete search with unchanged count</button>
       <button type="button" data-fixture-transition-results>Replace header with results</button>
       <button type="button" data-fixture-transition-status>Replace header with status</button>
       <button type="button" data-fixture-update-results onclick="document.querySelector('[data-fixture-result-heading]').firstChild.data = '757 results'">Update fixture results</button>
+      <button type="button" data-fixture-unrelated-load>Complete unrelated list load</button>
+      <ul data-fixture-unrelated-list data-listview-component="items-list" aria-labelledby="unrelated-list-view-container-title" aria-busy="true"></ul>
       <section data-fixture-unrelated-results>
         <h2>747 results</h2>
       </section>
@@ -385,6 +388,18 @@ function fixturePage(requestUrl: string): string {
     ${bodyMarkup}
     ${previewHydrationScript}
     <script>
+      document.querySelector('[data-fixture-unrelated-load]')?.addEventListener('click', () => {
+        document.querySelector('[data-fixture-unrelated-list]').setAttribute('aria-busy', 'false');
+      });
+      document.querySelector('[data-fixture-reuse-count]')?.addEventListener('click', () => {
+        const list = document.querySelector('[data-listview-component="items-list"]');
+        list.setAttribute('aria-busy', 'true');
+        const url = new URL(location.href);
+        url.searchParams.set('q', 'is:pr is:open draft:false');
+        history.replaceState({}, '', url);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+        setTimeout(() => list.setAttribute('aria-busy', 'false'), 700);
+      });
       for (const kind of ["results", "status"]) {
         document.querySelector('[data-fixture-transition-' + kind + ']')?.addEventListener('click', () => {
           const url = new URL(location.href);

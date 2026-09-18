@@ -211,6 +211,27 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
     }, 90_000);
   }
 
+  for (const count of ["0", "700"]) {
+    test(`${context.browserName}: unchanged preview count ${count} returns after loading`, async () => {
+      const browser = context.browser();
+      const query = count === "0" ? "is:pr is:merged gprf-no-match-928471" : "is:pr is:merged";
+      await browser.open(context.fixture().urlFor({ mode: "preview", query }));
+      await browser.waitForControl();
+      await browser.waitForText(".gprf-summary-count", count, true);
+      await browser.click("[data-fixture-reuse-count]");
+      assert.equal(new URL(await browser.url()).searchParams.get("q"), "is:pr is:open draft:false");
+      await browser.waitForText(".gprf-summary-label", "Ready", true);
+      await browser.waitForElementCount(".gprf-summary-count--pending", 1);
+      await browser.waitForElementCount(
+        '[data-listview-component="items-list"][aria-busy="false"]',
+        1
+      );
+      await browser.waitForElementCount(".gprf-summary-count--pending", 0);
+      await browser.waitForText(".gprf-summary-count", count, true);
+      assert.equal(await browser.cssValue(".gprf-summary-count", "visibility"), "visible");
+    }, 90_000);
+  }
+
   test(`${context.browserName}: preview count waits for native content after an in-page query change`, async () => {
     const browser = context.browser();
     await browser.open(context.fixture().urlFor({ mode: "preview", query: "is:pr is:merged" }));
@@ -219,6 +240,7 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
     await browser.waitForText(".gprf-summary-label", "All", true);
     await browser.waitForElementCount(".gprf-summary-count--pending", 1);
     await browser.appendUnrelatedDomMutation();
+    await browser.click("[data-fixture-unrelated-load]");
     await browser.wait(150);
     await browser.waitForElementCount(".gprf-summary-count--pending", 1);
     await browser.click("[data-fixture-update-results]");
