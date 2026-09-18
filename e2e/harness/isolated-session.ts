@@ -18,9 +18,17 @@ export async function withExtensionSession<T>(
     browser = await measuredStep(browserName, "start isolated browser session", () =>
       startPreparedBrowserSession(browserName, prepared)
     );
-    return await operation(browser);
+    const activeBrowser = browser;
+    return await measuredStep(browserName, "run isolated browser scenario", () =>
+      operation(activeBrowser)
+    );
   } finally {
-    await browser?.close();
+    if (browser) {
+      const activeBrowser = browser;
+      await measuredStep(browserName, "close isolated browser session", () =>
+        activeBrowser.close()
+      );
+    }
     await rm(prepared.root, { recursive: true, force: true });
   }
 }

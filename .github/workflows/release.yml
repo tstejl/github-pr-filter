@@ -37,6 +37,8 @@ jobs:
         with:
           bun-version: 1.3.11
       - run: bun install --frozen-lockfile
+      - name: Validate release version
+        run: bun scripts/package-release.ts --validate
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium
       - run: bun run check
