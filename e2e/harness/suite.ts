@@ -44,9 +44,13 @@ export function installE2EHarness(): E2ETestContext {
   test.afterEach(async () => {
     test.setTimeout(30_000);
     try {
-      await activeBrowser?.reset();
+      await test.step("Reset browser", async () => {
+        await activeBrowser?.reset();
+      });
     } finally {
-      await activeFixture?.close();
+      await test.step("Stop fixture HTTP server", async () => {
+        await activeFixture?.close();
+      });
       activeFixture = undefined;
     }
   });
