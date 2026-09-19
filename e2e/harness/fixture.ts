@@ -460,6 +460,9 @@ export async function startFixtureServer(): Promise<FixtureServer> {
           }
           resolve();
         });
+        // Chromium may leave speculative connections open after navigating away.
+        // This per-test server owns them; close them after stopping new accepts.
+        server.closeAllConnections();
       })
   };
 }
