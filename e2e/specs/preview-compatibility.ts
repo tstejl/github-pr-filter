@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { test } from "bun:test";
 import * as assert from "node:assert/strict";
 import { withExtensionSession } from "../harness/isolated-session";
 import type { E2ETestContext } from "../harness/contracts";
@@ -100,7 +100,7 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
       await browser.click('.gprf-lifecycle-option[data-lifecycle="closed"]');
       await browser.waitForText(".gprf-summary-label", "Closed", true);
       assert.deepEqual(await browser.text(".gprf-summary-count"), ["1,234"]);
-    });
+    }, 90_000);
   }
 
   test(`${context.browserName}: synthetic metadata stays hidden during delayed startup`, async () => {
@@ -120,7 +120,7 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
         );
       }
     );
-  });
+  }, 90_000);
 
   for (const expected of PREVIEW_CASES) {
     test(`${context.browserName}: preview replaces ${expected.query} in place`, async () => {
@@ -129,7 +129,7 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
         .open(context.fixture().urlFor({ mode: "preview", query: expected.query }));
       await context.browser().waitForControl();
       await assertPreviewPlacement(context.browser(), expected);
-    });
+    }, 90_000);
   }
 
   test(`${context.browserName}: preview results hydrate late without a duplicate or floating control`, async () => {
@@ -151,7 +151,7 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
       "gprf-native-results-hidden"
     );
     assert.equal(await browser.attribute("[data-fixture-unrelated-results] > h2", "class"), null);
-  });
+  }, 90_000);
 
   test(`${context.browserName}: preview transitions keep placement and preserve an extra filter`, async () => {
     const fixture = context.fixture();
@@ -193,7 +193,7 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
     await browser.waitForControl();
     await assertPreviewPlacement(browser, PREVIEW_CASES[2]);
     assert.ok(new URL(await browser.url()).searchParams.get("q")?.includes("label:bug"));
-  });
+  }, 90_000);
 
   for (const query of ["is:pr is:open", "is:pr is:merged"]) {
     test(`${context.browserName}: preview ${query} stays hidden before interactive mount`, async () => {
@@ -208,7 +208,7 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
           await browser.waitForElementCount(PREVIEW_CONTROL, 1);
         }
       );
-    });
+    }, 90_000);
   }
 
   for (const count of ["0", "700"]) {
@@ -229,7 +229,7 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
       await browser.waitForElementCount(".gprf-summary-count--pending", 0);
       await browser.waitForText(".gprf-summary-count", count, true);
       assert.equal(await browser.cssValue(".gprf-summary-count", "visibility"), "visible");
-    });
+    }, 90_000);
   }
 
   test(`${context.browserName}: preview count waits for native content after an in-page query change`, async () => {
@@ -247,7 +247,7 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
     await browser.waitForText(".gprf-summary-count", "757", true);
     await browser.waitForElementCount(PREVIEW_CONTROL, 1);
     assert.equal(await browser.mutationCount(PREVIEW_CONTROL, 250), 0);
-  });
+  }, 90_000);
 
   test(`${context.browserName}: preview replaces native header subtrees during in-page navigation`, async () => {
     const browser = context.browser();
@@ -263,7 +263,7 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
     await browser.waitForText(".gprf-summary-label", "Open", true);
     await assertPreviewPlacement(browser, PREVIEW_CASES[0]);
     assert.equal(await browser.attribute("html", "data-gprf-native-ever-visible"), null);
-  });
+  }, 90_000);
 
   test(`${context.browserName}: classic headers retain their original slot and styling contract`, async () => {
     const fixture = context.fixture();
@@ -280,5 +280,5 @@ export function registerPreviewCompatibilitySpecs(context: E2ETestContext): void
       await browser.attribute(".table-list-header-toggle.states > a:first-child", "class"),
       "btn-link selected gprf-native-status-hidden"
     );
-  });
+  }, 90_000);
 }

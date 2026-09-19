@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { test } from "bun:test";
 import * as assert from "node:assert/strict";
 import type { E2ETestContext } from "../harness/contracts";
 import { withExtensionSession } from "../harness/isolated-session";
@@ -36,7 +36,7 @@ export function registerAntiFlickerSpecs(context: E2ETestContext): void {
         assert.equal(classes.includes("gprf-replacement-pending"), false);
       }
     );
-  });
+  }, 90_000);
 
   test(`${context.browserName}: partial GitHub hydration stays hidden until mounting`, async () => {
     const fixture = context.fixture();
@@ -50,7 +50,7 @@ export function registerAntiFlickerSpecs(context: E2ETestContext): void {
     const classes = (await browser.attribute("html", "class")) || "";
     assert.ok(classes.includes("gprf-replacement-mounted"));
     assert.equal(classes.includes("gprf-replacement-pending"), false);
-  });
+  }, 90_000);
 
   test(`${context.browserName}: bootstrap-only failure keeps GitHub native controls hidden`, async () => {
     const fixture = context.fixture();
@@ -76,5 +76,5 @@ export function registerAntiFlickerSpecs(context: E2ETestContext): void {
         );
       }
     );
-  });
+  }, 90_000);
 }

@@ -20,7 +20,6 @@
     "stories/**/*.ts",
     "visual/**/*.ts",
     ".storybook/**/*.ts",
-    "playwright.visual.config.ts",
-    "playwright.e2e.config.ts"
+    "playwright.visual.config.ts"
   ]
 }

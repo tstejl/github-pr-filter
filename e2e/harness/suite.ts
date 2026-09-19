@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { afterAll, afterEach, beforeAll, beforeEach } from "bun:test";
 import * as assert from "node:assert/strict";
 import { rm } from "node:fs/promises";
 import type {
@@ -26,37 +26,33 @@ export function installE2EHarness(): E2ETestContext {
   let activeBrowser: BrowserSession | undefined;
   let preparedExtension: PreparedExtension | undefined;
 
-  test.beforeAll(async () => {
-    test.setTimeout(browserName === "firefox" ? 60_000 : 30_000);
-    const prepared = await measuredStep(browserName, "prepare extension", () =>
-      prepareExtension(browserName)
-    );
-    preparedExtension = prepared;
-    activeBrowser = await measuredStep(browserName, "start browser session", () =>
-      startPreparedBrowserSession(browserName, prepared)
-    );
-  });
+  beforeAll(
+    async () => {
+      const prepared = await measuredStep(browserName, "prepare extension", () =>
+        prepareExtension(browserName)
+      );
+      preparedExtension = prepared;
+      activeBrowser = await measuredStep(browserName, "start browser session", () =>
+        startPreparedBrowserSession(browserName, prepared)
+      );
+    },
+    browserName === "firefox" ? 60_000 : 30_000
+  );
 
-  test.beforeEach(async () => {
+  beforeEach(async () => {
     activeFixture = await startFixtureServer();
-  });
+  }, 10_000);
 
-  test.afterEach(async () => {
-    test.setTimeout(30_000);
+  afterEach(async () => {
     try {
-      await test.step("Reset browser", async () => {
-        await activeBrowser?.reset();
-      });
+      await activeBrowser?.reset();
     } finally {
-      await test.step("Stop fixture HTTP server", async () => {
-        await activeFixture?.close();
-      });
+      await activeFixture?.close();
       activeFixture = undefined;
     }
-  });
+  }, 30_000);
 
-  test.afterAll(async () => {
-    test.setTimeout(30_000);
+  afterAll(async () => {
     try {
       await activeBrowser?.close();
     } finally {
@@ -66,7 +62,7 @@ export function installE2EHarness(): E2ETestContext {
       }
       preparedExtension = undefined;
     }
-  });
+  }, 30_000);
 
   return {
     browserName,

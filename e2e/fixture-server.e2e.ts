@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { test } from "bun:test";
 import { once } from "node:events";
 import { createConnection } from "node:net";
 import { startFixtureServer } from "./harness/fixture";

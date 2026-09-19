@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { test } from "bun:test";
 import * as assert from "node:assert/strict";
 import type { E2ETestContext } from "../harness/contracts";
 
@@ -63,7 +63,7 @@ export function registerQueryNavigationSpecs(context: E2ETestContext): void {
 
     await browser.click(".gprf-lifecycle-summary");
     await browser.waitForNumericAttributeGreaterThan("html", "data-gprf-menu-animation-starts", 1);
-  });
+  }, 90_000);
 
   test(`${context.browserName}: preset transitions preserve orthogonal query filters`, async () => {
     const fixture = context.fixture();
@@ -141,7 +141,7 @@ export function registerQueryNavigationSpecs(context: E2ETestContext): void {
     await browser.waitForControl();
     assert.deepEqual(await browser.text(".gprf-summary-label"), ["Merged"]);
     assert.deepEqual(await browser.text(".gprf-summary-count"), ["4"]);
-  });
+  }, 90_000);
 
   test(`${context.browserName}: All and partial Custom queries retain accurate counts`, async () => {
     const fixture = context.fixture();
@@ -190,7 +190,7 @@ export function registerQueryNavigationSpecs(context: E2ETestContext): void {
         "is:pr -review:approved -review:changes-requested is:open"
     );
     await browser.waitForControl();
-  });
+  }, 90_000);
 
   test(`${context.browserName}: unsafe Custom queries fail closed and clear-search recovers`, async () => {
     const fixture = context.fixture();
@@ -233,5 +233,5 @@ export function registerQueryNavigationSpecs(context: E2ETestContext): void {
     assert.equal(new URL(await browser.url()).searchParams.has("q"), false);
     assert.deepEqual(await browser.text(".gprf-summary-label"), ["Open"]);
     assert.deepEqual(await browser.text(".gprf-summary-count"), ["3"]);
-  });
+  }, 90_000);
 }

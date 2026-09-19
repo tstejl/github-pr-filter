@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { test } from "bun:test";
 import * as assert from "node:assert/strict";
 import type { E2ETestContext } from "../harness/contracts";
 
@@ -35,7 +35,7 @@ export function registerReviewFilterSpecs(context: E2ETestContext): void {
         ),
         "true"
       );
-    });
+    }, 90_000);
   }
 
   test(`${context.browserName}: reviewer-specific qualifiers survive lifecycle changes`, async () => {
@@ -64,5 +64,5 @@ export function registerReviewFilterSpecs(context: E2ETestContext): void {
     });
     await browser.waitForControl();
     assert.deepEqual(await browser.text(".gprf-summary-label"), ["Draft"]);
-  });
+  }, 90_000);
 }

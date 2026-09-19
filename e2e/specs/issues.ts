@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { test } from "bun:test";
 import * as assert from "node:assert/strict";
 import type { E2ETestContext } from "../harness/contracts";
 
@@ -30,7 +30,7 @@ export function registerIssueSpecs(context: E2ETestContext): void {
     await browser.open(context.fixture().urlFor({ kind: "issues" }));
     await assertNativeIssuesUi(browser);
     await browser.waitForElementCount(`${METADATA} [role="toolbar"][aria-label="Actions"]`, 1);
-  });
+  }, 90_000);
 
   test(`${context.browserName}: SPA PR to Issues to PR clears and remounts the PR control`, async () => {
     const browser = context.browser();
@@ -53,5 +53,5 @@ export function registerIssueSpecs(context: E2ETestContext): void {
       ".table-list-header-toggle.states > a.gprf-native-status-hidden",
       2
     );
-  });
+  }, 90_000);
 }

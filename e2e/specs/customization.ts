@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { test } from "bun:test";
 import * as assert from "node:assert/strict";
 import type { E2ETestContext } from "../harness/contracts";
 
@@ -67,5 +67,5 @@ export function registerCustomizationSpecs(context: E2ETestContext): void {
     await browser.waitForControl();
     await browser.click(".gprf-lifecycle-summary");
     assert.equal((await browser.text(".gprf-option-label")).includes("Draft"), true);
-  });
+  }, 90_000);
 }
