@@ -157,6 +157,8 @@ html.gprf-replacement-mounted .gprf-native-results-hidden {
 
 .gprf-menu-closing {
   animation: gprf-menu-close 120ms cubic-bezier(0.33, 1, 0.68, 1);
+  /* Navigation can delay the close timer beyond the end of the animation. */
+  animation-fill-mode: forwards;
   pointer-events: none;
 }
 

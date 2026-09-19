@@ -12,6 +12,10 @@ export async function chromiumSession(extensionDir: string): Promise<BrowserSess
     headless: true,
     args: [`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`]
   });
+  // Bound Playwright waits below Bun's test deadline so failures preserve the
+  // failing operation and allow cleanup instead of killing every browser child.
+  context.setDefaultTimeout(15_000);
+  context.setDefaultNavigationTimeout(15_000);
   let page = context.pages()[0] || (await context.newPage());
 
   return {

@@ -1,6 +1,6 @@
 import * as assert from "node:assert/strict";
 import { Builder, By, Key, until, type WebDriver } from "selenium-webdriver";
-import firefox from "selenium-webdriver/firefox";
+import firefox from "selenium-webdriver/firefox.js";
 import type { BrowserSession } from "./contracts";
 import { measuredStep } from "./timing";
 

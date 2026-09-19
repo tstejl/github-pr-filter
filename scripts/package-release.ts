@@ -80,6 +80,12 @@ export function validateVersion(
   return manifestVersion;
 }
 
+export function validateReleaseVersion(requestedVersion = process.env.RELEASE_VERSION): string {
+  const manifest = parseManifest(readFileSync(path.join(ROOT, "manifest.json"), "utf8"));
+  const packageVersion = parsePackageVersion(readFileSync(path.join(ROOT, "package.json"), "utf8"));
+  return validateVersion(manifest.version, packageVersion, requestedVersion);
+}
+
 export function manifestForBrowser(
   manifest: ExtensionManifest,
   browser: BrowserFlavor
@@ -176,11 +182,15 @@ export function buildRelease({
 
 if (import.meta.main) {
   try {
-    const result = buildRelease();
-    for (const artifact of result.artifacts) {
-      console.log(path.relative(ROOT, artifact));
+    if (process.argv.includes("--validate")) {
+      console.log(`Release version ${validateReleaseVersion()} validated.`);
+    } else {
+      const result = buildRelease();
+      for (const artifact of result.artifacts) {
+        console.log(path.relative(ROOT, artifact));
+      }
+      console.log(path.relative(ROOT, path.join(result.releaseRoot, "SHA256SUMS")));
     }
-    console.log(path.relative(ROOT, path.join(result.releaseRoot, "SHA256SUMS")));
   } catch (error: unknown) {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;

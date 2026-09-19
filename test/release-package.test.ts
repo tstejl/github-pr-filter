@@ -2,7 +2,12 @@
 
 import * as assert from "node:assert/strict";
 import { test } from "bun:test";
-import { manifestForBrowser, packageName, validateVersion } from "../scripts/package-release";
+import {
+  manifestForBrowser,
+  packageName,
+  validateVersion,
+  validateReleaseVersion
+} from "../scripts/package-release";
 import type { ExtensionManifest } from "../scripts/package-release";
 
 const manifest: ExtensionManifest = {
@@ -34,4 +39,10 @@ test("Firefox releases preserve the stable Gecko identity", () => {
 test("release filenames identify the version and browser flavor", () => {
   assert.equal(packageName("chromium", "0.4.0"), "github-pr-filter-v0.4.0-chromium.zip");
   assert.equal(packageName("firefox", "0.4.0"), "github-pr-filter-v0.4.0-firefox.zip");
+});
+
+test("release preflight checks the checked-out metadata before packaging", () => {
+  const version = validateReleaseVersion();
+  assert.equal(validateReleaseVersion(version), version);
+  assert.throws(() => validateReleaseVersion("999.0.0"), /Requested release/);
 });
