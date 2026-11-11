@@ -6,9 +6,26 @@
     "suspicious": "deny"
   },
   "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise", "node"],
-  "ignorePatterns": ["dist/**"],
+  "ignorePatterns": ["dist/**", ".agents/**", ".codex/**", ".idea/**"],
   "rules": {
-    "typescript/no-explicit-any": "deny"
+    "typescript/no-explicit-any": "deny",
+    "typescript/no-floating-promises": [
+      "deny",
+      {
+        "ignoreVoid": false
+      }
+    ],
+    "typescript/no-misused-promises": "deny",
+    "typescript/switch-exhaustiveness-check": "deny",
+    "typescript/no-unsafe-assignment": "deny",
+    "typescript/no-unsafe-call": "deny",
+    "typescript/no-unsafe-member-access": "deny",
+    "typescript/no-unsafe-argument": "deny",
+    "typescript/no-unsafe-return": "deny",
+    "typescript/await-thenable": "deny",
+    "typescript/only-throw-error": "deny",
+    "typescript/consistent-return": "off",
+    "typescript/no-unsafe-type-assertion": "off"
   },
   "overrides": [
     {
@@ -17,5 +34,8 @@
         "import/no-unassigned-import": "allow"
       }
     }
-  ]
+  ],
+  "options": {
+    "typeAware": true
+  }
 }

@@ -92,10 +92,7 @@ export interface LifecycleQueryAnalysis {
 }
 
 export type LifecycleRewriteUnsafeReason =
-  | "correlated"
-  | "unsupported"
-  | "invalid"
-  | "review-correlated";
+  "correlated" | "unsupported" | "invalid" | "review-correlated";
 
 export type LifecycleQueryRewrite =
   | {

@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "specs": [
+    { "file": "saved-views.ts", "status": "active", "register": "registerSavedViewsSpecs" },
+    { "file": "anti-flicker.ts", "status": "active", "register": "registerAntiFlickerSpecs" },
+    {
+      "file": "preview-compatibility.ts",
+      "status": "active",
+      "register": "registerPreviewCompatibilitySpecs"
+    },
+    { "file": "customization.ts", "status": "active", "register": "registerCustomizationSpecs" },
+    { "file": "issues.ts", "status": "active", "register": "registerIssueSpecs" },
+    {
+      "file": "adapter-contract.ts",
+      "status": "retired",
+      "reason": "The classic adapter, standalone search controls, and aggregate partition counts are no longer used on supported PR pages. Modern committed-query and metadata contracts are exercised in preview-compatibility; saved-view links replace the complete query.",
+      "replacements": [
+        "e2e/specs/preview-compatibility.ts",
+        "e2e/specs/saved-views.ts",
+        "test/views-content-state.test.ts"
+      ]
+    },
+    {
+      "file": "query-navigation.ts",
+      "status": "retired",
+      "reason": "These classic lifecycle tests merge presets into the existing query and disable unsafe rewrites. Saved views now submit their complete query to GitHub. The old navigation and parser behavior remains covered by unit tests for legacy code.",
+      "replacements": [
+        "e2e/specs/saved-views.ts",
+        "test/lifecycle-navigation.test.ts",
+        "test/query-predicates.test.ts",
+        "visual/repository-views.spec.ts"
+      ]
+    },
+    {
+      "file": "review-filters.ts",
+      "status": "retired",
+      "reason": "These tests infer a lifecycle from extra review qualifiers and preserve them through preset changes. The saved-view renderer conservatively matches full queries and replaces the full query on selection. Registry and saved-view tests cover the current contract.",
+      "replacements": [
+        "test/query-predicates.test.ts",
+        "test/saved-views.test.ts",
+        "e2e/specs/saved-views.ts"
+      ]
+    },
+    {
+      "file": "turbo-dom.ts",
+      "status": "retired",
+      "reason": "These scenarios require injected classic controls, standalone fallbacks, and the removed layout-reset editor. Classic and global pages now remain native. Current header replacement, routing, editor, and scope contracts have active coverage.",
+      "replacements": [
+        "e2e/specs/anti-flicker.ts",
+        "e2e/specs/issues.ts",
+        "e2e/specs/saved-views.ts",
+        "visual/repository-views.spec.ts"
+      ]
+    }
+  ]
+}

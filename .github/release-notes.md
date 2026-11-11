@@ -1,8 +1,14 @@
-## Changes in 0.8.1
+## Changes in 0.9.0
 
-- Fix a closing-menu flash during filter navigation on classic and new PR pages.
-- Fix hidden counts after switching between PR searches with the same result count, including `0 Ready`.
-- Restore counts when the associated list finishes loading without revealing stale counts during refreshes.
+- Edit saved PR views in place on the current repository pull-request page.
+- Stage repository view changes in the editor and write them only after an explicit save.
+- Customize queries, icons, visibility, order, and separators in one editor, with undoable deletion and additive view templates.
+- Keep uniform 44px menu rows and reveal truncated descriptions on hover or keyboard focus.
+- Keep older all-repository view data in storage without loading or changing it.
+- Recognize verified query aliases and reordered filters while preserving the original search text.
+- Preserve unsaved edits during external changes and keep stale result counts hidden during loading.
+- Support the refreshed repository PR interface. Legacy PR controls remain native.
+- Upgrade to Bun 1.4.4 with type-aware linting and checked browser builds.
 
 ## Installation
 

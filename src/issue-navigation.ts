@@ -1,5 +1,5 @@
 import { LIFECYCLES, type Lifecycle } from "./lifecycle";
-import { createIssueQueryPlan, type IssueQueryAnalysis, type IssueQueryInput } from "./issue-query";
+import { createIssueQueryPlan, type IssueQueryAnalysis } from "./issue-query";
 import type { LifecycleActionUrls, PullListQueryContext } from "./lifecycle-navigation";
 
 export interface IssueNavigationPlan {
@@ -23,7 +23,7 @@ function urlForQuery(context: PullListQueryContext, query: string): URL {
 }
 
 export function createIssueNavigationPlan(context: PullListQueryContext): IssueNavigationPlan {
-  const queryPlan = createIssueQueryPlan(context.input as IssueQueryInput);
+  const queryPlan = createIssueQueryPlan(context.input);
   const actionUrls = Object.fromEntries(
     LIFECYCLES.map((lifecycle) => {
       const rewrite = queryPlan.transitions[lifecycle as keyof typeof queryPlan.transitions];

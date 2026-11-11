@@ -10,17 +10,21 @@ import {
 } from "../src/page-scope";
 
 const projectRoot = path.resolve(import.meta.dir, "..");
+const builtRoot = path.join(projectRoot, "dist", "extension");
+const firefoxRoot = path.join(projectRoot, "dist", "extension-firefox");
 
 interface ManifestFixture {
   manifest_version: number;
   permissions: string[];
   host_permissions?: string[];
-  browser_specific_settings: {
+  browser_specific_settings?: {
     gecko: {
       id: string;
       data_collection_permissions: { required: string[] };
     };
   };
+  background: { scripts?: string[]; service_worker?: string };
+  options_ui?: unknown;
   content_scripts: Array<{
     matches: string[];
     run_at: string;
@@ -38,24 +42,37 @@ function assertManifestFixture(value: unknown): asserts value is ManifestFixture
 }
 
 const parsedManifest: unknown = JSON.parse(
-  fs.readFileSync(path.join(projectRoot, "manifest.json"), "utf8")
+  fs.readFileSync(path.join(builtRoot, "manifest.json"), "utf8")
 );
 assertManifestFixture(parsedManifest);
 const manifest = parsedManifest;
-const builtRoot = path.join(projectRoot, "dist", "extension");
+const firefoxParsed: unknown = JSON.parse(
+  fs.readFileSync(path.join(firefoxRoot, "manifest.json"), "utf8")
+);
+assertManifestFixture(firefoxParsed);
+const firefoxManifest = firefoxParsed;
 
-test("manifest uses a minimal Manifest V3 permission set", () => {
+test("Chromium build uses a clean MV3 service worker manifest", () => {
   assert.equal(manifest.manifest_version, 3);
   assert.deepEqual(manifest.permissions, ["storage"]);
   assert.equal(manifest.host_permissions, undefined);
-  assert.deepEqual(manifest.browser_specific_settings.gecko.data_collection_permissions, {
-    required: ["none"]
-  });
-  assert.match(manifest.browser_specific_settings.gecko.id, /^\{[0-9a-f-]+\}$/);
+  assert.equal(manifest.browser_specific_settings, undefined);
+  assert.deepEqual(manifest.background, { service_worker: "src/background.js" });
   assert.equal(manifest.content_scripts.length, 2);
+  assert.equal(manifest.options_ui, undefined);
   for (const contentScript of manifest.content_scripts) {
     assert.deepEqual(contentScript.matches, ["https://github.com/*"]);
   }
+});
+
+test("Firefox build uses only background scripts and retains Gecko metadata", () => {
+  assert.equal(firefoxManifest.manifest_version, 3);
+  assert.deepEqual(firefoxManifest.background, { scripts: ["src/background.js"] });
+  assert.equal(
+    firefoxManifest.browser_specific_settings?.gecko.data_collection_permissions.required[0],
+    "none"
+  );
+  assert.match(firefoxManifest.browser_specific_settings?.gecko.id ?? "", /^\{[0-9a-f-]+\}$/);
 });
 
 test("anti-flicker CSS loads before the interactive content script", () => {
@@ -63,20 +80,23 @@ test("anti-flicker CSS loads before the interactive content script", () => {
   assert.ok(bootstrap);
   assert.ok(interactive);
   assert.equal(bootstrap.run_at, "document_start");
-  assert.deepEqual(bootstrap.css, ["src/content.css"]);
+  assert.deepEqual(bootstrap.css, [
+    "src/content.css",
+    "src/views-menu.css",
+    "src/views-editor.css"
+  ]);
   assert.deepEqual(bootstrap.js, ["src/bootstrap.js"]);
   assert.equal(interactive.run_at, "document_end");
   assert.deepEqual(interactive.js, ["src/content.js"]);
 });
 
-test("bootstrap arms anti-flicker before GitHub replaces page or frame content", () => {
+test("bootstrap leaves native controls available while GitHub replaces page or frame content", () => {
   const bootstrap = fs.readFileSync(path.join(projectRoot, "src/bootstrap.ts"), "utf8");
-  assert.match(bootstrap, /turbo:before-visit/);
-  assert.match(bootstrap, /turbo:before-render/);
-  assert.match(bootstrap, /turbo:before-frame-render/);
+  assert.match(bootstrap, /clearPageMarkers\(document\.documentElement\)/);
+  assert.doesNotMatch(bootstrap, /markReplacementPending/);
 });
 
-test("native status controls are hidden only while replacement is pending or mounted", () => {
+test("native status controls are hidden only while a replacement is pending or mounted", () => {
   const stylesheet = fs.readFileSync(path.join(projectRoot, "src/content.css"), "utf8");
   assert.match(stylesheet, /html\.gprf-replacement-pending/);
   assert.match(stylesheet, /html\.gprf-replacement-mounted \.gprf-native-status-hidden/);
@@ -134,6 +154,8 @@ test("active count remains visible while the lifecycle menu is expanded", () => 
 test("every packaged script, stylesheet, and icon exists", () => {
   const packagedFiles = [
     ...manifest.content_scripts.flatMap((entry) => [...(entry.js || []), ...(entry.css || [])]),
+    ...(manifest.background.scripts ?? []),
+    ...(manifest.background.service_worker ? [manifest.background.service_worker] : []),
     ...Object.values(manifest.icons)
   ];
 
@@ -142,6 +164,39 @@ test("every packaged script, stylesheet, and icon exists", () => {
       fs.existsSync(path.join(builtRoot, packagedFile)),
       true,
       `${packagedFile} should exist`
+    );
+  }
+  for (const root of [builtRoot, firefoxRoot]) {
+    for (const obsolete of ["options.html", "src/options.js", "src/views.css"])
+      assert.equal(fs.existsSync(path.join(root, obsolete)), false, `${obsolete} is not packaged`);
+  }
+  const firefoxFiles = [
+    ...firefoxManifest.content_scripts.flatMap((entry) => [
+      ...(entry.js || []),
+      ...(entry.css || [])
+    ]),
+    ...(firefoxManifest.background.scripts ?? []),
+    ...Object.values(firefoxManifest.icons)
+  ];
+  for (const packagedFile of firefoxFiles) {
+    assert.equal(
+      fs.existsSync(path.join(firefoxRoot, packagedFile)),
+      true,
+      `${packagedFile} should exist in Firefox output`
+    );
+  }
+  for (const sharedFile of [
+    "src/background.js",
+    "src/bootstrap.js",
+    "src/content.js",
+    "src/content.css",
+    "src/views-menu.css",
+    "src/views-editor.css"
+  ]) {
+    assert.deepEqual(
+      fs.readFileSync(path.join(builtRoot, sharedFile)),
+      fs.readFileSync(path.join(firefoxRoot, sharedFile)),
+      `${sharedFile} should be identical in both browser outputs`
     );
   }
 });

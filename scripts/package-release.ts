@@ -93,6 +93,16 @@ export function manifestForBrowser(
   const output = structuredClone(manifest);
   if (browser === "chromium") {
     delete output.browser_specific_settings;
+    const background = output.background;
+    if (typeof background === "object" && background !== null) {
+      const backgroundObject = background as Record<string, unknown>;
+      delete backgroundObject.scripts;
+    }
+  } else {
+    const background = output.background;
+    if (typeof background === "object" && background !== null) {
+      delete (background as Record<string, unknown>).service_worker;
+    }
   }
   return output;
 }

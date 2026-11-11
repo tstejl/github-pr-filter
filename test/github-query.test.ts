@@ -5,8 +5,7 @@ import {
   createQueryAtom,
   hasOuterAttachedParenthesis,
   parseGitHubQuery,
-  serializeGitHubQuery,
-  type JunctionExpression
+  serializeGitHubQuery
 } from "../src/github-query";
 
 test("preserves quoted qualifier values and exact atom text", () => {
@@ -36,7 +35,7 @@ test("represents whitespace-separated terms as implicit AND", () => {
 
   assert.deepEqual(document.diagnostics, []);
   assert.equal(document.root?.kind, "and");
-  const root = document.root as JunctionExpression;
+  const root = document.root;
   assert.deepEqual(
     root.links.map((link) => ({ operator: link.operator, style: link.style, raw: link.raw })),
     [

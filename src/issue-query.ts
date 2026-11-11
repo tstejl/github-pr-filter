@@ -15,12 +15,7 @@ export interface IssueQueryInput {
 }
 
 export type IssueQueryResolution =
-  | "exact"
-  | "unconstrained"
-  | "unsupported"
-  | "conflicting"
-  | "correlated"
-  | "invalid";
+  "exact" | "unconstrained" | "unsupported" | "conflicting" | "correlated" | "invalid";
 
 export interface IssueQueryAnalysis {
   readonly input: IssueQueryInput;
