@@ -4,63 +4,48 @@
 ![Coverage](assets/coverage.svg)
 [![Latest release](https://img.shields.io/github/v/release/tstejl/github-pr-filter?display_name=tag&sort=semver)](https://github.com/tstejl/github-pr-filter/releases/latest)
 
-**A faster, more elegant way to find the pull requests that matter.**
+Save GitHub pull-request searches and open them from a menu on repository pull-request lists.
+The menu includes editable default views and your own queries.
 
-GitHub PR Lifecycle Filter adds a focused lifecycle menu directly to repository pull-request
-lists. Move between the work that needs attention, drafts that are not ready yet, and completed
-work without rebuilding the same searches every day.
+## Manage views
 
-![Filtering and customizing pull-request lifecycle views](assets/demo/github-pr-filter-demo.gif)
+Edit views in place from the pull-request menu for the current repository.
+The editor changes only that repository's views.
+You can add or edit a view, change its name and query, and choose an icon.
+Changes stay in the editor until you select **Save changes**.
+Back keeps drafts in the editor. **Cancel changes** discards the complete editing session.
+An unfinished view blocks saving and shows the fields that need attention.
+Empty new drafts disappear quietly.
 
-## Find the right pull requests faster
+Truncated descriptions reveal their complete text on hover or keyboard focus.
+Menu rows keep a uniform height.
 
-- Jump between **All**, **Needs review**, **Ready**, **Draft**, **Merged**, and other useful
-  lifecycle views from one compact menu.
-- Keep **Merged** work separate from pull requests that were **Closed without merging**.
-- See the number of matching pull requests before opening the menu.
-- Combine lifecycle views with GitHub's author, label, milestone, assignee, and review filters.
-- Keep advanced GitHub searches understandable: queries that do not exactly match a built-in
-  lifecycle are shown honestly as **Custom** instead of being mistaken for another view.
-- Share or bookmark the resulting page normally—the selected lifecycle remains visible in the
-  GitHub search query and URL.
+Use **Show in menu** to keep a view saved without showing its shortcut.
+**Delete view** stages deletion, with **Undo** available until saving.
+**Add from templates…** adds independent copies without changing your existing views or layout.
 
-The menu is designed to feel native to GitHub. It follows the active GitHub theme, uses Primer
-icons and colors, and updates through GitHub's normal in-page navigation.
+Saved views search the current repository.
+Older all-repository layouts stay in browser storage and remain inactive.
+Repository views always search the current repository, including older entries with dashboard destination metadata.
 
-## Make each repository fit its workflow
+Selecting a view replaces the complete search with its saved query.
+GitHub interprets that query and applies its search rules.
+The menu identifies matching views from flat qualifiers in a different order when safe.
+Repeated qualifiers and grouped expressions use conservative matching.
+An unmatched search appears as **Custom search**.
 
-Different repositories need different views. Open the menu's customization mode to:
+## Your settings stay local
 
-- hide lifecycle choices that are not useful for that repository;
-- drag choices into the order you use them;
-- add, remove, and rearrange separators to create meaningful groups; and
-- restore that repository's default layout at any time.
+The extension stores repository views in browser-local extension storage on this device.
+Removing the extension can remove this data.
+The extension does not sync views between devices.
+When you open a view, GitHub receives its query as part of the search URL.
 
-Preferences are saved independently for each repository. A layout customized for one project
-will not change any other project.
-
-If you follow a link whose query matches a hidden lifecycle, the extension still shows that
-active choice temporarily so the page always explains what you are viewing. Your saved layout
-is left unchanged.
-
-## Your configuration stays local
-
-Repository layouts are stored with the browser extension on your device. They are available in
-normal and private windows when the extension is allowed to run privately, but they are not
-uploaded to GitHub or synchronized by this extension.
-
-The extension:
-
-- does not call the GitHub API;
-- does not require a GitHub token;
-- does not use analytics or a backend;
-- does not collect or transmit browsing activity; and
-- ignores an unreadable saved layout and safely returns that repository to the defaults.
-
-Only the browser's `storage` permission is requested. Content scripts are limited to
-`https://github.com/*` and activate only on supported repository pull-request lists.
-
-See [PRIVACY.md](PRIVACY.md) for the complete privacy policy.
+The extension does not use a GitHub API, token, backend, or analytics.
+It keeps legacy lifecycle layouts during migration.
+It preserves inactive all-repository view data and does not edit it.
+It also preserves unreadable or newer-format data and prevents edits to affected views.
+See [PRIVACY.md](PRIVACY.md) for the privacy policy.
 
 ## Installation
 
@@ -82,52 +67,24 @@ contains separate unsigned packages for Chromium and Firefox, plus SHA-256 check
 
 ## Supported browsers and pages
 
-The extension supports current desktop Chromium browsers and Firefox 140 or newer on
-`github.com`. It intentionally targets repository pull-request lists such as
-`github.com/owner/repository/pulls`; GitHub's separate global pull-request page is not modified.
-
-Firefox for Android and custom GitHub domains are not currently supported.
-
-## Known limitations
-
-### Why the menu may show Custom query
-
-GitHub's search box remains the source of truth. The menu shows **Custom query** when the
-current search cannot be represented exactly by one built-in lifecycle view. This commonly
-happens when:
-
-- lifecycle qualifiers combine into a narrower or different view than the available presets;
-- open, closed, draft, or merged qualifiers are repeated with conflicting or order-sensitive
-  values; or
-- lifecycle qualifiers appear inside parentheses or an `AND`/`OR` expression, use unsupported
-  syntax, or are malformed.
-
-This is intentional: the extension will not give an ambiguous query a misleading name or
-rewrite it in a way that could change its meaning. GitHub's author, label, milestone, assignee,
-and review filters continue to work normally alongside lifecycle views.
-
-To return to a built-in view:
-
-- If the preset choices remain enabled, select one normally. The extension will replace only
-  the lifecycle portion it can safely separate from the rest of the search.
-- If the preset choices are disabled, edit GitHub's search box to remove or simplify the
-  conflicting lifecycle qualifiers, parentheses, or Boolean expression, then submit the
-  search again. Clearing the search and choosing a lifecycle view also starts from a clean
-  query.
-- Hover or focus the question-mark icon beside **Custom query** for an explanation of the
-  current state.
+The extension supports current desktop Chromium browsers and Firefox 140 or newer on `github.com`.
+It modifies the refreshed repository pull-request list at `github.com/owner/repository/pulls`.
+Legacy repository controls remain native.
+Firefox for Android and custom GitHub domains are not supported.
 
 <details>
 <summary><strong>Development and testing</strong></summary>
 
-The packaged extension has no runtime dependencies. Bun 1.3.11 compiles the TypeScript source
-into readable, non-minified browser bundles for Chromium and Firefox.
+The packaged extension has no runtime dependencies. Bun 1.4.4 compiles the TypeScript source
+into readable, non-minified browser bundles for Chromium and Firefox. The build runs
+formatting, lint, and type checks before it creates the bundles.
 
 ```sh
 bun install --frozen-lockfile
 bun run check
 bun run test:coverage
 bun run coverage:check
+bun run test:e2e:check
 bun run test:e2e:chromium
 bun run test:e2e:firefox
 bun run storybook
