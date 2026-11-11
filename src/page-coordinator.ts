@@ -218,7 +218,9 @@ export function createLifecyclePageCoordinator(
       activeStatePartition = snapshot.statePartition;
       activeActionUrls = snapshot.actionUrls;
       render();
-      void loadAndRender(snapshot.repository, generation);
+      void loadAndRender(snapshot.repository, generation).catch((error: unknown) => {
+        reportError("Could not finish loading this repository's menu layout.", error);
+      });
       return;
     }
     if (loadedRepository !== snapshot.repository) {

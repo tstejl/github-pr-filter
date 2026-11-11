@@ -12,6 +12,7 @@ export async function buildExtension(): Promise<string> {
     entrypoints: [path.join(ROOT, "src", "bootstrap.ts"), path.join(ROOT, "src", "content.ts")],
     outdir: path.join(OUTPUT_ROOT, "src"),
     target: "browser",
+    check: true,
     format: "iife",
     naming: "[name].[ext]",
     minify: false,

@@ -1,0 +1,4 @@
+# Local editor and agent settings are not project source.
+.agents/
+.codex/
+.idea/

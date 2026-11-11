@@ -9,13 +9,13 @@ import { createLifecyclePageCoordinator } from "./page-coordinator";
 const github = createGitHubPullListAdapter({ document, location, window });
 
 const coordinator = createLifecyclePageCoordinator({
-  snapshot: github.snapshot,
+  snapshot: () => github.snapshot(),
   loadLayout: loadRepositoryLifecycleLayout,
   saveLayout: saveRepositoryLifecycleLayout,
-  render: github.render,
-  suspend: github.suspend,
-  clear: github.clear,
-  subscribePageChanges: github.subscribePageChanges,
+  render: (state) => github.render(state),
+  suspend: () => github.suspend(),
+  clear: () => github.clear(),
+  subscribePageChanges: (listener) => github.subscribePageChanges(listener),
   subscribeLayoutChanges: subscribeRepositoryLifecycleLayouts,
   reportError: (message, error) => console.error(`GitHub PR Filter: ${message}`, error)
 });

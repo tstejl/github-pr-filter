@@ -145,6 +145,11 @@ const listKindForPath = (pathname: string): GitHubListKind | null => {
   return null;
 };
 
+const touchesGitHubPullListContract = (element: Element): boolean =>
+  element.matches(STATUS_GROUP_SELECTOR) ||
+  element.matches(SEARCH_INPUT_SELECTOR) ||
+  element.querySelector(`${STATUS_GROUP_SELECTOR},${SEARCH_INPUT_SELECTOR}`) !== null;
+
 export function createGitHubPullListAdapter(
   environment: GitHubPullListAdapterEnvironment
 ): GitHubPullListAdapter {
@@ -553,11 +558,6 @@ export function createGitHubPullListAdapter(
       )
     );
   };
-
-  const touchesGitHubPullListContract = (element: Element): boolean =>
-    element.matches(STATUS_GROUP_SELECTOR) ||
-    element.matches(SEARCH_INPUT_SELECTOR) ||
-    element.querySelector(`${STATUS_GROUP_SELECTOR},${SEARCH_INPUT_SELECTOR}`) !== null;
 
   const mutationTargetElement = (mutation: MutationRecord): Element | null => {
     if (mutation.target instanceof window.Element) {

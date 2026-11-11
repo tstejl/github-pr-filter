@@ -12,12 +12,7 @@ export const LIFECYCLES = Object.freeze([
 export type Lifecycle = (typeof LIFECYCLES)[number];
 
 export type CustomLifecycleReason =
-  | "partial"
-  | "conflicting"
-  | "ambiguous"
-  | "correlated"
-  | "unsupported"
-  | "invalid";
+  "partial" | "conflicting" | "ambiguous" | "correlated" | "unsupported" | "invalid";
 
 export type ActiveLifecycleSelection =
   | { readonly kind: "preset"; readonly lifecycle: Lifecycle }
