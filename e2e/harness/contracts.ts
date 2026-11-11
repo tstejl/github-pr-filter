@@ -52,6 +52,9 @@ export interface BrowserSession {
   attributes: (selector: string, name: string) => Promise<(string | null)[]>;
   cssValue: (selector: string, name: string) => Promise<string>;
   click: (selector: string) => Promise<void>;
+  fill: (selector: string, value: string) => Promise<void>;
+  press: (selector: string, key: string) => Promise<void>;
+  waitForTabs: (count: number) => Promise<void>;
   clickReplacing: (selector: string) => Promise<void>;
   search: (query: string) => Promise<void>;
   setUnsubmittedSearchQuery: (query: string) => Promise<void>;

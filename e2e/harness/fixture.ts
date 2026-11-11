@@ -230,8 +230,8 @@ function fixturePage(requestUrl: string): string {
   const previewUsesResults =
     queryHasTerm(rawQuery, "is:merged") || rawQuery.trim().toLowerCase() === "is:pr";
   const previewStatusMarkup = `<div data-fixture-preview-status>
-          <button type="button" aria-pressed="${queryHasTerm(rawQuery, "is:open") ? "true" : "false"}">Open <span>${previewReadyCount}</span></button>
-          <button type="button" aria-pressed="${queryHasTerm(rawQuery, "is:closed") ? "true" : "false"}">Closed <span>${previewClosedCount}</span></button>
+          <button type="button" aria-pressed="${queryHasTerm(rawQuery, "is:open") || queryHasTerm(rawQuery, "state:open") ? "true" : "false"}">Open <span>${previewReadyCount}</span></button>
+          <button type="button" aria-pressed="${queryHasTerm(rawQuery, "is:closed") || queryHasTerm(rawQuery, "state:closed") ? "true" : "false"}">Closed <span>${previewClosedCount}</span></button>
         </div>`;
   const previewResultMarkup = `<div data-fixture-preview-results>
           <h2 data-fixture-result-heading>${previewResultCount} results</h2>
@@ -266,10 +266,14 @@ function fixturePage(requestUrl: string): string {
           <li>Fixture pull request</li>
         </ul>
       </section>
+      <button type="button" data-fixture-replace-status-controls>Replace retained status controls</button>
+      <button type="button" data-fixture-arm-visibility-probe onclick="document.documentElement.removeAttribute('data-gprf-native-ever-visible'); document.documentElement.setAttribute('data-gprf-native-visible-frames', '0')">Measure native header visibility</button>
       <button type="button" data-fixture-reuse-count>Complete search with unchanged count</button>
       <button type="button" data-fixture-transition-results>Replace header with results</button>
       <button type="button" data-fixture-transition-status>Replace header with status</button>
       <button type="button" data-fixture-update-results onclick="document.querySelector('[data-fixture-result-heading]').firstChild.data = '757 results'">Update fixture results</button>
+      <button type="button" data-fixture-start-loading onclick="document.querySelector('[data-listview-component=items-list]').setAttribute('aria-busy', 'true')">Start list load</button>
+      <button type="button" data-fixture-finish-loading onclick="document.querySelector('[data-listview-component=items-list]').setAttribute('aria-busy', 'false')">Finish list load</button>
       <button type="button" data-fixture-unrelated-load>Complete unrelated list load</button>
       <ul data-fixture-unrelated-list data-listview-component="items-list" aria-labelledby="unrelated-list-view-container-title" aria-busy="true"></ul>
       <section data-fixture-unrelated-results>
@@ -377,6 +381,7 @@ function fixturePage(requestUrl: string): string {
           });
           if (nativeVisible) {
             document.documentElement.setAttribute("data-gprf-native-ever-visible", "true");
+            document.documentElement.setAttribute("data-gprf-native-visible-frames", String(Number(document.documentElement.getAttribute("data-gprf-native-visible-frames") || "0") + 1));
           }
           requestAnimationFrame(sample);
         };
@@ -388,6 +393,17 @@ function fixturePage(requestUrl: string): string {
     ${bodyMarkup}
     ${previewHydrationScript}
     <script>
+      document.querySelector('[data-fixture-replace-status-controls]')?.addEventListener('click', () => {
+        const slot = document.querySelector('[data-fixture-preview-status]');
+        const control = slot.querySelector('.gprf-saved-views');
+        control.dataset.fixtureIdentity = 'retained';
+        const buttons = slot.querySelectorAll(':scope > button');
+        const url = new URL(location.href);
+        url.searchParams.set('q', 'is:pr state:closed');
+        history.replaceState({}, '', url);
+        buttons[0].outerHTML = '<button type="button" aria-pressed="false">Open <span>10</span></button>';
+        buttons[1].outerHTML = '<button type="button" aria-pressed="true">Closed <span>747</span></button>';
+      });
       document.querySelector('[data-fixture-unrelated-load]')?.addEventListener('click', () => {
         document.querySelector('[data-fixture-unrelated-list]').setAttribute('aria-busy', 'false');
       });
@@ -409,8 +425,9 @@ function fixturePage(requestUrl: string): string {
           slot.outerHTML = kind === 'results'
             ? '<div data-fixture-preview-results><h2 data-fixture-result-heading>Loading results</h2></div>'
             : '<div data-fixture-preview-status><button>Open <span>10</span></button><button>Closed <span>747</span></button></div>';
+          const heading = document.querySelector('[data-fixture-result-heading]');
           if (kind === 'results') setTimeout(() => {
-            document.querySelector('[data-fixture-result-heading]').firstChild.data = '700 results';
+            if (heading?.isConnected && heading.firstChild) heading.firstChild.data = '700 results';
           }, 700);
         });
       }
@@ -474,7 +491,18 @@ export async function prepareExtension(
   const root = await mkdtemp(path.join(os.tmpdir(), "github-pr-filter-e2e-"));
   const extensionDir = path.join(root, "extension");
   await mkdir(extensionDir);
-  await cp(path.join(ROOT, "dist", "extension"), extensionDir, { recursive: true });
+  const runtimeDirectory = browserName === "firefox" ? "extension-firefox" : "extension";
+  await cp(path.join(ROOT, "dist", runtimeDirectory), extensionDir, { recursive: true });
+
+  const backgroundPath = path.join(extensionDir, "src", "background.js");
+  const backgroundSource = await readFile(backgroundPath, "utf8");
+  await writeFile(
+    backgroundPath,
+    backgroundSource.replaceAll(
+      'url.origin !== "https://github.com" || url.username || url.password',
+      'url.protocol !== "http:" || url.hostname !== "127.0.0.1" || url.username || url.password'
+    )
+  );
 
   const manifestPath = path.join(extensionDir, "manifest.json");
   const parsedManifest: unknown = JSON.parse(await readFile(manifestPath, "utf8"));

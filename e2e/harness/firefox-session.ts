@@ -21,12 +21,20 @@ async function closeFirefoxWindows(
 
 export async function firefoxSession(xpiPath: string): Promise<BrowserSession> {
   const options = new firefox.Options().addArguments("-headless");
+  const service = new firefox.ServiceBuilder().setEnvironment({
+    ...process.env,
+    MOZ_REMOTE_ALLOW_SYSTEM_ACCESS: "1"
+  });
   if (process.env.FIREFOX_BIN) {
     options.setBinary(process.env.FIREFOX_BIN);
   }
 
   const driver = (await measuredStep("firefox", "create Firefox WebDriver", () =>
-    new Builder().forBrowser("firefox").setFirefoxOptions(options).build()
+    new Builder()
+      .forBrowser("firefox")
+      .setFirefoxOptions(options)
+      .setFirefoxService(service)
+      .build()
   )) as FirefoxWebDriver;
   try {
     await measuredStep("firefox", "install Firefox add-on", () =>
@@ -59,12 +67,7 @@ export async function firefoxSession(xpiPath: string): Promise<BrowserSession> {
     },
     async waitForElementCount(selector: string, count: number) {
       await driver.wait(
-        async () =>
-          driver.executeScript<boolean>(
-            "return document.querySelectorAll(arguments[0]).length === arguments[1]",
-            selector,
-            count
-          ),
+        async () => (await driver.findElements(By.css(selector))).length === count,
         15_000
       );
     },
@@ -81,55 +84,55 @@ export async function firefoxSession(xpiPath: string): Promise<BrowserSession> {
       );
     },
     async waitForText(selector: string, expected: string, present: boolean) {
-      await driver.wait(
-        async () =>
-          driver.executeScript<boolean>(
-            "const contents = Array.from(document.querySelectorAll(arguments[0]), element => element.textContent || ''); return contents.some(content => content.includes(arguments[1])) === arguments[2]",
-            selector,
-            expected,
-            present
-          ),
-        15_000
-      );
+      await driver.wait(async () => {
+        const contents = await Promise.all(
+          (await driver.findElements(By.css(selector))).map((element) => element.getText())
+        );
+        return contents.some((content) => content.includes(expected)) === present;
+      }, 15_000);
     },
     async text(selector: string) {
-      return driver.executeScript<string[]>(
-        "return Array.from(document.querySelectorAll(arguments[0]), element => (element.textContent || '').trim())",
-        selector
+      return Promise.all(
+        (await driver.findElements(By.css(selector))).map((element) => element.getText())
       );
     },
     async attribute(selector: string, name: string) {
-      return driver.executeScript<string | null>(
-        "return document.querySelector(arguments[0])?.getAttribute(arguments[1]) ?? null",
-        selector,
-        name
-      );
+      const [element] = await driver.findElements(By.css(selector));
+      return element ? element.getAttribute(name) : null;
     },
     async attributes(selector: string, name: string) {
-      return driver.executeScript<(string | null)[]>(
-        "return Array.from(document.querySelectorAll(arguments[0]), element => element.getAttribute(arguments[1]))",
-        selector,
-        name
+      return Promise.all(
+        (await driver.findElements(By.css(selector))).map((element) => element.getAttribute(name))
       );
     },
     async cssValue(selector: string, name: string) {
-      return driver.executeScript<string>(
-        "const element = document.querySelector(arguments[0]); return element ? getComputedStyle(element).getPropertyValue(arguments[1]) : ''",
-        selector,
-        name
-      );
+      const [element] = await driver.findElements(By.css(selector));
+      return element ? element.getCssValue(name) : "";
     },
     async click(selector: string) {
-      await driver.executeScript(
-        "const element = document.querySelector(arguments[0]); if (!element) throw new Error(`Missing ${arguments[0]}`); element.click();",
-        selector
-      );
+      await driver.findElement(By.css(selector)).then((element) => element.click());
+    },
+    async fill(selector: string, value: string) {
+      const element = await driver.findElement(By.css(selector));
+      await element.clear();
+      await element.sendKeys(value);
+    },
+    async press(selector: string, key: string) {
+      const element = await driver.findElement(By.css(selector));
+      const keys: Record<string, string> = {
+        Enter: Key.ENTER,
+        ArrowDown: Key.ARROW_DOWN,
+        ArrowUp: Key.ARROW_UP,
+        Escape: Key.ESCAPE,
+        Tab: Key.TAB
+      };
+      await element.sendKeys(keys[key] ?? key);
+    },
+    async waitForTabs(count: number) {
+      await driver.wait(async () => (await driver.getAllWindowHandles()).length === count, 15_000);
     },
     async clickReplacing(selector: string) {
-      await driver.executeScript(
-        "const element = document.querySelector(arguments[0]); if (!element) throw new Error(`Missing ${arguments[0]}`); element.click();",
-        selector
-      );
+      await driver.findElement(By.css(selector)).then((element) => element.click());
     },
     async search(query: string) {
       const input = await driver.findElement(By.css('input[name="q"]'));

@@ -29,11 +29,12 @@
     "test:e2e:chromium": "bun run build && E2E_BROWSER=chromium bun test ./e2e/*.e2e.ts",
     "test:e2e:firefox": "bun run build && E2E_BROWSER=firefox bun test ./e2e/*.e2e.ts",
     "test:visual": "bunx playwright test --config playwright.visual.config.ts",
-    "check": "bun run format:check && bun run lint && bun run typecheck",
-    "lint:firefox": "bun run build && web-ext lint",
-    "build:firefox": "bun run build && web-ext build --overwrite-dest",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test:e2e:check",
+    "lint:firefox": "bun run build && web-ext lint --source-dir dist/extension-firefox",
+    "build:firefox": "bun run build && web-ext build --source-dir dist/extension-firefox --overwrite-dest",
     "release:package": "bun run build && bun scripts/package-release.ts",
-    "typecheck": "bun check --no-script"
+    "typecheck": "bun check --no-script",
+    "test:e2e:check": "bun scripts/check-e2e-registration.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
@@ -50,7 +51,7 @@
   },
   "packageManager": "bun@1.4.4",
   "webExt": {
-    "sourceDir": "dist/extension",
+    "sourceDir": "dist/extension-firefox",
     "artifactsDir": "dist/firefox"
   }
 }

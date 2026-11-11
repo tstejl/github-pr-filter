@@ -48,6 +48,8 @@ jobs:
         with:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
+      - name: Audit E2E spec registration
+        run: bun run test:e2e:check
       - name: Install Chromium
         if: matrix.browser == 'chromium'
         run: bunx playwright install --with-deps chromium

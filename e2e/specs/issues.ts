@@ -32,26 +32,28 @@ export function registerIssueSpecs(context: E2ETestContext): void {
     await browser.waitForElementCount(`${METADATA} [role="toolbar"][aria-label="Actions"]`, 1);
   }, 90_000);
 
-  test(`${context.browserName}: SPA PR to Issues to PR clears and remounts the PR control`, async () => {
+  test(`${context.browserName}: SPA Issues to legacy PR to Issues preserves native controls`, async () => {
     const browser = context.browser();
     await browser.open(context.fixture().urlFor({ kind: "issues" }));
     await assertNativeIssuesUi(browser);
 
     await browser.navigateRepository("/octocat/hello-world/pulls");
-    await browser.waitForControl();
-    await browser.waitForElementCount(
-      ".table-list-header-toggle.states > a.gprf-native-status-hidden",
-      2
+    await browser.waitForElementCount(".table-list-header-toggle.states > a", 2);
+    await browser.waitForElementCount(".gprf-lifecycle", 0);
+    assert.notEqual(
+      await browser.cssValue(".table-list-header-toggle.states > a:first-child", "display"),
+      "none"
     );
 
     await browser.navigateRepository("/octocat/hello-world/issues");
     await assertNativeIssuesUi(browser);
 
     await browser.navigateRepository("/octocat/hello-world/pulls");
-    await browser.waitForControl();
-    await browser.waitForElementCount(
-      ".table-list-header-toggle.states > a.gprf-native-status-hidden",
-      2
+    await browser.waitForElementCount(".table-list-header-toggle.states > a", 2);
+    await browser.waitForElementCount(".gprf-lifecycle", 0);
+    assert.notEqual(
+      await browser.cssValue(".table-list-header-toggle.states > a:first-child", "display"),
+      "none"
     );
   }, 90_000);
 }

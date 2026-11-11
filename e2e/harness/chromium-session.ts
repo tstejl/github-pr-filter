@@ -91,6 +91,28 @@ export async function chromiumSession(extensionDir: string): Promise<BrowserSess
     async click(selector: string) {
       await page.locator(selector).click();
     },
+    async fill(selector: string, value: string) {
+      await page.locator(selector).fill(value);
+    },
+    async press(selector: string, key: string) {
+      await page.locator(selector).focus();
+      await page.keyboard.press(key);
+    },
+    async waitForTabs(count: number) {
+      const deadline = Date.now() + 15_000;
+      await new Promise<void>((resolve, reject) => {
+        const check = (): void => {
+          if (context.pages().length === count) {
+            resolve();
+          } else if (Date.now() >= deadline) {
+            reject(new Error(`Expected ${count} Chromium tabs; found ${context.pages().length}`));
+          } else {
+            setTimeout(check, 100);
+          }
+        };
+        check();
+      });
+    },
     async clickReplacing(selector: string) {
       await page.locator(selector).click();
     },
