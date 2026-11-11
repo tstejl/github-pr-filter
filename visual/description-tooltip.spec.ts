@@ -158,7 +158,13 @@ test("pending hover is cancelled on leave, menu closure, refresh and edit", asyn
   await page.clock.runFor(500);
   await expect(tooltip).toBeHidden();
   await page.locator(".gprf-lifecycle-summary").click();
-  await row.hover();
+  await expect(page.locator(".gprf-saved-menu:popover-open")).toBeVisible();
+  // Park the real pointer outside: replacing a hovered row can generate a new
+  // pointerover in Chromium. Test cancellation of the original hover, not a new one.
+  await page.mouse.move(1000, 800);
+  await row.dispatchEvent("pointerover", { pointerType: "mouse" });
+  await page.clock.runFor(100);
+  await expect(tooltip).toBeHidden();
   await fixtureAction(page, "refresh");
   await page.clock.runFor(500);
   await expect(tooltip).toBeHidden();
