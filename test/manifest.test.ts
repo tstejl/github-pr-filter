@@ -110,9 +110,47 @@ test("page scope includes repository PR lists and excludes global pulls", () => 
   assert.equal(isRepositoryPullListPath("/pulls"), false);
   assert.equal(isRepositoryPullListPath("/pulls/assigned"), false);
   assert.equal(isRepositoryPullListPath("/octocat/hello-world/pull/1"), false);
-  assert.equal(isRepositoryPullListPath("/octocat/hello-world/pulls/1"), false);
+  assert.equal(isRepositoryPullListPath("/octocat/hello-world/pulls/amruth-sn"), true);
+  assert.equal(isRepositoryPullListPath("/octocat/hello-world/pulls/1"), true);
+  assert.equal(isRepositoryPullListPath("/octocat/hello-world/pulls/amruth-sn/"), true);
+  assert.equal(isRepositoryPullListPath("/octocat/hello-world/pulls/amruth-sn/1"), true);
+  assert.equal(isRepositoryPullListPath("/octocat/hello-world/pulls/-invalid"), true);
+  assert.equal(isRepositoryPullListPath(`/octocat/hello-world/pulls/${"a".repeat(40)}`), true);
+  assert.equal(
+    repositoryKeyFromPullListPath("/Cartesian-Systems/cartesian-server/pulls/amruth-sn"),
+    "cartesian-systems/cartesian-server"
+  );
   assert.equal(repositoryKeyFromPullListPath("/OctoCat/Hello-World/pulls"), "octocat/hello-world");
   assert.equal(repositoryKeyFromPullListPath("/pulls"), null);
+});
+
+test("repository PR scope treats suffixes as opaque and respects namespace boundaries", () => {
+  for (const suffix of [
+    "anything",
+    "assigned/person",
+    "review-requested/person",
+    "created_by/person",
+    "mentioned/person",
+    "involves/person",
+    "future-view/v2/not_a_username",
+    "other-owner/other-repo/pulls",
+    "encoded/%E2%9C%93/%2F/view/",
+    "unicode/任意",
+    "_layout",
+    "a".repeat(200)
+  ]) {
+    const pathname = `/Owner/Repo/pulls/${suffix}`;
+    assert.equal(isRepositoryPullListPath(pathname), true, pathname);
+    assert.equal(repositoryKeyFromPullListPath(pathname), "owner/repo", pathname);
+  }
+  for (const pathname of [
+    "/pulls/assigned/person",
+    "/owner/repo/pull/123/files",
+    "/owner/repo/issues/anything",
+    "/owner/repo/pulls-other/anything",
+    "/owner/repo/tree/main/pulls/anything"
+  ])
+    assert.equal(repositoryKeyFromPullListPath(pathname), null, pathname);
 });
 
 test("page scope includes repository issue lists and excludes issue details", () => {

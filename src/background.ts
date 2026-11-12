@@ -1,4 +1,6 @@
 import { commitViewScopes } from "./views-storage";
+import { repositoryKeyFromPullListPath } from "./page-scope";
+import { normalizeViewRepository } from "./saved-views";
 
 interface SaveViewsRequest {
   type: "gprf:save-views";
@@ -8,6 +10,8 @@ interface SaveViewsRequest {
 interface RuntimeSender {
   id?: string;
   url?: string;
+  frameId?: number;
+  tab?: { url?: string };
 }
 
 interface ExtensionApi {
@@ -37,20 +41,30 @@ function isSaveViewsRequest(value: unknown): value is SaveViewsRequest {
   );
 }
 
-/** Return the normalized repository only for a message from this extension's GitHub PR list. */
+function githubPageUrl(value: string): URL | null {
+  try {
+    const url = new URL(value);
+    if (url.origin !== "https://github.com" || url.username || url.password) return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+/** Authorize the sender's origin and the current top-level repository separately. */
 export function repositoryForAuthorizedSender(
   sender: RuntimeSender,
   extensionId: string | undefined
 ): string | null {
   if (!extensionId || sender.id !== extensionId || typeof sender.url !== "string") return null;
-  try {
-    const url = new URL(sender.url);
-    if (url.origin !== "https://github.com" || url.username || url.password) return null;
-    const match = /^\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/pulls\/?$/.exec(url.pathname);
-    return match ? `${match[1]!.toLowerCase()}/${match[2]!.toLowerCase()}` : null;
-  } catch {
-    return null;
-  }
+  if (sender.frameId !== undefined && sender.frameId !== 0) return null;
+  if (!githubPageUrl(sender.url)) return null;
+  // Chromium retains the document's original URL in sender.url after pushState.
+  // The browser-provided tab URL follows GitHub's in-page navigation.
+  const current = githubPageUrl(sender.tab?.url ?? sender.url);
+  if (!current) return null;
+  const repository = repositoryKeyFromPullListPath(current.pathname);
+  return repository ? normalizeViewRepository(repository) : null;
 }
 
 export function isRepositoryScopedSave(updates: unknown, repository: string): boolean {
