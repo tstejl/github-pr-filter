@@ -1,14 +1,7 @@
-## Changes in 0.9.0
+## Changes in 0.9.1
 
-- Edit saved PR views in place on the current repository pull-request page.
-- Stage repository view changes in the editor and write them only after an explicit save.
-- Customize queries, icons, visibility, order, and separators in one editor, with undoable deletion and additive view templates.
-- Keep uniform 44px menu rows and reveal truncated descriptions on hover or keyboard focus.
-- Keep older all-repository view data in storage without loading or changing it.
-- Recognize verified query aliases and reordered filters while preserving the original search text.
-- Preserve unsaved edits during external changes and keep stale result counts hidden during loading.
-- Support the refreshed repository PR interface. Legacy PR controls remain native.
-- Upgrade to Bun 1.4.4 with type-aware linting and checked browser builds.
+- Fixed the missing menu on filtered PR pages, including author, assignee, and requested-reviewer shortcuts.
+- Fixed saving views after navigating between GitHub pages without a full reload.
 
 ## Installation
 

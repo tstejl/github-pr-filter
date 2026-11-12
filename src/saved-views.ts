@@ -1,4 +1,5 @@
 import { viewQueryKey } from "./query-predicates";
+import { repositoryKeyFromPullListPath } from "./page-scope";
 export { viewQueryKey } from "./query-predicates";
 import { LIFECYCLE_OPTIONS } from "./lifecycle-options";
 import type { Lifecycle } from "./lifecycle";
@@ -201,7 +202,8 @@ export function viewDestinationUrl(
     const current = new URL(pageUrl);
     if (
       current.origin === target.origin &&
-      current.pathname.replace(/\/$/u, "") === target.pathname
+      repositoryKeyFromPullListPath(current.pathname) ===
+        repositoryKeyFromPullListPath(target.pathname)
     ) {
       for (const [key, value] of current.searchParams)
         if (!["q", "query", "page", "after", "before", "cursor"].includes(key))

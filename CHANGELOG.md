@@ -2,6 +2,11 @@
 
 All notable changes will be documented in this file.
 
+## 0.9.1
+
+- Fixed the missing menu on filtered PR pages, including author, assignee, and requested-reviewer shortcuts.
+- Fixed saving views after navigating between GitHub pages without a full reload.
+
 ## 0.9.0
 
 - Updated Bun to 1.4.4 and added type-aware lint and build checks.

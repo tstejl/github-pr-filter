@@ -147,6 +147,28 @@ test("navigation replaces raw query and removes pagination for repository and da
   assert.equal(viewDestinationUrl(view("is:pr"), null), null);
 });
 
+test("suffix pages generate canonical view links and retain only same-repository display preferences", () => {
+  const query = 'is:pr state:open label:"needs triage"';
+  const saved = view(query);
+  const current =
+    "https://github.com/Owner/Repo/pulls/future/v2/opaque?q=old&page=3&cursor=old&display=compact";
+  const url = new URL(viewDestinationUrl(saved, "owner/repo", current)!);
+  assert.equal(url.pathname, "/owner/repo/pulls");
+  assert.equal(url.searchParams.get("q"), query);
+  assert.equal(url.searchParams.get("display"), "compact");
+  assert.equal(url.searchParams.has("page"), false);
+  assert.equal(url.searchParams.has("cursor"), false);
+  for (const page of [
+    "https://github.com/other/repo/pulls/future?display=compact",
+    "https://evil.example/owner/repo/pulls/future?display=compact",
+    "https://github.com/owner/repo/pull/123?display=compact"
+  ])
+    assert.equal(
+      new URL(viewDestinationUrl(saved, "owner/repo", page)!).searchParams.has("display"),
+      false
+    );
+});
+
 test("hidden entries and adjacent dividers do not leave redundant separators", () => {
   const layout: ViewLayout = {
     version: 1,

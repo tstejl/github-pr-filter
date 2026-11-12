@@ -1,4 +1,6 @@
-const REPOSITORY_PULLS_PATH = /^\/([^/]+)\/([^/]+)\/pulls\/?$/;
+// This identifies a repository namespace, not a list UI or a suffix's meaning.
+// The content controller must also recognize the rendered PR-list header.
+const REPOSITORY_PULLS_PATH = /^\/([^/]+)\/([^/]+)\/pulls(?:\/.*)?$/iu;
 const REPOSITORY_ISSUES_PATH = /^\/([^/]+)\/([^/]+)\/issues\/?$/;
 
 export function isRepositoryPullListPath(pathname: string): boolean {

@@ -159,8 +159,14 @@ function fixturePage(requestUrl: string): string {
   const url = new URL(requestUrl, "http://127.0.0.1");
   const mode = fixturePageMode(url);
   const issuesPage = /\/issues\/?$/u.test(url.pathname);
+  const author = /\/pulls\/([a-z\d-]+)\/?$/iu.exec(url.pathname)?.[1];
   const rawQuery =
-    url.searchParams.get("q") || (issuesPage ? "is:issue state:open" : "is:pr is:open");
+    url.searchParams.get("q") ||
+    (author
+      ? `is:pr state:open author:${author}`
+      : issuesPage
+        ? "is:issue state:open"
+        : "is:pr is:open");
   const query = escapeHtml(rawQuery);
   const nativeHeader =
     mode === "open-selected-all"

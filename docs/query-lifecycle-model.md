@@ -36,6 +36,10 @@ Browser navigation also requires confirmation for unsaved edits or pending write
 Failed saves preserve the draft and its departure protection. Successful saves establish new saved values.
 
 Only refreshed repository pull-request lists receive the menu.
+The URL namespace `/owner/repository/pulls` identifies the repository, including paths with arbitrary suffixes.
+A matching URL is only a candidate. The rendered PR-list header must also be recognized before the menu appears.
+Suffixes remain opaque. GitHub supplies the committed query, and all suffixes share the same repository views.
+Saved-view links use the canonical `/owner/repository/pulls?q=...` destination.
 Legacy controls remain native.
 DOM and navigation signals coalesce in a microtask, so recognized replacement headers update before the next paint.
 The controller does not defer this replacement with a timer.
