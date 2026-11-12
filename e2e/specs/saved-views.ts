@@ -61,6 +61,98 @@ async function saveCurrentView(
 }
 
 export function registerSavedViewsSpecs(context: E2ETestContext): void {
+  test(`${context.browserName}: named-user views save after SPA navigation from a repository page`, async () => {
+    const browser = context.browser();
+    const repository = `spa-save-${crypto.randomUUID().slice(0, 8)}`;
+    const query = "is:pr state:open author:amruth-sn";
+    const initial = new URL(repositoryUrl(context, repository, query));
+    initial.pathname = `/octocat/original-${repository}`;
+    await browser.open(initial.href);
+    await browser.waitForElementCount(SUMMARY, 0);
+    await browser.navigateRepository(`/octocat/${repository}/pulls/amruth-sn`);
+    await browser.waitForControl();
+    await saveCurrentView(browser, "Open by Amruth", query);
+    await browser.open(repositoryUrl(context, repository, query));
+    await browser.waitForControl();
+    await browser.waitForText(SUMMARY, "Open by Amruth", true);
+    await browser.open(repositoryUrl(context, `original-${repository}`, query));
+    await browser.waitForControl();
+    await browser.waitForText(SUMMARY, "Custom search", true);
+  }, 90_000);
+
+  for (const suffix of [
+    "assigned/person",
+    "review-requested/person",
+    "created_by/person",
+    "mentioned/person",
+    "involves/person",
+    "anything",
+    "future/v2/not_a_username",
+    "future/%E2%9C%93/view/"
+  ]) {
+    test(`${context.browserName}: suffix ${suffix} shares only its repository's saved views`, async () => {
+      const browser = context.browser();
+      const repository = `suffix-${crypto.randomUUID().slice(0, 8)}`;
+      // The fixture supplies a committed query independently of the suffix.
+      const query = 'is:pr state:open label:"needs triage"';
+      const url = new URL(repositoryUrl(context, repository, query));
+      url.pathname = `/octocat/${repository}/pulls/${suffix}`;
+      await browser.open(url.href);
+      await browser.waitForControl();
+      await saveCurrentView(browser, "Repository triage", query);
+      const link = await browser.attribute(`${MENU_LINK}[aria-checked="true"]`, "href");
+      assert.ok(link);
+      assert.equal(new URL(link).pathname, `/octocat/${repository}/pulls`);
+      assert.equal(new URL(link).searchParams.get("q"), query);
+      await browser.open(repositoryUrl(context, repository, query));
+      await browser.waitForControl();
+      await browser.waitForText(SUMMARY, "Repository triage", true);
+      await browser.open(repositoryUrl(context, `${repository}-other`, query));
+      await browser.waitForControl();
+      await browser.waitForText(SUMMARY, "Custom search", true);
+      url.pathname = `/octocat/${repository}/pulls/another/unknown/suffix`;
+      await browser.open(url.href);
+      await browser.waitForControl();
+      await browser.waitForText(SUMMARY, "Repository triage", true);
+    }, 90_000);
+  }
+
+  test(`${context.browserName}: suffix URLs without a recognized PR-list header remain native`, async () => {
+    const browser = context.browser();
+    const url = new URL(context.fixture().urlFor({ query: "is:pr state:open" }));
+    url.pathname = "/octocat/hello-world/pulls/future/non-list-page";
+    await browser.open(url.href);
+    // An unrelated mutation forces reconciliation without supplying a PR-list header.
+    await browser.appendUnrelatedDomMutation();
+    assert.equal(await browser.mutationCount("main", 1000), 0);
+    await browser.waitForElementCount(SUMMARY, 0);
+    await browser.waitForElementCount(".gprf-saved-menu", 0);
+    assert.notEqual(await browser.cssValue(".table-list-header-toggle", "display"), "none");
+  }, 90_000);
+
+  test(`${context.browserName}: author shortcut pages mount and preserve the server-provided query when saving`, async () => {
+    const browser = context.browser();
+    const repository = `author-page-${crypto.randomUUID().slice(0, 8)}`;
+    const query = "is:pr state:open author:amruth-sn";
+    const url = new URL(repositoryUrl(context, repository, query));
+    url.pathname = `/octocat/${repository}/pulls/amruth-sn`;
+    url.searchParams.delete("q");
+    await browser.open(url.href);
+    await browser.waitForControl();
+    await ensureMenuOpen(browser);
+    await browser.click(".gprf-save-current");
+    await browser.fill('[name="name"]', "Author shortcut");
+    await browser.click(".gprf-save-views");
+    await browser.waitForElementCount(".gprf-views-editor", 0);
+    const link = await browser.attribute(`${MENU_LINK}[aria-checked="true"]`, "href");
+    assert.ok(link);
+    assert.equal(new URL(link).searchParams.get("q"), query);
+    assert.equal(new URL(link).pathname, `/octocat/${repository}/pulls`);
+    await browser.open(url.href);
+    await browser.waitForControl();
+    await browser.waitForText(SUMMARY, "Author shortcut", true);
+  }, 90_000);
+
   test(`${context.browserName}: full view descriptions preserve focus and dismiss before the picker`, async () => {
     const browser = context.browser();
     const description = "Open and awaiting review, not authored by me";
